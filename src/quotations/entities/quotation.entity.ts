@@ -1,15 +1,15 @@
-import { Client } from '../../clients/entities/client.entity';
-import { 
-  Entity, 
-  PrimaryGeneratedColumn, 
-  Column, 
-  CreateDateColumn, 
-  UpdateDateColumn, 
+import { Client } from '../../clients/entities/client.entity.js';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
   ManyToOne,
   OneToMany,
   JoinColumn
 } from 'typeorm';
-import { QuotationItem } from './quotation-item.entity';
+import { QuotationItem } from './quotation-item.entity.js';
 import { ApiProperty } from '@nestjs/swagger';
 
 export enum EmpresaFaturamento {
@@ -69,12 +69,12 @@ export class Quotation {
   obs: string;
 
   @Column({
-      type: 'enum',
-      enum: EmpresaFaturamento,
-      default: EmpresaFaturamento.NICOPEL, // NICOPEL como padrão
-    })
-    empresa_faturamento: EmpresaFaturamento;
-    
+    type: 'enum',
+    enum: EmpresaFaturamento,
+    default: EmpresaFaturamento.NICOPEL, // NICOPEL como padrão
+  })
+  empresa_faturamento: EmpresaFaturamento;
+
   @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true })
   percentual_ipi: number;
 

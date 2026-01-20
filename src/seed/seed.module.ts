@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Product } from 'src/products/entities/product.entity';
-import { SeedService } from './seed.service';
+import { Product } from 'src/products/entities/product.entity.js';
+import { SeedService } from './seed.service.js';
 
 @Module({
   imports: [
@@ -9,4 +9,4 @@ import { SeedService } from './seed.service';
   ],
   providers: [SeedService],
 })
-export class SeedModule {}
+export class SeedModule { }

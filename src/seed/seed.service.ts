@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Product } from 'src/products/entities/product.entity';
+import { Product } from 'src/products/entities/product.entity.js';
 import { Repository } from 'typeorm';
 
 @Injectable()
@@ -8,7 +8,7 @@ export class SeedService implements OnModuleInit {
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     await this.seedProducts();
@@ -32,7 +32,7 @@ export class SeedService implements OnModuleInit {
       { nome: 'J2-3Soitavada Tampa', peso_caixa_kg: 9, unidades_caixa: 100, medida_cm: '45x45x29cm', valor_unitario: 0 },
       { nome: 'J2-3Soitavada Base', peso_caixa_kg: 5, unidades_caixa: 50, medida_cm: '54x54x19cm', valor_unitario: 0 },
       { nome: 'Pá Madeira', peso_caixa_kg: 1.5, unidades_caixa: 1, medida_cm: '43x187cmx2cm', valor_unitario: 0 },
-      
+
       // Imagem: ...15.46.26 (1).jpeg (e duplicatas)
       { nome: 'Bolo 37 TAMPA', peso_caixa_kg: 17, unidades_caixa: 50, medida_cm: '82x58x32cm', valor_unitario: 0 },
       { nome: 'Bolo 37 BASE', peso_caixa_kg: 17, unidades_caixa: 50, medida_cm: '66.5x48x13cm', valor_unitario: 0 },
@@ -106,7 +106,7 @@ export class SeedService implements OnModuleInit {
       { nome: '35 c/3cm', peso_caixa_kg: 8, unidades_caixa: 50, medida_cm: '43x43x32cm', valor_unitario: 0 },
       { nome: '35QTS', peso_caixa_kg: 13, unidades_caixa: 50, medida_cm: '57x45x24cm', valor_unitario: 0 },
     ];
-    
+
     console.log('Iniciando o seeding de produtos com a lista completa...');
     let newProductsCount = 0;
 
@@ -119,7 +119,7 @@ export class SeedService implements OnModuleInit {
         newProductsCount++;
       }
     }
-    
+
     console.log(`Seeding concluído. ${newProductsCount} novos produtos foram adicionados.`);
   }
 }

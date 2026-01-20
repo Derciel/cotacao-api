@@ -11,8 +11,8 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-import { CreateQuotationItemDto } from './create-quotation-item.dto';
-import { EmpresaFaturamento } from '../entities/quotation.entity';
+import { CreateQuotationItemDto } from './create-quotation-item.dto.js';
+import { EmpresaFaturamento } from '../entities/quotation.entity.js';
 
 export class CreateQuotationDto {
   @ApiProperty({ description: 'ID do cliente para a cotação', example: 1 })
@@ -24,7 +24,7 @@ export class CreateQuotationDto {
   @IsString()
   @IsOptional()
   prazoPagamento?: string;
-  
+
   @ApiProperty({ description: 'Tipo do frete (CIF, FOB, etc)', example: 'FOB', required: false })
   @IsString()
   @IsOptional()

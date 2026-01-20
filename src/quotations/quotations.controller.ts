@@ -2,12 +2,12 @@ import { Controller, Get, Post, Body, Param, Patch, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-import { QuotationsService } from './quotations.service';
-import { FrenetService } from 'src/freight/frenet.service';
-import { PdfService } from 'src/documents/pdf.service';
+import { QuotationsService } from './quotations.service.js';
+import { FrenetService } from 'src/freight/frenet.service.js';
+import { PdfService } from 'src/documents/pdf.service.js';
 
-import { CreateQuotationDto } from './dto/create-quotation.dto';
-import { FinalizeQuotationDto } from './dto/finalize-quotation.dto';
+import { CreateQuotationDto } from './dto/create-quotation.dto.js';
+import { FinalizeQuotationDto } from './dto/finalize-quotation.dto.js';
 
 /**
  * @ApiTags('Quotations')
@@ -21,7 +21,7 @@ export class QuotationsController {
     private readonly quotationsService: QuotationsService,
     private readonly frenetService: FrenetService,
     private readonly pdfService: PdfService,
-  ) {}
+  ) { }
 
   @Post()
   @ApiOperation({ summary: 'Cria uma nova cotação com seus itens' })
@@ -64,7 +64,7 @@ export class QuotationsController {
 
   @Get(':id/pdf')
   @ApiOperation({ summary: 'Gera e baixa o PDF de uma cotação' })
-  @ApiResponse({ status: 200, description: 'PDF da cotação gerado com sucesso.', content: {'application/pdf': {}} })
+  @ApiResponse({ status: 200, description: 'PDF da cotação gerado com sucesso.', content: { 'application/pdf': {} } })
   @ApiResponse({ status: 404, description: 'Cotação não encontrada.' })
   async getQuotationPdf(@Param('id') id: string, @Res() res: Response) {
     const pdfBuffer = await this.pdfService.generateQuotationPdf(+id);
