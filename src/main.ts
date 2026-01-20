@@ -23,8 +23,10 @@ async function bootstrap() {
 
   // 2. Verificação da Porta
   const port = process.env.PORT || 3000;
-  await app.listen(port);
 
-  logger.log(`Aplicação rodando em: http://localhost:${port}/api-docs`);
+  // Adicione '0.0.0.0' como segundo parâmetro
+  await app.listen(port, '0.0.0.0');
+
+  logger.log(`Aplicação rodando em: http://0.0.0.0:${port}/api-docs`);
 }
 bootstrap();
