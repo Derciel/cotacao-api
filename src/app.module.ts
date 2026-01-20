@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -7,21 +7,48 @@ import { ClientsModule } from './clients/clients.module';
 import { ProductsModule } from './products/products.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { FreightModule } from './freight/freight.module';
-import ormConfig from './orm.config'; // Nossa configuração centralizada
-import { SeedModule } from './seed/seed.module'; 
+import { SeedModule } from './seed/seed.module';
 import { DocumentsModule } from './documents/documents.module';
 
 @Module({
   imports: [
-    // Configura a leitura do arquivo .env de forma global
+    // 1. Carrega as variáveis do .env globalmente
     ConfigModule.forRoot({
       isGlobal: true,
     }),
 
-    // Configura o TypeORM usando nosso arquivo centralizado. É só isso!
-    TypeOrmModule.forRoot(ormConfig),
-    
-    // Nossos módulos de funcionalidades
+    // 2. Configuração Assíncrona: Garante que o ConfigService esteja pronto
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        // Busca a External Database URL do seu .env
+        const dbUrl = configService.get<string>('DATABASE_URL');
+
+        if (!dbUrl) {
+          throw new Error('DATABASE_URL não encontrada no arquivo .env');
+        }
+
+        return {
+          type: 'postgres',
+          url: dbUrl,
+          autoLoadEntities: true, // Carrega entidades automaticamente
+          synchronize: false, // Use apenas em desenvolvimento local
+
+          // CONFIGURAÇÃO OBRIGATÓRIA PARA RENDER
+          ssl: {
+            rejectUnauthorized: false,
+          },
+          extra: {
+            ssl: {
+              rejectUnauthorized: false,
+            },
+          },
+        };
+      },
+    }),
+
+    // Seus módulos de funcionalidades
     ClientsModule,
     ProductsModule,
     QuotationsModule,
@@ -32,4 +59,4 @@ import { DocumentsModule } from './documents/documents.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

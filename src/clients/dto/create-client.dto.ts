@@ -1,23 +1,40 @@
-import { IsNotEmpty, IsString, Length } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger'; // IMPORTE
+import { ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsString, IsOptional } from 'class-validator';
 
 export class CreateClientDto {
-  @ApiProperty({
-    description: 'A razão social completa da empresa cliente.',
-    example: 'EMPRESA DE TESTE LTDA',
-  })
+  @ApiProperty({ example: 'Razão Social Ltda' })
   @IsString()
-  @IsNotEmpty({ message: 'A Razão Social não pode ser vazia.' })
+  @IsNotEmpty()
   razao_social: string;
 
-  // Adicione @ApiProperty para os outros campos também...
-  @ApiProperty({
-    description: 'CNPJ do cliente no formato XX.XXX.XXX/XXXX-XX.',
-    example: '11.222.333/0001-44',
-  })
+  @ApiProperty({ example: 'Nome Fantasia', required: false })
   @IsString()
-  @Length(18, 18, { message: 'O CNPJ deve ter 18 caracteres.' })
-  cnpj: string;
-  
+  @IsOptional()
+  fantasia?: string;
 
+  @ApiProperty({ example: '00000000000191' })
+  @IsString()
+  @IsNotEmpty()
+  cnpj: string;
+
+  @ApiProperty({ example: '86000000' })
+  @IsString()
+  @IsNotEmpty()
+  cep: string;
+
+  @ApiProperty({ example: 'Londrina' })
+  @IsString()
+  @IsNotEmpty()
+  cidade: string;
+
+  @ApiProperty({ example: 'PR' })
+  @IsString()
+  @IsNotEmpty()
+  estado: string;
+
+  // ESTA É A LINHA QUE ESTÁ FALTANDO:
+  @ApiProperty({ example: 'NICOPEL', enum: ['NICOPEL', 'FLEXOBOX'] })
+  @IsString()
+  @IsNotEmpty()
+  empresa_faturamento: string;
 }
