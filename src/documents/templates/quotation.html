@@ -12,13 +12,11 @@
             padding: 0;
         }
 
-        /* Moldura Arredondada que envolve apenas os dados */
         .main-card {
             border: 1px solid #000;
             border-radius: 25px;
             padding: 15px;
             width: 180mm;
-            /* Largura para A4 com margens de 1.5cm */
             display: inline-block;
             box-sizing: border-box;
             background: #FFF;
@@ -39,7 +37,6 @@
             overflow: hidden;
         }
 
-        /* Classe base para os rótulos coloridos */
         .label-theme {
             font-weight: bold;
             text-align: center;
@@ -71,12 +68,6 @@
             margin-bottom: 8px;
         }
 
-        .truck-icon {
-            font-size: 13pt;
-            vertical-align: middle;
-            margin-left: 5px;
-        }
-
         .signature-section {
             margin-top: 30px;
             text-align: center;
@@ -99,7 +90,7 @@
 
 <body>
     <div class="main-card">
-        <div class="header-title">COTAÇÃO <span class="truck-icon">🚚</span></div>
+        <div class="header-title">COTAÇÃO 🚚</div>
 
         <table>
             <tr>
@@ -181,6 +172,14 @@
                     <td class="label-theme" style="background-color: {{themeColor}};">TOTAL PRODUTO</td>
                     <td class="text-right">{{formatCurrency quotation.valor_total_produtos}}</td>
                 </tr>
+                {{#if quotation.valor_ipi}}
+                <tr>
+                    <td colspan="5" class="no-border"></td>
+                    <td class="label-theme" style="background-color: {{themeColor}};">IPI
+                        ({{quotation.percentual_ipi}}%)</td>
+                    <td class="text-right">{{formatCurrency quotation.valor_ipi}}</td>
+                </tr>
+                {{/if}}
                 <tr>
                     <td colspan="5" class="no-border"></td>
                     <td class="label-theme" style="background-color: {{themeColor}};">FRETE</td>
