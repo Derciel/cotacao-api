@@ -2,13 +2,14 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 
-import { Client } from 'src/clients/entities/client.entity';
-import { Product } from 'src/products/entities/product.entity';
+// CORREÇÃO 3: Caminhos relativos com extensão .js
+import { Client } from '../clients/entities/client.entity.js';
+import { Product } from '../products/entities/product.entity.js';
 
-import { CreateQuotationDto } from './dto/create-quotation.dto';
-import { FinalizeQuotationDto } from './dto/finalize-quotation.dto';
-import { QuotationItem } from './entities/quotation-item.entity';
-import { EmpresaFaturamento, Quotation } from './entities/quotation.entity';
+import { CreateQuotationDto } from './dto/create-quotation.dto.js';
+import { FinalizeQuotationDto } from './dto/finalize-quotation.dto.js';
+import { QuotationItem } from './entities/quotation-item.entity.js';
+import { EmpresaFaturamento, Quotation } from './entities/quotation.entity.js';
 
 @Injectable()
 export class QuotationsService {
