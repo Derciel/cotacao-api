@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ClientsController } from './clients.controller';
-import { ClientsService } from './clients.service';
-import { Client } from './entities/client.entity';
+import { ClientsController } from './clients.controller.js';
+import { ClientsService } from './clients.service.js';
+import { Client } from './entities/client.entity.js';
 
 @Module({
   // Registra a entidade para injeção do Repository

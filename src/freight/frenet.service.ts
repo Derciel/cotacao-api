@@ -3,7 +3,8 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
-import { Quotation } from 'src/quotations/entities/quotation.entity';
+// CORREÇÃO 1: Caminho relativo com extensão .js (Essencial para NodeNext)
+import { Quotation } from '../quotations/entities/quotation.entity.js';
 import { Repository } from 'typeorm';
 
 export interface FrenetShippingItem {
@@ -32,9 +33,10 @@ export interface ProcessedShippingOption {
 
 @Injectable()
 export class FrenetService {
-  private readonly frenetApiUrl: string;
-  private readonly sellerCEP: string;
-  private readonly apiToken: string;
+  // CORREÇÃO 2: Uso de '!' para garantir inicialização definitiva no construtor (Erro TS2564)
+  private readonly frenetApiUrl!: string;
+  private readonly sellerCEP!: string;
+  private readonly apiToken!: string;
 
   constructor(
     private readonly httpService: HttpService,
@@ -42,7 +44,6 @@ export class FrenetService {
     @InjectRepository(Quotation)
     private readonly quotationRepository: Repository<Quotation>,
   ) {
-    // Busca as variáveis do ambiente
     const cep = this.configService.get<string>('SELLER_CEP');
     const token = this.configService.get<string>('FRENET_API_TOKEN');
     const url = this.configService.get<string>('FRENET_URL') || 'https://api.frenet.com.br/shipping/quote';
@@ -94,7 +95,6 @@ export class FrenetService {
 
       if (product.unidades_caixa > 0 && product.medida_cm) {
         const numberOfBoxes = Math.ceil(totalQty / product.unidades_caixa);
-        // Limpeza de string para evitar erros de conversão
         const dimensoes = product.medida_cm.toLowerCase().replace(/cm/g, '').split('x').map(Number);
         const [comprimento, largura, altura] = dimensoes;
 
@@ -110,7 +110,6 @@ export class FrenetService {
 
     return {
       SellerCEP: this.sellerCEP,
-      // Proteção contra CEP nulo e remoção de hífen
       RecipientCEP: (quotation.client?.cep || '').replace(/\D/g, ''),
       ShipmentInvoiceValue: quotation.valor_total_produtos,
       ShippingItemArray: shippingItems,
@@ -128,8 +127,7 @@ export class FrenetService {
         }),
       );
       return response.data.ShippingSevicesArray || [];
-    } catch (error) {
-      // Melhoria no Log: Mostra a mensagem real do erro de rede ou da API
+    } catch (error: any) {
       const errorMsg = error.response?.data?.Message || error.message;
       console.error('Erro na API Frenet:', errorMsg);
       throw new InternalServerErrorException(`Erro no frete: ${errorMsg}`);
