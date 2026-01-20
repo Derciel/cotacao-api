@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 7.2pt;
+            color: #000;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Moldura Arredondada que envolve apenas os dados */
+        .main-card {
+            border: 1px solid #000;
+            border-radius: 25px;
+            padding: 15px;
+            width: 180mm;
+            /* Largura para A4 com margens de 1.5cm */
+            display: inline-block;
+            box-sizing: border-box;
+            background: #FFF;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-bottom: 3px;
+        }
+
+        td,
+        th {
+            border: 1px solid #000;
+            padding: 3px;
+            vertical-align: middle;
+            overflow: hidden;
+        }
+
+        /* Classe base para os rótulos coloridos */
+        .label-theme {
+            font-weight: bold;
+            text-align: center;
+            font-size: 6.8pt;
+        }
+
+        .value-cell {
+            text-align: center;
+            font-weight: bold;
+            height: 16px;
+        }
+
+        .no-border {
+            border: none !important;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .header-title {
+            text-align: center;
+            font-size: 13pt;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .truck-icon {
+            font-size: 13pt;
+            vertical-align: middle;
+            margin-left: 5px;
+        }
+
+        .signature-section {
+            margin-top: 30px;
+            text-align: center;
+            width: 100%;
+        }
+
+        .sig-line {
+            border-top: 1.5px solid #000;
+            width: 350px;
+            margin: 0 auto 5px auto;
+        }
+
+        .sig-text {
+            font-weight: bold;
+            font-size: 8.5pt;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="main-card">
+        <div class="header-title">COTAÇÃO <span class="truck-icon">🚚</span></div>
+
+        <table>
+            <tr>
+                <td rowspan="2" class="no-border" style="width: 22%; text-align: center;">
+                    <img src="{{logoUrl}}" alt="Logo" style="max-width: 110px; max-height: 45px;">
+                </td>
+                <td class="label-theme" style="background-color: {{themeColor}};">Nº PEDIDO</td>
+                <td class="label-theme" style="background-color: {{themeColor}};">PRAZO PAG.</td>
+                <td class="label-theme" style="background-color: {{themeColor}};">EMPRESA</td>
+                <td class="label-theme" style="width: 25%; background-color: {{themeColor}};">OBS:</td>
+            </tr>
+            <tr>
+                <td class="value-cell">{{displayQuotationNumber quotation}}</td>
+                <td class="value-cell">{{valueOrDefault quotation.prazo_pagamento}}</td>
+                <td class="value-cell">{{quotation.empresa_faturamento}}</td>
+                <td class="text-center">{{valueOrDefault quotation.obs}}</td>
+            </tr>
+        </table>
+
+        <table style="margin-top: 5px;">
+            <tr>
+                <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">CLIENTE</td>
+                <td colspan="2" class="value-cell">{{quotation.client.razao_social}}</td>
+                <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">FANTASIA</td>
+                <td colspan="2" class="value-cell">{{valueOrDefault quotation.client.fantasia}}</td>
+            </tr>
+            <tr>
+                <td class="label-theme" style="background-color: {{themeColor}};">CNPJ/CPF</td>
+                <td colspan="2" class="value-cell">{{formatDocument quotation.client.cnpj}}</td>
+                <td class="label-theme" style="background-color: {{themeColor}};">DATA COTAÇÃO</td>
+                <td class="value-cell">{{formattedDate}}</td>
+                <td class="label-theme" style="width: 12%; background-color: {{themeColor}};">COLETA</td>
+            </tr>
+            <tr>
+                <td class="label-theme" style="background-color: {{themeColor}};">CIDADE - UF</td>
+                <td colspan="2" class="value-cell">{{cityState}}</td>
+                <td class="label-theme" style="background-color: {{themeColor}};">DIAS ENTREGA</td>
+                <td class="value-cell">{{formatDeliveryDays quotation.dias_para_entrega}}</td>
+                <td class="value-cell"></td>
+            </tr>
+            <tr>
+                <td class="label-theme" style="background-color: {{themeColor}};">CEP</td>
+                <td colspan="5" class="value-cell" style="text-align: left; padding-left: 10px;">{{formatCEP
+                    quotation.client.cep}}</td>
+            </tr>
+        </table>
+
+        <table style="margin-top: 5px;">
+            <thead>
+                <tr class="label-theme" style="background-color: {{themeColor}};">
+                    <td style="width: 10%;">QTD</td>
+                    <td style="width: 35%;">PRODUTO</td>
+                    <td style="width: 10%;">VOL</td>
+                    <td style="width: 10%;">PESO</td>
+                    <td style="width: 10%;">MEDIDA</td>
+                    <td style="width: 12%;">UNIT.</td>
+                    <td style="width: 13%;">TOTAL</td>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each quotation.items}}
+                <tr>
+                    <td class="text-center">{{this.quantidade}}</td>
+                    <td>{{this.product.nome}}</td>
+                    <td class="text-center">{{calculateVolume this.product.unidades_caixa this.quantidade}}</td>
+                    <td class="text-center">{{calculateWeight this.product.peso_caixa_kg this.quantidade
+                        this.product.unidades_caixa}}</td>
+                    <td class="text-center">{{this.product.medida_cm}}</td>
+                    <td class="text-right">{{formatCurrency this.valor_unitario_na_cotacao}}</td>
+                    <td class="text-right">{{formatCurrency this.valor_total_item}}</td>
+                </tr>
+                {{/each}}
+
+                <tr>
+                    <td colspan="2" class="no-border"></td>
+                    <td class="value-cell" style="border-top: 1.5px solid #000;">{{totalVolume}}</td>
+                    <td class="value-cell" style="border-top: 1.5px solid #000;">{{totalWeight}}</td>
+                    <td class="no-border"></td>
+                    <td class="label-theme" style="background-color: {{themeColor}};">TOTAL PRODUTO</td>
+                    <td class="text-right">{{formatCurrency quotation.valor_total_produtos}}</td>
+                </tr>
+                <tr>
+                    <td colspan="5" class="no-border"></td>
+                    <td class="label-theme" style="background-color: {{themeColor}};">FRETE</td>
+                    <td class="text-right">{{formatCurrency quotation.valor_frete}}</td>
+                </tr>
+                <tr>
+                    <td colspan="5" class="no-border"></td>
+                    <td class="label-theme" style="background-color: {{themeColor}};">TOTAL NOTA</td>
+                    <td class="text-right" style="background-color: {{themeColor}}; font-weight: bold;">{{formatCurrency
+                        quotation.valor_total_nota}}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <table style="margin-top: 5px;">
+            <tr class="label-theme" style="background-color: {{themeColor}};">
+                <td>TRANSP.</td>
+                <td>Nº COT.</td>
+                <td>FRETE R$</td>
+                <td>TIPO</td>
+                <td>PAGAR</td>
+                <td>NF</td>
+                <td>CONT.</td>
+            </tr>
+            <tr class="value-cell">
+                <td>{{valueOrDefault quotation.transportadora_escolhida}}</td>
+                <td>{{displayQuotationNumber quotation}}</td>
+                <td>{{formatCurrency quotation.valor_frete}}</td>
+                <td>{{valueOrDefault quotation.tipo_frete}}</td>
+                <td>{{#if quotation.valor_frete}}SIM{{else}}NÃO{{/if}}</td>
+                <td></td>
+                <td>SITE</td>
+            </tr>
+        </table>
+
+        <div class="signature-section">
+            <div class="sig-line"></div>
+            <div class="sig-text">ASSINATURA</div>
+        </div>
+    </div>
+</body>
+
+</html>
