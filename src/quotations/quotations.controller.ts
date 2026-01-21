@@ -3,8 +3,8 @@ import type { Response } from 'express';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { QuotationsService } from './quotations.service.js';
-import { FrenetService } from 'src/freight/frenet.service.js';
-import { PdfService } from 'src/documents/pdf.service.js';
+import { FrenetService } from '../freight/frenet.service.js';
+import { PdfService } from '../documents/pdf.service.js';
 
 import { CreateQuotationDto } from './dto/create-quotation.dto.js';
 import { FinalizeQuotationDto } from './dto/finalize-quotation.dto.js';

@@ -1,10 +1,10 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as handlebars from 'handlebars';
+import handlebars from 'handlebars';
 import * as puppeteer from 'puppeteer';
-import { QuotationsService } from 'src/quotations/quotations.service.js';
-import { Quotation, EmpresaFaturamento } from 'src/quotations/entities/quotation.entity.js';
+import { QuotationsService } from '../quotations/quotations.service.js';
+import { Quotation, EmpresaFaturamento } from '../quotations/entities/quotation.entity.js';
 
 @Injectable()
 export class PdfService {

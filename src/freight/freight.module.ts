@@ -1,19 +1,18 @@
 import { Module } from '@nestjs/common';
-import { FrenetService } from './frenet.service.js';
-import { FreightController } from './freight.controller.js';
 import { HttpModule } from '@nestjs/axios';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Quotation } from 'src/quotations/entities/quotation.entity.js';
-import { ConfigModule } from '@nestjs/config';
+import { FrenetService } from './frenet.service.js';
+import { FreightController } from './freight.controller.js';
+// CORREÇÃO: Troque 'src/quotations/...' por '../quotations/...'
+import { Quotation } from '../quotations/entities/quotation.entity.js';
 
 @Module({
   imports: [
-    ConfigModule, // Para acessar o .env
-    HttpModule,     // Para fazer chamadas HTTP
-    TypeOrmModule.forFeature([Quotation]), // Para acessar o repositório de Cotações
+    HttpModule,
+    TypeOrmModule.forFeature([Quotation]),
   ],
-  controllers: [FreightController],
   providers: [FrenetService],
-  exports: [FrenetService], // 1. EXPORTE o FrenetService para que outros módulos possam usá-lo
+  controllers: [FreightController],
+  exports: [FrenetService],
 })
 export class FreightModule { }
