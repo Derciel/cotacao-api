@@ -1,32 +1,22 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Product } from '../../products/entities/product.entity.js';
-import { Quotation } from './quotation.entity';
+import { Quotation } from './quotation.entity.js';
 
-/**
- * @Entity
- * Representa um único item de linha dentro de uma Cotação.
- */
 @Entity({ name: 'quotation_items' })
 export class QuotationItem {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
-  /**
-   * Relacionamento Many-to-One: Muitos itens pertencem a uma cotação.
-   */
-  @ManyToOne(() => Quotation, (quotation) => quotation.items)
+  @ManyToOne(() => Quotation, (quotation: Quotation) => quotation.items) // Tipagem explícita para evitar TS18046
   @JoinColumn({ name: 'quotation_id' })
-  quotation: Quotation;
+  quotation!: Quotation;
 
-  /**
-   * Relacionamento Many-to-One: Muitos itens podem se referir ao mesmo produto.
-   */
-  @ManyToOne(() => Product, { eager: true }) // eager: true carrega o produto automaticamente
+  @ManyToOne(() => Product, { eager: true })
   @JoinColumn({ name: 'product_id' })
-  product: Product;
+  product!: Product;
 
   @Column()
-  quantidade: number;
+  quantidade!: number;
 
   @Column({
     type: 'numeric',
@@ -34,7 +24,7 @@ export class QuotationItem {
     scale: 2,
     comment: 'Valor unitário do produto no momento da cotação.',
   })
-  valor_unitario_na_cotacao: number;
+  valor_unitario_na_cotacao!: number;
 
   @Column({
     type: 'numeric',
@@ -42,5 +32,5 @@ export class QuotationItem {
     scale: 2,
     comment: 'Valor total do item (quantidade * valor unitário).',
   })
-  valor_total_item: number;
+  valor_total_item!: number;
 }

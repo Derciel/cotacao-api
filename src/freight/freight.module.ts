@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { FrenetService } from './frenet.service';
-import { FreightController } from './freight.controller';
+import { FrenetService } from './frenet.service.js';
+import { FreightController } from './freight.controller.js';
 import { HttpModule } from '@nestjs/axios';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Quotation } from 'src/quotations/entities/quotation.entity';
+import { Quotation } from 'src/quotations/entities/quotation.entity.js';
 import { ConfigModule } from '@nestjs/config';
 
 @Module({
@@ -16,4 +16,4 @@ import { ConfigModule } from '@nestjs/config';
   providers: [FrenetService],
   exports: [FrenetService], // 1. EXPORTE o FrenetService para que outros módulos possam usá-lo
 })
-export class FreightModule {}
+export class FreightModule { }

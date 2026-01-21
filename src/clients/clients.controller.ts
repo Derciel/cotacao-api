@@ -3,9 +3,9 @@ import {
   UseInterceptors, UploadedFile, Query
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ClientsService } from './clients.service';
-import { CreateClientDto } from './dto/create-client.dto';
-import { UpdateClientDto } from './dto/update-client.dto';
+import { ClientsService } from './clients.service.js';
+import { CreateClientDto } from './dto/create-client.dto.js';
+import { UpdateClientDto } from './dto/update-client.dto.js';
 import {
   ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiQuery
 } from '@nestjs/swagger';

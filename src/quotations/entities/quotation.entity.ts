@@ -21,72 +21,70 @@ export enum EmpresaFaturamento {
 @Entity({ name: 'quotations' })
 export class Quotation {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number; // Adicionado '!' para erro TS2564
 
-  // ------------------- NOVO CAMPO -------------------
   @ApiProperty({ description: 'Número do pedido/cotação definido manualmente pelo usuário', required: false, example: 'COT-2025-001' })
   @Column({
     type: 'varchar',
     length: 50,
-    nullable: true, // Importante: torna o campo opcional no banco de dados
-    unique: true,   // Garante que cada número manual seja único, se informado
+    nullable: true,
+    unique: true,
     comment: 'Número do pedido/cotação definido manualmente pelo usuário',
   })
-  numero_pedido_manual: string;
-  // ----------------------------------------------------
+  numero_pedido_manual!: string;
 
   @ManyToOne(() => Client)
   @JoinColumn({ name: 'client_id' })
-  client: Client;
+  client!: Client;
 
   @OneToMany(() => QuotationItem, (item) => item.quotation, {
     cascade: true,
   })
-  items: QuotationItem[];
+  items!: QuotationItem[];
 
   @Column({ type: 'date' })
-  data_cotacao: Date;
+  data_cotacao!: Date;
 
   @Column({ nullable: true })
-  prazo_pagamento: string;
+  prazo_pagamento!: string;
 
   @Column({ type: 'integer', nullable: true })
-  dias_para_entrega: number | null
+  dias_para_entrega!: number | null
 
   @Column({ type: 'numeric', precision: 10, scale: 2 })
-  valor_total_produtos: number;
+  valor_total_produtos!: number;
 
   @Column({ nullable: true })
-  transportadora_escolhida: string;
+  transportadora_escolhida!: string;
 
   @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
-  valor_frete: number;
+  valor_frete!: number;
 
   @Column({ nullable: true })
-  tipo_frete: string;
+  tipo_frete!: string;
 
   @Column({ type: 'text', nullable: true })
-  obs: string;
+  obs!: string;
 
   @Column({
     type: 'enum',
     enum: EmpresaFaturamento,
-    default: EmpresaFaturamento.NICOPEL, // NICOPEL como padrão
+    default: EmpresaFaturamento.NICOPEL,
   })
-  empresa_faturamento: EmpresaFaturamento;
+  empresa_faturamento!: EmpresaFaturamento;
 
   @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true })
-  percentual_ipi: number;
+  percentual_ipi!: number;
 
   @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
-  valor_ipi: number;
+  valor_ipi!: number;
 
   @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
-  valor_total_nota: number;
+  valor_total_nota!: number;
 
   @CreateDateColumn()
-  created_at: Date;
+  created_at!: Date;
 
   @UpdateDateColumn()
-  updated_at: Date;
+  updated_at!: Date;
 }

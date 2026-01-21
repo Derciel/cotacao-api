@@ -2,10 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 
-// CORREÇÃO 3: Caminhos relativos com extensão .js
 import { Client } from '../clients/entities/client.entity.js';
 import { Product } from '../products/entities/product.entity.js';
-
 import { CreateQuotationDto } from './dto/create-quotation.dto.js';
 import { FinalizeQuotationDto } from './dto/finalize-quotation.dto.js';
 import { QuotationItem } from './entities/quotation-item.entity.js';
@@ -42,7 +40,6 @@ export class QuotationsService {
       const client = await this.clientRepository.findOne({ where: { id: clientId } });
       if (!client) throw new BadRequestException(`Cliente #${clientId} não encontrado.`);
 
-      // 1. Criamos a instância da cotação
       const newQuotation = this.quotationRepository.create({
         client,
         numero_pedido_manual: numeroPedidoManual,
@@ -54,13 +51,11 @@ export class QuotationsService {
         valor_total_produtos: 0,
       });
 
-      // 2. Salvamos primeiro para gerar o ID
       const savedQuotation = await queryRunner.manager.save(newQuotation);
 
       let valorTotalProdutos = 0;
       const quotationItems: QuotationItem[] = [];
 
-      // 3. Processamos os itens
       for (const itemDto of items) {
         const product = await this.productRepository.findOne({ where: { id: itemDto.productId } });
         if (!product) throw new BadRequestException(`Produto #${itemDto.productId} não encontrado.`);
@@ -80,7 +75,6 @@ export class QuotationsService {
         quotationItems.push(newItem);
       }
 
-      // 4. Atualizamos o total e salvamos itens e cotação final
       savedQuotation.valor_total_produtos = parseFloat(valorTotalProdutos.toFixed(2));
       await queryRunner.manager.save(savedQuotation);
       await queryRunner.manager.save(quotationItems);
@@ -119,6 +113,7 @@ export class QuotationsService {
     await queryRunner.startTransaction();
 
     try {
+      // Tipagem explícita para evitar o erro 'unknown'
       const quotation = await queryRunner.manager.findOne(Quotation, {
         where: { id },
         relations: ['items', 'items.product'],
@@ -135,7 +130,8 @@ export class QuotationsService {
 
       if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
         for (const item of quotation.items) {
-          const categoria = item.product.categoria ? item.product.categoria.toUpperCase() : 'POTE';
+          // Lógica de IPI baseada na categoria
+          const categoria = (item.product as any).categoria ? (item.product as any).categoria.toUpperCase() : 'POTE';
           const aliquota = (categoria === 'CAIXA') ? 3.25 : 9.75;
 
           const valorOriginalItem = parseFloat(item.valor_total_item.toString());
@@ -157,13 +153,13 @@ export class QuotationsService {
         quotation.valor_ipi = 0;
       }
 
-      const valorTotalNota = parseFloat(quotation.valor_total_produtos.toString()) + quotation.valor_frete;
+      const valorTotalNota = parseFloat(quotation.valor_total_produtos.toString()) + (quotation.valor_frete || 0);
       quotation.valor_total_nota = parseFloat(valorTotalNota.toFixed(2));
 
-      const finalQuotation = await queryRunner.manager.save(quotation);
+      await queryRunner.manager.save(quotation);
       await queryRunner.commitTransaction();
 
-      return this.findOne(finalQuotation.id);
+      return this.findOne(id);
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;

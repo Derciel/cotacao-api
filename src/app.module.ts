@@ -1,41 +1,37 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { ClientsModule } from './clients/clients.module';
-import { ProductsModule } from './products/products.module';
-import { QuotationsModule } from './quotations/quotations.module';
-import { FreightModule } from './freight/freight.module';
-import { SeedModule } from './seed/seed.module';
-import { DocumentsModule } from './documents/documents.module';
+import { AppController } from './app.controller.js';
+import { AppService } from './app.service.js';
+import { ClientsModule } from './clients/clients.module.js';
+import { ProductsModule } from './products/products.module.js';
+import { QuotationsModule } from './quotations/quotations.module.js';
+import { FreightModule } from './freight/freight.module.js';
+import { SeedModule } from './seed/seed.module.js';
+import { DocumentsModule } from './documents/documents.module.js';
 
 @Module({
   imports: [
-    // 1. Carrega as variáveis do .env globalmente
     ConfigModule.forRoot({
       isGlobal: true,
     }),
 
-    // 2. Configuração Assíncrona: Garante que o ConfigService esteja pronto
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        // Busca a External Database URL do seu .env
         const dbUrl = configService.get<string>('DATABASE_URL');
 
         if (!dbUrl) {
-          throw new Error('DATABASE_URL não encontrada no arquivo .env');
+          throw new Error('DATABASE_URL não encontrada no painel do Render');
         }
 
         return {
           type: 'postgres',
           url: dbUrl,
-          autoLoadEntities: true, // Carrega entidades automaticamente
-          synchronize: false, // Use apenas em desenvolvimento local
-
-          // CONFIGURAÇÃO OBRIGATÓRIA PARA RENDER
+          autoLoadEntities: true,
+          // synchronize: false protege os dados dos seus 6.000+ clientes
+          synchronize: false,
           ssl: {
             rejectUnauthorized: false,
           },
@@ -48,7 +44,6 @@ import { DocumentsModule } from './documents/documents.module';
       },
     }),
 
-    // Seus módulos de funcionalidades
     ClientsModule,
     ProductsModule,
     QuotationsModule,
