@@ -17,7 +17,13 @@ export class ProductsService {
     return this.productsRepository.save(product);
   }
 
-  async findAll(): Promise<Product[]> {
+  async findAll(search?: string): Promise<Product[]> {
+    if (search) {
+      return this.productsRepository.createQueryBuilder('product')
+        .where('product.nome ILIKE :search', { search: `%${search}%` })
+        .orWhere('product.categoria ILIKE :search', { search: `%${search}%` })
+        .getMany();
+    }
     return this.productsRepository.find();
   }
 

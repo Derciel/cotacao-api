@@ -1,6 +1,6 @@
 // src/products/products.controller.ts
 
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { ProductsService } from './products.service.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { UpdateProductDto } from './dto/update-product.dto.js';
@@ -16,8 +16,8 @@ export class ProductsController {
   }
 
   @Get() // Rota: GET /products
-  findAll() {
-    return this.productsService.findAll();
+  findAll(@Query('search') search?: string) {
+    return this.productsService.findAll(search);
   }
 
   @Get(':id') // Rota: GET /products/123
