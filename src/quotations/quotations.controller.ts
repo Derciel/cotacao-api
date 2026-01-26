@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, Res, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Res, Delete, Query } from '@nestjs/common';
 import type { Response } from 'express';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
@@ -83,6 +83,12 @@ export class QuotationsController {
   @ApiResponse({ status: 200, description: 'Status atualizado com sucesso.' })
   updateStatus(@Param('id') id: string, @Body('status') status: string) {
     return this.quotationsService.updateStatus(+id, status);
+  }
+
+  @Get('analytics')
+  @ApiOperation({ summary: 'Retorna estatísticas operacionais' })
+  getAnalytics(@Query('days') days: string) {
+    return this.quotationsService.getAnalytics(days ? +days : 30);
   }
 
   @Delete(':id')

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, MoreThanOrEqual } from 'typeorm';
 
 import { Client } from '../clients/entities/client.entity.js';
 import { Product } from '../products/entities/product.entity.js';
@@ -177,5 +177,60 @@ export class QuotationsService {
   async remove(id: number): Promise<void> {
     const quotation = await this.findOne(id);
     await this.quotationRepository.remove(quotation);
+  }
+
+  async getAnalytics(days: number) {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const quotations = await this.quotationRepository.find({
+      where: {
+        created_at: MoreThanOrEqual(startDate),
+      },
+      relations: ['client'],
+    });
+
+    const approved = quotations.filter(q => ['APROVADO', 'ENVIADO'].includes(q.status));
+
+    const totalSpend = approved.reduce((acc, q) => acc + Number(q.valor_total_nota || 0), 0);
+    const freightCount = approved.length;
+
+    const leadTimeItems = approved.filter(q => q.dias_para_entrega !== null);
+    const avgLeadTime = leadTimeItems.length > 0
+      ? leadTimeItems.reduce((acc, q) => acc + (q.dias_para_entrega || 0), 0) / leadTimeItems.length
+      : 0;
+
+    const totalSavings = totalSpend * 0.12;
+
+    const dailyDataMap = new Map();
+    approved.forEach(q => {
+      const date = new Date(q.created_at).toISOString().split('T')[0];
+      dailyDataMap.set(date, (dailyDataMap.get(date) || 0) + Number(q.valor_total_nota || 0));
+    });
+
+    const dailyData = Array.from(dailyDataMap.entries())
+      .map(([date, value]) => ({ date, value }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const carrierMap = new Map();
+    approved.forEach(q => {
+      if (q.transportadora_escolhida) {
+        carrierMap.set(q.transportadora_escolhida, (carrierMap.get(q.transportadora_escolhida) || 0) + 1);
+      }
+    });
+
+    const topCarriers = Array.from(carrierMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    return {
+      totalSpend,
+      totalSavings,
+      freightCount,
+      avgLeadTime: parseFloat(avgLeadTime.toFixed(1)),
+      dailyData,
+      topCarriers
+    };
   }
 }
