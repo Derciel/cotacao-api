@@ -18,6 +18,13 @@ export enum EmpresaFaturamento {
   FLEXOBOX = 'FLEXOBOX',
 }
 
+export enum QuotationStatus {
+  PENDENTE = 'PENDENTE',
+  APROVADO = 'APROVADO',
+  ENVIADO = 'ENVIADO',
+  CANCELADO = 'CANCELADO',
+}
+
 @Entity({ name: 'quotations' })
 export class Quotation {
   @PrimaryGeneratedColumn()
@@ -65,6 +72,13 @@ export class Quotation {
 
   @Column({ type: 'text', nullable: true })
   obs!: string;
+
+  @Column({
+    type: 'enum',
+    enum: QuotationStatus,
+    default: QuotationStatus.PENDENTE,
+  })
+  status!: QuotationStatus;
 
   @Column({
     type: 'enum',

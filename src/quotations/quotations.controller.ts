@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, Res } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Res, Delete } from '@nestjs/common';
 import type { Response } from 'express';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
@@ -76,5 +76,19 @@ export class QuotationsController {
     });
 
     res.end(pdfBuffer);
+  }
+
+  @Patch(':id/status')
+  @ApiOperation({ summary: 'Atualiza o status de uma cotação' })
+  @ApiResponse({ status: 200, description: 'Status atualizado com sucesso.' })
+  updateStatus(@Param('id') id: string, @Body('status') status: string) {
+    return this.quotationsService.updateStatus(+id, status);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Remove uma cotação' })
+  @ApiResponse({ status: 200, description: 'Cotação removida com sucesso.' })
+  remove(@Param('id') id: string) {
+    return this.quotationsService.remove(+id);
   }
 }

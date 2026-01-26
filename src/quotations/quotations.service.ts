@@ -167,4 +167,15 @@ export class QuotationsService {
       await queryRunner.release();
     }
   }
+
+  async updateStatus(id: number, status: string): Promise<Quotation> {
+    const quotation = await this.findOne(id);
+    quotation.status = status as any;
+    return this.quotationRepository.save(quotation);
+  }
+
+  async remove(id: number): Promise<void> {
+    const quotation = await this.findOne(id);
+    await this.quotationRepository.remove(quotation);
+  }
 }
