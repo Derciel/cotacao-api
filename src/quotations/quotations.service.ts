@@ -204,8 +204,15 @@ export class QuotationsService {
 
     const dailyDataMap = new Map();
     approved.forEach(q => {
-      const date = new Date(q.created_at).toISOString().split('T')[0];
-      dailyDataMap.set(date, (dailyDataMap.get(date) || 0) + Number(q.valor_total_nota || 0));
+      try {
+        const dateObj = q.created_at || q.data_cotacao;
+        if (dateObj) {
+          const date = new Date(dateObj).toISOString().split('T')[0];
+          dailyDataMap.set(date, (dailyDataMap.get(date) || 0) + Number(q.valor_total_nota || 0));
+        }
+      } catch (err) {
+        console.error(`Erro ao processar data da cotação #${q.id}:`, err);
+      }
     });
 
     const dailyData = Array.from(dailyDataMap.entries())
