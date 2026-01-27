@@ -38,6 +38,12 @@ export class QuotationsController {
     return this.quotationsService.findAll();
   }
 
+  @Get('analytics')
+  @ApiOperation({ summary: 'Retorna estatísticas operacionais' })
+  getAnalytics(@Query('days') days: string) {
+    return this.quotationsService.getAnalytics(days ? +days : 30);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Busca uma cotação pelo ID' })
   @ApiResponse({ status: 200, description: 'Dados da cotação retornados com sucesso.' })
@@ -48,7 +54,7 @@ export class QuotationsController {
 
   @Post(':id/calculate-freight')
   @ApiOperation({ summary: 'Calcula o frete para uma cotação existente' })
-  @ApiResponse({ status: 201, description: 'Cálculo de frete retornado com sucesso.' }) // POST geralmente retorna 201 ou 200
+  @ApiResponse({ status: 201, description: 'Cálculo de frete retornado com sucesso.' })
   @ApiResponse({ status: 404, description: 'Cotação não encontrada.' })
   calculateFreight(@Param('id') id: string) {
     return this.frenetService.calculateForQuotation(+id);
@@ -83,12 +89,6 @@ export class QuotationsController {
   @ApiResponse({ status: 200, description: 'Status atualizado com sucesso.' })
   updateStatus(@Param('id') id: string, @Body('status') status: string) {
     return this.quotationsService.updateStatus(+id, status);
-  }
-
-  @Get('analytics')
-  @ApiOperation({ summary: 'Retorna estatísticas operacionais' })
-  getAnalytics(@Query('days') days: string) {
-    return this.quotationsService.getAnalytics(days ? +days : 30);
   }
 
   @Delete(':id')

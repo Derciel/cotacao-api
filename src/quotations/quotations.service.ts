@@ -7,7 +7,7 @@ import { Product } from '../products/entities/product.entity.js';
 import { CreateQuotationDto } from './dto/create-quotation.dto.js';
 import { FinalizeQuotationDto } from './dto/finalize-quotation.dto.js';
 import { QuotationItem } from './entities/quotation-item.entity.js';
-import { EmpresaFaturamento, Quotation } from './entities/quotation.entity.js';
+import { EmpresaFaturamento, Quotation, QuotationStatus } from './entities/quotation.entity.js';
 
 @Injectable()
 export class QuotationsService {
@@ -180,64 +180,73 @@ export class QuotationsService {
   }
 
   async getAnalytics(days: number) {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
 
-    const quotations = await this.quotationRepository.find({
-      where: {
-        created_at: MoreThanOrEqual(startDate),
-      },
-      relations: ['client'],
-    });
+      // Usando find com relação client para garantir dados completos
+      const quotations = await this.quotationRepository.find({
+        where: {
+          created_at: MoreThanOrEqual(startDate),
+        },
+        relations: ['client'],
+      });
 
-    const approved = quotations.filter(q => ['APROVADO', 'ENVIADO'].includes(q.status));
+      const approved = quotations.filter(q =>
+        q.status === QuotationStatus.APROVADO || q.status === QuotationStatus.ENVIADO
+      );
 
-    const totalSpend = approved.reduce((acc, q) => acc + Number(q.valor_total_nota || 0), 0);
-    const freightCount = approved.length;
+      const totalSpend = approved.reduce((acc, q) => acc + Number(q.valor_total_nota || 0), 0);
+      const freightCount = approved.length;
 
-    const leadTimeItems = approved.filter(q => q.dias_para_entrega !== null);
-    const avgLeadTime = leadTimeItems.length > 0
-      ? leadTimeItems.reduce((acc, q) => acc + (q.dias_para_entrega || 0), 0) / leadTimeItems.length
-      : 0;
+      const leadTimeItems = approved.filter(q => q.dias_para_entrega !== null);
+      const avgLeadTime = leadTimeItems.length > 0
+        ? leadTimeItems.reduce((acc, q) => acc + (q.dias_para_entrega || 0), 0) / leadTimeItems.length
+        : 0;
 
-    const totalSavings = totalSpend * 0.12;
+      const totalSavings = totalSpend * 0.12;
 
-    const dailyDataMap = new Map();
-    approved.forEach(q => {
-      try {
-        const dateObj = q.created_at || q.data_cotacao;
-        if (dateObj) {
-          const date = new Date(dateObj).toISOString().split('T')[0];
-          dailyDataMap.set(date, (dailyDataMap.get(date) || 0) + Number(q.valor_total_nota || 0));
+      const dailyDataMap = new Map<string, number>();
+      approved.forEach(q => {
+        try {
+          // Usa created_at como fonte primária, fallback para data_cotacao
+          const dateObj = q.created_at || q.data_cotacao;
+          if (dateObj) {
+            const dateStr = new Date(dateObj).toISOString().split('T')[0];
+            dailyDataMap.set(dateStr, (dailyDataMap.get(dateStr) || 0) + Number(q.valor_total_nota || 0));
+          }
+        } catch (err) {
+          console.warn(`Erro ao processar data da cotação #${q.id}`);
         }
-      } catch (err) {
-        console.error(`Erro ao processar data da cotação #${q.id}:`, err);
-      }
-    });
+      });
 
-    const dailyData = Array.from(dailyDataMap.entries())
-      .map(([date, value]) => ({ date, value }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+      const dailyData = Array.from(dailyDataMap.entries())
+        .map(([date, value]) => ({ date, value }))
+        .sort((a, b) => a.date.localeCompare(b.date));
 
-    const carrierMap = new Map();
-    approved.forEach(q => {
-      if (q.transportadora_escolhida) {
-        carrierMap.set(q.transportadora_escolhida, (carrierMap.get(q.transportadora_escolhida) || 0) + 1);
-      }
-    });
+      const carrierMap = new Map<string, number>();
+      approved.forEach(q => {
+        if (q.transportadora_escolhida) {
+          carrierMap.set(q.transportadora_escolhida, (carrierMap.get(q.transportadora_escolhida) || 0) + 1);
+        }
+      });
 
-    const topCarriers = Array.from(carrierMap.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+      const topCarriers = Array.from(carrierMap.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
 
-    return {
-      totalSpend,
-      totalSavings,
-      freightCount,
-      avgLeadTime: parseFloat(avgLeadTime.toFixed(1)),
-      dailyData,
-      topCarriers
-    };
+      return {
+        totalSpend,
+        totalSavings,
+        freightCount,
+        avgLeadTime: parseFloat(avgLeadTime.toFixed(1)),
+        dailyData,
+        topCarriers
+      };
+    } catch (error) {
+      console.error('ERRO EM getAnalytics:', error);
+      throw error;
+    }
   }
 }

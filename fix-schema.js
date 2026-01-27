@@ -45,6 +45,27 @@ async function run() {
             }
         }
 
+        console.log('Fixing foreign key for cascade delete...');
+        try {
+            // Remove a constraint antiga se existir (podem haver nomes diferentes em ambientes diferentes)
+            // O nome padrão do TypeORM costuma ser algo como FK_...
+            // No log vimos: FK_quotation_items_quotations
+            await qr.query(`ALTER TABLE "quotation_items" DROP CONSTRAINT IF EXISTS "FK_quotation_items_quotations"`);
+            await qr.query(`ALTER TABLE "quotation_items" DROP CONSTRAINT IF EXISTS "FK_c9e2dea84928feba1d24874c160"`);
+
+            // Adiciona a nova com ON DELETE CASCADE
+            await qr.query(`
+                ALTER TABLE "quotation_items" 
+                ADD CONSTRAINT "FK_quotation_items_quotations_cascade" 
+                FOREIGN KEY ("quotation_id") 
+                REFERENCES "quotations"("id") 
+                ON DELETE CASCADE
+            `);
+            console.log('Foreign key fixed with CASCADE.');
+        } catch (e) {
+            console.error('Failed to fix foreign key:', e.message);
+        }
+
         console.log('Schema sync completed.');
     } catch (e) {
         console.error(e);
