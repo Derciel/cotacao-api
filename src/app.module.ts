@@ -30,6 +30,7 @@ import { DocumentsModule } from './documents/documents.module.js';
           type: 'postgres',
           url: dbUrl,
           autoLoadEntities: true,
+          logging: true, // Adicionado para depurar o erro 'Missing column'
           // synchronize: false protege os dados dos seus 6.000+ clientes
           synchronize: false,
           ssl: {
