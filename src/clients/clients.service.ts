@@ -2,7 +2,8 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
-  ConflictException
+  ConflictException,
+  Logger
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -20,6 +21,8 @@ export class ClientsService {
     private readonly clientsRepository: Repository<Client>,
     private readonly httpService: HttpService,
   ) { }
+
+  private readonly logger = new Logger(ClientsService.name);
 
   /**
    * BUSCA EXTERNA: Consulta Brasil API e verifica se já existe no banco local.
@@ -110,9 +113,19 @@ export class ClientsService {
    */
   async importFromExcel(buffer: Buffer) {
     try {
+      this.logger.log('Iniciando leitura do arquivo Excel...');
       const workbook = XLSX.read(buffer, { type: 'buffer' });
-      const data = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+      const sheetName = workbook.SheetNames[0];
+      if (!sheetName) {
+        throw new Error('A planilha está vazia ou não possui abas.');
+      }
+
+      const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+      this.logger.log(`Total de ${data.length} linhas lidas da planilha.`);
+
       const uniqueClients = new Map<string, any>();
+      const now = new Date();
 
       data.forEach((row: any) => {
         const docLimpo = String(row['CPF/CNPJ'] || row['CNPJ/CPF'] || '').replace(/\D/g, '');
@@ -129,8 +142,6 @@ export class ClientsService {
           estado = partes[1].trim().toUpperCase().substring(0, 2);
         }
 
-        const dataDF = new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
-
         uniqueClients.set(compositeKey, {
           razao_social: String(row['Razão Social'] || row['RAZÃO SOCIAL'] || '').trim(),
           fantasia: (row['NOME FANTASIA'] && typeof row['NOME FANTASIA'] !== 'object')
@@ -140,13 +151,26 @@ export class ClientsService {
           cidade: cidade || 'Não Informada',
           estado: estado,
           empresa_faturamento: empresa,
-          createdAt: new Date(dataDF)
+          createdAt: now
         });
       });
 
-      return await this.clientsRepository.upsert(Array.from(uniqueClients.values()), ['cnpj', 'empresa_faturamento']);
-    } catch (error) {
-      throw new InternalServerErrorException('Erro ao processar a planilha.');
+      if (uniqueClients.size === 0) {
+        return { message: 'Nenhum cliente válido encontrado na planilha (verifique se as colunas CPF/CNPJ ou CNPJ/CPF estão preenchidas).', count: 0 };
+      }
+
+      this.logger.log(`Iniciando upsert de ${uniqueClients.size} clientes únicos...`);
+      const result = await this.clientsRepository.upsert(Array.from(uniqueClients.values()), ['cnpj', 'empresa_faturamento']);
+
+      return {
+        message: 'Importação concluída com sucesso.',
+        totalLido: data.length,
+        totalProcessado: uniqueClients.size,
+        result
+      };
+    } catch (error: any) {
+      this.logger.error(`Erro na importação de Excel: ${error.message}`, error.stack);
+      throw new InternalServerErrorException(`Erro ao processar a planilha: ${error.message}`);
     }
   }
 
