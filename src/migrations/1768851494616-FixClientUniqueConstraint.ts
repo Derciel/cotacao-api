@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class FixClientUniqueConstraint1234567890 { // O número será gerado automaticamente
+export class FixClientUniqueConstraint1768851494616 implements MigrationInterface {
     public async up(query_runner: QueryRunner): Promise<void> {
         // 1. Remove a restrição de unicidade antiga apenas do CNPJ
         // Nota: Verifique o nome real da constraint no seu banco (ex: UQ_cnpj_index)

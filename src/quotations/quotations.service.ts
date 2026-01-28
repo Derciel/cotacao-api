@@ -249,4 +249,55 @@ export class QuotationsService {
       throw error;
     }
   }
+
+  async getDashboardStats() {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const quotationsToday = await this.quotationRepository.count({
+        where: {
+          created_at: MoreThanOrEqual(today)
+        }
+      });
+
+      const approvedQuotes = await this.quotationRepository.find({
+        where: [
+          { status: QuotationStatus.APROVADO },
+          { status: QuotationStatus.ENVIADO }
+        ]
+      });
+      const totalValue = approvedQuotes.reduce((acc, q) => acc + Number(q.valor_total_nota || 0), 0);
+
+      const pendingCount = await this.quotationRepository.count({
+        where: { status: QuotationStatus.PENDENTE }
+      });
+
+      const totalQuotes = await this.quotationRepository.count();
+      const conversionRate = totalQuotes > 0 ? (approvedQuotes.length / totalQuotes) * 100 : 0;
+
+      return {
+        quotationsToday,
+        totalValue,
+        pendingCount,
+        conversionRate: parseFloat(conversionRate.toFixed(1))
+      };
+    } catch (error) {
+      console.error('Erro ao buscar estatísticas do dashboard:', error);
+      throw error;
+    }
+  }
+
+  async getRecentQuotations(limit = 5) {
+    try {
+      return await this.quotationRepository.find({
+        relations: ['client'],
+        order: { created_at: 'DESC' },
+        take: limit
+      });
+    } catch (error) {
+      console.error('Erro ao buscar cotações recentes:', error);
+      throw error;
+    }
+  }
 }

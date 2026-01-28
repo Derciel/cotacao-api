@@ -39,3 +39,4 @@ tsconfig.tsbuildinfo
 # Temporários do Puppeteer/PDF
 *.pdf
 /temp
+.cache/

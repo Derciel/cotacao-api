@@ -44,6 +44,18 @@ export class QuotationsController {
     return this.quotationsService.getAnalytics(days ? +days : 30);
   }
 
+  @Get('dashboard/stats')
+  @ApiOperation({ summary: 'Retorna estatísticas simplificadas para o dashboard principal' })
+  getDashboardStats() {
+    return this.quotationsService.getDashboardStats();
+  }
+
+  @Get('dashboard/recent')
+  @ApiOperation({ summary: 'Retorna as cotações mais recentes' })
+  getRecent(@Query('limit') limit: string) {
+    return this.quotationsService.getRecentQuotations(limit ? +limit : 5);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Busca uma cotação pelo ID' })
   @ApiResponse({ status: 200, description: 'Dados da cotação retornados com sucesso.' })

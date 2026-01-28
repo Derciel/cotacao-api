@@ -9,6 +9,9 @@ import { QuotationsModule } from './quotations/quotations.module.js';
 import { FreightModule } from './freight/freight.module.js';
 import { SeedModule } from './seed/seed.module.js';
 import { DocumentsModule } from './documents/documents.module.js';
+import { AuthModule } from './auth/auth.module.js';
+import { UsersModule } from './users/users.module.js';
+import { AiModule } from './ai/ai.module.js';
 
 @Module({
   imports: [
@@ -51,6 +54,9 @@ import { DocumentsModule } from './documents/documents.module.js';
     FreightModule,
     SeedModule,
     DocumentsModule,
+    AuthModule,
+    UsersModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

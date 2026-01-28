@@ -35,7 +35,7 @@ export class PdfService {
     };
 
     const logos = {
-      [EmpresaFaturamento.NICOPEL]: 'https://i.ibb.co/zWJstk81/logo-nicopel-8.png',
+      [EmpresaFaturamento.NICOPEL]: 'https://i.ibb.co/NdjsTWgb/NP-Cargo.jpg',
       [EmpresaFaturamento.L_LOG]: 'https://i.ibb.co/HLh2RFHP/logo-l-log.png',
       [EmpresaFaturamento.FLEXOBOX]: 'https://i.ibb.co/WtrW9Qf/FLEXOBOX.png',
     };

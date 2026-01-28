@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class SyncClientsTable1234567890 { // O número final é gerado automaticamente
+export class SyncClientsTable1768853309967 implements MigrationInterface {
     public async up(query_runner: QueryRunner): Promise<void> {
         // 1. Adiciona a coluna faltante de Empresa
         await query_runner.query(`ALTER TABLE "clients" ADD COLUMN IF NOT EXISTS "empresa_faturamento" VARCHAR(50)`);
