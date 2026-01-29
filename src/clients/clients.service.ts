@@ -41,6 +41,7 @@ export class ClientsService {
       return {
         isAlreadyRegistered: !!existing,
         registeredId: existing?.id || null,
+        isExternal: true, // Flag para o front identificar
         data: {
           razao_social: data.razao_social,
           fantasia: (data.nome_fantasia && typeof data.nome_fantasia !== 'object')
@@ -53,7 +54,32 @@ export class ClientsService {
         }
       };
     } catch (error) {
-      throw new NotFoundException('CNPJ não encontrado na base da Brasil API.');
+      return null; // Retorna null em vez de erro para o findAll tratar
+    }
+  }
+
+  /**
+   * BUSCA EXTERNA CEP: Consulta Brasil API.
+   */
+  async findCepExternal(cep: string) {
+    const cepLimpo = cep.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) return null;
+
+    const url = `https://brasilapi.com.br/api/cep/v1/${cepLimpo}`;
+    try {
+      const { data } = await firstValueFrom(this.httpService.get(url));
+      return {
+        isExternal: true,
+        data: {
+          razao_social: `Localidade: ${data.city}`,
+          cnpj: '',
+          cep: data.cep,
+          cidade: data.city,
+          estado: data.state,
+        }
+      };
+    } catch (error) {
+      return null;
     }
   }
 
@@ -74,7 +100,33 @@ export class ClientsService {
       });
     }
 
-    const [data, total] = await query.getManyAndCount();
+    let [data, total] = await query.getManyAndCount();
+
+    // --- COMPLEMENTO BRASIL API ---
+    // Se não encontrou nada localmente e o termo parece um CNPJ ou CEP
+    if (data.length === 0 && search) {
+      const cleanSearch = search.replace(/\D/g, '');
+
+      if (cleanSearch.length === 14) {
+        const external = await this.findCnpjExternal(cleanSearch);
+        if (external) {
+          data = [{
+            ...external.data,
+            isExternal: true
+          } as any];
+          total = 1;
+        }
+      } else if (cleanSearch.length === 8) {
+        const external = await this.findCepExternal(cleanSearch);
+        if (external) {
+          data = [{
+            ...external.data,
+            isExternal: true
+          } as any];
+          total = 1;
+        }
+      }
+    }
 
     return {
       data,
