@@ -112,7 +112,8 @@ export class ClientsService {
         if (external) {
           data = [{
             ...external.data,
-            isExternal: true
+            id: external.registeredId,
+            isExternal: !external.isAlreadyRegistered
           } as any];
           total = 1;
         }
