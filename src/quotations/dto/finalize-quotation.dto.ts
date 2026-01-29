@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsPositive, IsString, IsInt, IsOptional} from 'class-validator';
+import { IsNotEmpty, IsNumber, IsPositive, IsString, IsInt, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class FinalizeQuotationDto {
@@ -17,4 +17,24 @@ export class FinalizeQuotationDto {
   @IsPositive()
   @IsOptional()
   diasParaEntrega?: number;
+
+  @ApiProperty({ description: 'Número da Nota Fiscal', example: '123456' })
+  @IsString()
+  @IsOptional()
+  nf?: string;
+
+  @ApiProperty({ description: 'Data da coleta prevista', example: '2025-01-30' })
+  @IsString()
+  @IsOptional()
+  dataColeta?: string;
+
+  @ApiProperty({ description: 'Tipo de frete (CIF/FOB)', example: 'CIF' })
+  @IsString()
+  @IsOptional()
+  tipoFrete?: string;
+
+  @ApiProperty({ description: 'Número do pedido manual', example: 'PED-123' })
+  @IsString()
+  @IsOptional()
+  numeroPedidoManual?: string;
 }

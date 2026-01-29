@@ -107,27 +107,32 @@
         </svg>
     </div>
 
-    <table>
+    <table class="no-border">
         <tr>
-            <td rowspan="2" class="no-border" style="width: 22%; text-align: center;">
-                <img src="{{logoUrl}}" alt="Logo" style="max-width: 110px; max-height: 45px;">
+            <td rowspan="2" class="no-border" style="width: 25%; text-align: center; padding: 10px;">
+                {{#if logoUrl}}
+                <img src="{{logoUrl}}" alt="Logo"
+                    style="max-width: 130px; max-height: 55px; display: block; margin: 0 auto;">
+                {{/if}}
             </td>
-            <td class="label-theme" style="background-color: {{themeColor}};">Nº PEDIDO</td>
-            <td class="label-theme" style="background-color: {{themeColor}};">PRAZO PAG.</td>
-            <td class="label-theme" style="background-color: {{themeColor}};">EMPRESA</td>
-            <td class="label-theme" style="width: 25%; background-color: {{themeColor}};">OBS:</td>
+            <td class="label-theme" style="background-color: {{themeColor}}; border: 1px solid #000;">Nº PEDIDO</td>
+            <td class="label-theme" style="background-color: {{themeColor}}; border: 1px solid #000;">Nº COTAÇÃO</td>
+            <td class="label-theme" style="background-color: {{themeColor}}; border: 1px solid #000;">EMPRESA</td>
+            <td class="label-theme" style="width: 20%; background-color: {{themeColor}}; border: 1px solid #000;">OBS:
+            </td>
         </tr>
         <tr>
-            <td class="value-cell">{{displayQuotationNumber quotation}}</td>
-            <td class="value-cell">{{valueOrDefault quotation.prazo_pagamento}}</td>
-            <td class="value-cell">{{quotation.empresa_faturamento}}</td>
-            <td class="text-center">{{valueOrDefault quotation.obs}}</td>
+            <td class="value-cell" style="border: 1px solid #000;">{{valueOrDefault quotation.numero_pedido_manual}}
+            </td>
+            <td class="value-cell" style="border: 1px solid #000;">{{quotation.id}}</td>
+            <td class="value-cell" style="border: 1px solid #000; color: #000;">{{quotation.empresa_faturamento}}</td>
+            <td class="text-center" style="border: 1px solid #000;">{{valueOrDefault quotation.obs}}</td>
         </tr>
     </table>
 
     <table style="margin-top: 5px;">
         <tr>
-            <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">CLIENTE</td>
+            <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">DESTINATÁRIO</td>
             <td colspan="2" class="value-cell">{{quotation.client.razao_social}}</td>
             <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">FANTASIA</td>
             <td colspan="2" class="value-cell">{{valueOrDefault quotation.client.fantasia}}</td>
@@ -144,7 +149,7 @@
             <td colspan="2" class="value-cell">{{cityState}}</td>
             <td class="label-theme" style="background-color: {{themeColor}};">DIAS ENTREGA</td>
             <td class="value-cell">{{formatDeliveryDays quotation.dias_para_entrega}}</td>
-            <td class="value-cell"></td>
+            <td class="value-cell">{{valueOrDefault quotation.data_coleta}}</td>
         </tr>
         <tr>
             <td class="label-theme" style="background-color: {{themeColor}};">CEP</td>
@@ -190,8 +195,7 @@
             {{#if quotation.valor_ipi}}
             <tr>
                 <td colspan="5" class="no-border"></td>
-                <td class="label-theme" style="background-color: {{themeColor}};">IPI ({{quotation.percentual_ipi}}%)
-                </td>
+                <td class="label-theme" style="background-color: {{themeColor}};">IPI</td>
                 <td class="text-right">{{formatCurrency quotation.valor_ipi}}</td>
             </tr>
             {{/if}}
@@ -212,7 +216,7 @@
     <table style="margin-top: 5px;">
         <tr class="label-theme" style="background-color: {{themeColor}};">
             <td>TRANSP.</td>
-            <td>Nº COT.</td>
+            <td>Nº COTAÇÃO</td>
             <td>FRETE R$</td>
             <td>TIPO</td>
             <td>PAGAR</td>
@@ -225,7 +229,7 @@
             <td>{{formatCurrency quotation.valor_frete}}</td>
             <td>{{valueOrDefault quotation.tipo_frete}}</td>
             <td>{{#if quotation.valor_frete}}SIM{{else}}NÃO{{/if}}</td>
-            <td></td>
+            <td>{{valueOrDefault quotation.nf}}</td>
             <td>SITE</td>
         </tr>
     </table>

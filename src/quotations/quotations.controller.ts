@@ -103,6 +103,12 @@ export class QuotationsController {
     return this.quotationsService.updateStatus(+id, status);
   }
 
+  @Patch(':id')
+  @ApiOperation({ summary: 'Atualiza campos genéricos de uma cotação' })
+  update(@Param('id') id: string, @Body() updateDto: any) {
+    return this.quotationsService.update(+id, updateDto);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Remove uma cotação' })
   @ApiResponse({ status: 200, description: 'Cotação removida com sucesso.' })

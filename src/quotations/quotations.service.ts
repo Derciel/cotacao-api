@@ -125,14 +125,33 @@ export class QuotationsService {
       quotation.valor_frete = parseFloat(finalizeDto.valorFrete.toString());
       quotation.dias_para_entrega = finalizeDto.diasParaEntrega ?? null;
 
+      // Novos campos
+      if (finalizeDto.nf) quotation.nf = finalizeDto.nf;
+      if (finalizeDto.dataColeta) quotation.data_coleta = finalizeDto.dataColeta;
+      if (finalizeDto.tipoFrete) quotation.tipo_frete = finalizeDto.tipoFrete;
+      if (finalizeDto.numeroPedidoManual) quotation.numero_pedido_manual = finalizeDto.numeroPedidoManual;
+
       let valorIpiTotalGeral = 0;
       let novoValorTotalProdutos = 0;
 
       if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
         for (const item of quotation.items) {
-          // Lógica de IPI baseada na categoria
+          // Lógica de IPI baseada no nome/categoria do produto
+          const nome = item.product.nome.toUpperCase();
           const categoria = (item.product as any).categoria ? (item.product as any).categoria.toUpperCase() : 'POTE';
-          const aliquota = (categoria === 'CAIXA') ? 3.25 : 9.75;
+
+          let aliquota = 9.75; // Padrão Potes
+
+          // Se for caixa, verifica se é para pote ou normal
+          if (nome.includes('CAIXA')) {
+            if (nome.includes('POTE') || nome.includes('PARA POTE')) {
+              aliquota = 9.75;
+            } else {
+              aliquota = 3.25;
+            }
+          } else if (categoria === 'CAIXA') {
+            aliquota = 3.25;
+          }
 
           const valorOriginalItem = parseFloat(item.valor_total_item.toString());
           const valorIpiItem = valorOriginalItem * (aliquota / 100);
@@ -149,12 +168,18 @@ export class QuotationsService {
 
         quotation.valor_total_produtos = parseFloat(novoValorTotalProdutos.toFixed(2));
         quotation.valor_ipi = parseFloat(valorIpiTotalGeral.toFixed(2));
+        quotation.percentual_ipi = 0; // Removido valor único pois agora é por item
       } else {
+        // L_LOG e outros são Isentos (IPI = 0)
         quotation.valor_ipi = 0;
+        quotation.percentual_ipi = 0;
       }
 
       const valorTotalNota = parseFloat(quotation.valor_total_produtos.toString()) + (quotation.valor_frete || 0);
       quotation.valor_total_nota = parseFloat(valorTotalNota.toFixed(2));
+
+      // Se for L_LOG, o status permanece PENDENTE ou algo que indique que precisa de WhatsApp no front
+      // Mas aqui liberamos a finalização normal.
 
       await queryRunner.manager.save(quotation);
       await queryRunner.commitTransaction();
@@ -171,6 +196,14 @@ export class QuotationsService {
   async updateStatus(id: number, status: string): Promise<Quotation> {
     const quotation = await this.findOne(id);
     quotation.status = status as any;
+    return this.quotationRepository.save(quotation);
+  }
+
+  async update(id: number, updateDto: any): Promise<Quotation> {
+    const quotation = await this.findOne(id);
+    if (!quotation) throw new NotFoundException(`Cotação #${id} não encontrada.`);
+
+    Object.assign(quotation, updateDto);
     return this.quotationRepository.save(quotation);
   }
 

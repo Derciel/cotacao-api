@@ -96,6 +96,12 @@ export class Quotation {
   @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
   valor_total_nota!: number;
 
+  @Column({ nullable: true })
+  nf!: string;
+
+  @Column({ nullable: true })
+  data_coleta!: string;
+
   @CreateDateColumn()
   created_at!: Date;
 

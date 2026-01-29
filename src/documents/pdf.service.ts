@@ -28,14 +28,14 @@ export class PdfService {
     const template = handlebars.compile(templateHtml);
     const cleaned = JSON.parse(JSON.stringify(quotation));
 
-    const themes = {
+    const themes: Record<string, string> = {
       [EmpresaFaturamento.NICOPEL]: '#F2F2F2',
       [EmpresaFaturamento.FLEXOBOX]: '#BDD7EE',
       [EmpresaFaturamento.L_LOG]: '#F2F2F2',
     };
 
-    const logos = {
-      [EmpresaFaturamento.NICOPEL]: 'https://i.ibb.co/NdjsTWgb/NP-Cargo.jpg',
+    const logos: Record<string, string> = {
+      [EmpresaFaturamento.NICOPEL]: 'https://i.ibb.co/zWJstk81/logo-nicopel-8.png',
       [EmpresaFaturamento.L_LOG]: 'https://i.ibb.co/HLh2RFHP/logo-l-log.png',
       [EmpresaFaturamento.FLEXOBOX]: 'https://i.ibb.co/WtrW9Qf/FLEXOBOX.png',
     };
