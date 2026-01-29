@@ -290,20 +290,22 @@ export class QuotationsService {
         }
       });
 
-      const approvedQuotes = await this.quotationRepository.find({
-        where: [
-          { status: QuotationStatus.APROVADO },
-          { status: QuotationStatus.ENVIADO }
-        ]
-      });
-      const totalValue = approvedQuotes.reduce((acc, q) => acc + Number(q.valor_total_nota || 0), 0);
+      const approvedResults = await this.quotationRepository
+        .createQueryBuilder('q')
+        .select('SUM(q.valor_total_nota)', 'total')
+        .addSelect('COUNT(q.id)', 'count')
+        .where('q.status IN (:...statuses)', { statuses: [QuotationStatus.APROVADO, QuotationStatus.ENVIADO] })
+        .getRawOne();
+
+      const totalValue = parseFloat(approvedResults.total || 0);
+      const approvedCount = parseInt(approvedResults.count || 0);
 
       const pendingCount = await this.quotationRepository.count({
         where: { status: QuotationStatus.PENDENTE }
       });
 
       const totalQuotes = await this.quotationRepository.count();
-      const conversionRate = totalQuotes > 0 ? (approvedQuotes.length / totalQuotes) * 100 : 0;
+      const conversionRate = totalQuotes > 0 ? (approvedCount / totalQuotes) * 100 : 0;
 
       return {
         quotationsToday,
@@ -321,7 +323,7 @@ export class QuotationsService {
     try {
       return await this.quotationRepository.find({
         relations: ['client'],
-        order: { created_at: 'DESC' },
+        order: { id: 'DESC' },
         take: limit
       });
     } catch (error) {
