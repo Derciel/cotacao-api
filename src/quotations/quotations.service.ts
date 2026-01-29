@@ -194,17 +194,13 @@ export class QuotationsService {
   }
 
   async updateStatus(id: number, status: string): Promise<Quotation> {
-    const quotation = await this.findOne(id);
-    quotation.status = status as any;
-    return this.quotationRepository.save(quotation);
+    await this.quotationRepository.update(id, { status: status as any });
+    return this.findOne(id);
   }
 
   async update(id: number, updateDto: any): Promise<Quotation> {
-    const quotation = await this.findOne(id);
-    if (!quotation) throw new NotFoundException(`Cotação #${id} não encontrada.`);
-
-    Object.assign(quotation, updateDto);
-    return this.quotationRepository.save(quotation);
+    await this.quotationRepository.update(id, updateDto);
+    return this.findOne(id);
   }
 
   async remove(id: number): Promise<void> {
