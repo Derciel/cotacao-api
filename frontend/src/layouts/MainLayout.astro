@@ -138,7 +138,7 @@ const { title, hideNavbar = false } = Astro.props;
 
     // Lógica de Autenticação Global
     (function() {
-      const pathname = window.location.pathname;
+      const pathname = window.location.pathname.replace(/\/$/, '');
       if (pathname === '/login') return;
 
       const token = localStorage.getItem('auth_token');
