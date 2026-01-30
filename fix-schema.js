@@ -32,6 +32,8 @@ async function run() {
             'ADD COLUMN IF NOT EXISTS "percentual_ipi" NUMERIC(5,2)',
             'ADD COLUMN IF NOT EXISTS "valor_ipi" NUMERIC(10,2)',
             'ADD COLUMN IF NOT EXISTS "valor_total_nota" NUMERIC(10,2)',
+            'ADD COLUMN IF NOT EXISTS "nf" VARCHAR(50)',
+            'ADD COLUMN IF NOT EXISTS "data_coleta" VARCHAR(50)',
             'ADD COLUMN IF NOT EXISTS "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
             'ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
         ];
