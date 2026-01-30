@@ -21,92 +21,100 @@ export class AiService {
     }
 
     async getInsights() {
+        // Coleta alguns dados para dar contexto
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let quotationsToday: Quotation[];
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(today.getDate() - 7);
+        sevenDaysAgo.setHours(0, 0, 0, 0);
+
+        const recentQuotations = await this.quotationRepository.find({
+            where: { created_at: MoreThanOrEqual(sevenDaysAgo) },
+            order: { created_at: 'DESC' },
+            take: 20,
+            relations: ['client']
+        });
+
+        const totalValue = recentQuotations.reduce((acc, q) => acc + Number(q.valor_total_nota || 0), 0);
+        const approvedCount = recentQuotations.filter(q => q.status === 'APROVADO').length;
+        const pendingCount = recentQuotations.filter(q => q.status === 'PENDENTE').length;
+
         if (!this.genAI) {
-            return this.getFallbackInsights();
+            return this.generateDynamicFallback(recentQuotations, totalValue, approvedCount, pendingCount);
         }
 
         try {
-            // Coleta alguns dados para dar contexto à IA
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            let quotationsCount: number;
-            let recentQuotations: Quotation[];
-            let timeFrameDescription: string;
-
-            const totalToday = await this.quotationRepository.count({
-                where: { created_at: MoreThanOrEqual(today) }
-            });
-
-            if (totalToday === 0) {
-                // Se não houver cotações hoje, expande para os últimos 7 dias
-                const sevenDaysAgo = new Date();
-                sevenDaysAgo.setDate(today.getDate() - 7);
-                sevenDaysAgo.setHours(0, 0, 0, 0);
-
-                quotationsCount = await this.quotationRepository.count({
-                    where: { created_at: MoreThanOrEqual(sevenDaysAgo) }
-                });
-                recentQuotations = await this.quotationRepository.find({
-                    where: { created_at: MoreThanOrEqual(sevenDaysAgo) },
-                    order: { created_at: 'DESC' },
-                    take: 10,
-                    relations: ['client']
-                });
-                timeFrameDescription = 'dos últimos 7 dias';
-            } else {
-                // Caso contrário, usa os dados de hoje
-                quotationsCount = totalToday;
-                recentQuotations = await this.quotationRepository.find({
-                    where: { created_at: MoreThanOrEqual(today) },
-                    order: { created_at: 'DESC' },
-                    take: 10,
-                    relations: ['client']
-                });
-                timeFrameDescription = 'de hoje';
-            }
-
+            const timeFrameDescription = 'dos últimos 7 dias';
             const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-            const prompt = `Você é um consultor logístico especialista da Nicopel Cargo, focado em otimização de fretes e processos.
-      Analise os dados de cotações ${timeFrameDescription} abaixo e forneça 2 insights curtos e práticos para o dashboard.
-      Cada insight deve ter no máximo 150 caracteres e ser relevante para a gestão logística.
-      Retorne em formato JSON: { "insights": [ { "type": "Oportunidade/Dica/Alerta", "text": "..." }, ... ] }
+            const prompt = `Você é um consultor logístico especialista da Nicopel Cargo.
+      Analise os dados das últimas 20 cotações (${timeFrameDescription}) e forneça 3 insights curtos (máximo 120 chars cada).
+      
+      Métricas Consolidadas:
+      - Total de Cotações Analisadas: ${recentQuotations.length}
+      - Valor Bruto em Negociação: R$ ${totalValue.toFixed(2)}
+      - Taxa de Conversão Atual: ${recentQuotations.length > 0 ? Math.round((approvedCount / recentQuotations.length) * 100) : 0}%
+      - Cotações Pendentes: ${pendingCount}
 
-      Dados de cotações ${timeFrameDescription}: ${quotationsCount} cotações.
-      Cotações recentes: ${JSON.stringify(recentQuotations.map(q => ({
+      Lista para Análise:
+      ${JSON.stringify(recentQuotations.map(q => ({
                 cliente: q.client?.fantasia || q.client?.razao_social,
                 valor: q.valor_total_nota,
-                status: q.status
+                status: q.status,
+                transportadora: q.transportadora_escolhida
             })))}
 
-      Importante: Responda apenas o JSON.`;
+      Retorne APENAS um JSON no formato: { "insights": [ { "type": "Oportunidade/Dica/Alerta", "text": "..." } ] }`;
 
             const result = await model.generateContent(prompt);
             const response = await result.response;
             const text = response.text();
 
-            // Limpa possível formatação de markdown se a IA retornar
             const cleanJson = text.replace(/```json|```/gi, '').trim();
             return JSON.parse(cleanJson);
         } catch (error) {
             console.error('Erro ao gerar insights com Gemini:', error);
-            return this.getFallbackInsights();
+            return this.generateDynamicFallback(recentQuotations, totalValue, approvedCount, pendingCount);
         }
     }
 
-    private getFallbackInsights() {
-        return {
-            insights: [
-                {
-                    type: 'Oportunidade',
-                    text: 'Rotas para a região Sul estão com 15% de defasagem. Recomendamos renegociação com transportadoras atuais.'
-                },
-                {
-                    type: 'Dica',
-                    text: 'Consolidar envios às quartas-feiras tem gerado uma economia média de R$ 450,00 por semana.'
-                }
-            ]
-        };
+    private generateDynamicFallback(recent: Quotation[], totalValue: number, approved: number, pending: number) {
+        const insights = [];
+
+        if (pending > 0) {
+            insights.push({
+                type: 'Alerta',
+                text: `Existem ${pending} cotações aguardando finalização. Conclua hoje para evitar atrasos na coleta.`
+            });
+        }
+
+        if (recent.length > 0) {
+            const conversion = Math.round((approved / recent.length) * 100);
+            insights.push({
+                type: 'Oportunidade',
+                text: `Sua taxa de conversão na última semana foi de ${conversion}%. Considere renegociar fretes para bater a meta de 80%.`
+            });
+        }
+
+        if (totalValue > 5000) {
+            insights.push({
+                type: 'Dica',
+                text: `Volume negociado de R$ ${totalValue.toLocaleString('pt-BR')} justifica a solicitação de uma tabela spot com as principais transportadoras.`
+            });
+        } else {
+            insights.push({
+                type: 'Dica',
+                text: 'Consolidar mais itens em uma única cotação pode reduzir o valor do frete mínimo em até 20%.'
+            });
+        }
+
+        // Garantir que sempre tenha ao menos 2
+        if (insights.length < 2) {
+            insights.push({ type: 'Dica', text: 'Mantenha o cadastro de clientes sempre atualizado para agilizar a emissão de minutas.' });
+        }
+
+        return { insights: insights.slice(0, 3) };
     }
 }

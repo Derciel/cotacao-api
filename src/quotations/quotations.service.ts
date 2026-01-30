@@ -259,29 +259,76 @@ export class QuotationsService {
 
     const totalSpend = approved.reduce((acc, q) => acc + Number(q.valor_total_nota || 0), 0);
     const freightCount = approved.length;
+
     const leadTimeItems = approved.filter(q => q.dias_para_entrega !== null);
     const avgLeadTime = leadTimeItems.length > 0
       ? leadTimeItems.reduce((acc, q) => acc + (q.dias_para_entrega || 0), 0) / leadTimeItems.length
       : 0;
+
+    // Agrupar por dia para dailyData
+    const dailyMap = new Map<string, number>();
+    approved.forEach(q => {
+      const dateStr = new Date(q.created_at).toISOString().split('T')[0];
+      dailyMap.set(dateStr, (dailyMap.get(dateStr) || 0) + Number(q.valor_total_nota || 0));
+    });
+    const dailyData = Array.from(dailyMap.entries())
+      .map(([date, value]) => ({ date, value }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // Agrupar por transportadora para topCarriers
+    const carrierMap = new Map<string, number>();
+    approved.forEach(q => {
+      const name = q.transportadora_escolhida || 'Outros/Manual';
+      carrierMap.set(name, (carrierMap.get(name) || 0) + 1);
+    });
+    const topCarriers = Array.from(carrierMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
 
     return {
       totalSpend,
       freightCount,
       avgLeadTime: Number(avgLeadTime.toFixed(1)),
       totalSavings: totalSpend * 0.12,
+      dailyData,
+      topCarriers
     };
   }
 
   async getDashboardStats() {
-    const total = await this.quotationRepository.count();
-    const active = await this.quotationRepository.count({
-      where: { status: QuotationStatus.APROVADO },
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const quotationsToday = await this.quotationRepository.count({
+      where: { created_at: MoreThanOrEqual(today) },
     });
-    const pending = await this.quotationRepository.count({
+
+    const pendingCount = await this.quotationRepository.count({
       where: { status: QuotationStatus.PENDENTE },
     });
 
-    return { total, active, pending };
+    // Valor Total hoje (aprovadas/enviadas hoje)
+    const approvedToday = await this.quotationRepository.find({
+      where: {
+        status: QuotationStatus.APROVADO,
+        created_at: MoreThanOrEqual(today)
+      },
+    });
+    const totalValue = approvedToday.reduce((acc, q) => acc + Number(q.valor_total_nota || 0), 0);
+
+    const totalAll = await this.quotationRepository.count();
+    const approvedAll = await this.quotationRepository.count({
+      where: { status: QuotationStatus.APROVADO },
+    });
+    const conversionRate = totalAll > 0 ? Math.round((approvedAll / totalAll) * 100) : 0;
+
+    return {
+      quotationsToday,
+      totalValue,
+      pendingCount,
+      conversionRate
+    };
   }
 
   async getRecentQuotations(limit: number): Promise<Quotation[]> {
