@@ -4,13 +4,13 @@ import { ApiProperty } from '@nestjs/swagger';
 export class FinalizeQuotationDto {
   @ApiProperty({ description: 'Nome da transportadora escolhida', example: 'SEDEX' })
   @IsString()
-  @IsNotEmpty()
-  transportadoraEscolhida: string;
+  @IsOptional()
+  transportadoraEscolhida?: string;
 
   @ApiProperty({ description: 'Valor do frete cobrado pela transportadora', example: 45.50 })
   @IsNumber()
-  @IsPositive()
-  valorFrete: number;
+  @IsOptional()
+  valorFrete?: number;
 
   @ApiProperty({ description: 'Prazo de entrega em dias fornecido pela transportadora', example: 5 })
   @IsInt()

@@ -1,82 +1,59 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, MoreThanOrEqual } from 'typeorm';
-
-import { Client } from '../clients/entities/client.entity.js';
-import { Product } from '../products/entities/product.entity.js';
+import { Quotation, QuotationStatus, EmpresaFaturamento } from './entities/quotation.entity.js';
+import { QuotationItem } from './entities/quotation-item.entity.js';
 import { CreateQuotationDto } from './dto/create-quotation.dto.js';
 import { FinalizeQuotationDto } from './dto/finalize-quotation.dto.js';
-import { QuotationItem } from './entities/quotation-item.entity.js';
-import { EmpresaFaturamento, Quotation, QuotationStatus } from './entities/quotation.entity.js';
 
 @Injectable()
 export class QuotationsService {
   constructor(
     @InjectRepository(Quotation)
-    private readonly quotationRepository: Repository<Quotation>,
-    @InjectRepository(Client)
-    private readonly clientRepository: Repository<Client>,
-    @InjectRepository(Product)
-    private readonly productRepository: Repository<Product>,
-    private readonly dataSource: DataSource,
+    private quotationRepository: Repository<Quotation>,
+    @InjectRepository(QuotationItem)
+    private itemRepository: Repository<QuotationItem>,
+    private dataSource: DataSource,
   ) { }
 
-  async create(createQuotationDto: CreateQuotationDto): Promise<Quotation> {
-    const {
-      clientId,
-      items,
-      numeroPedidoManual,
-      empresaFaturamento,
-      prazoPagamento,
-      tipoFrete,
-      obs
-    } = createQuotationDto;
-
+  async create(createDto: CreateQuotationDto): Promise<Quotation> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      const client = await this.clientRepository.findOne({ where: { id: clientId } });
-      if (!client) throw new BadRequestException(`Cliente #${clientId} não encontrado.`);
+      const quotation = new Quotation();
+      quotation.client = { id: createDto.clientId } as any;
+      quotation.data_cotacao = new Date();
+      quotation.prazo_pagamento = createDto.prazoPagamento || '';
+      quotation.tipo_frete = createDto.tipoFrete || '';
+      quotation.obs = createDto.obs || '';
+      quotation.empresa_faturamento = createDto.empresaFaturamento;
+      quotation.numero_pedido_manual = createDto.numeroPedidoManual || '';
+      quotation.percentual_ipi = createDto.percentualIpi || 0;
+      quotation.status = QuotationStatus.PENDENTE;
 
-      const newQuotation = this.quotationRepository.create({
-        client,
-        numero_pedido_manual: numeroPedidoManual,
-        empresa_faturamento: empresaFaturamento,
-        prazo_pagamento: prazoPagamento,
-        tipo_frete: tipoFrete,
-        obs: obs,
-        data_cotacao: new Date(),
-        valor_total_produtos: 0,
+      // Inicializar valores que serão calculados no finalize ou mantidos default
+      quotation.valor_total_produtos = 0;
+      quotation.valor_ipi = 0;
+      quotation.valor_total_nota = 0;
+
+      const savedQuotation = await queryRunner.manager.save(quotation);
+
+      const quotationItems = createDto.items.map((item) => {
+        const qItem = new QuotationItem();
+        qItem.quotation = savedQuotation;
+        qItem.product = { id: item.productId } as any;
+        qItem.quantidade = item.qty;
+        qItem.unidades_por_caixa = item.units || 1;
+        qItem.valor_unitario = item.unitValue;
+        qItem.peso_total = item.weight || 0;
+        qItem.altura = item.height || 0;
+        qItem.largura = item.width || 0;
+        qItem.comprimento = item.length || 0;
+        return qItem;
       });
 
-      const savedQuotation = await queryRunner.manager.save(newQuotation);
-
-      let valorTotalProdutos = 0;
-      const quotationItems: QuotationItem[] = [];
-
-      for (const itemDto of items) {
-        const product = await this.productRepository.findOne({ where: { id: itemDto.productId } });
-        if (!product) throw new BadRequestException(`Produto #${itemDto.productId} não encontrado.`);
-
-        const valorUnitario = itemDto.valorUnitario ?? product.valor_unitario;
-        const totalItem = parseFloat((valorUnitario * itemDto.quantidade).toFixed(2));
-        valorTotalProdutos += totalItem;
-
-        const newItem = queryRunner.manager.create(QuotationItem, {
-          product,
-          quantidade: itemDto.quantidade,
-          valor_unitario_na_cotacao: valorUnitario,
-          valor_total_item: totalItem,
-          quotation: savedQuotation
-        });
-
-        quotationItems.push(newItem);
-      }
-
-      savedQuotation.valor_total_produtos = parseFloat(valorTotalProdutos.toFixed(2));
-      await queryRunner.manager.save(savedQuotation);
       await queryRunner.manager.save(quotationItems);
 
       await queryRunner.commitTransaction();
@@ -113,7 +90,6 @@ export class QuotationsService {
     await queryRunner.startTransaction();
 
     try {
-      // Tipagem explícita para evitar o erro 'unknown'
       const quotation = await queryRunner.manager.findOne(Quotation, {
         where: { id },
         relations: ['items', 'items.product'],
@@ -121,11 +97,11 @@ export class QuotationsService {
 
       if (!quotation) throw new NotFoundException(`Cotação #${id} não encontrada.`);
 
-      quotation.transportadora_escolhida = finalizeDto.transportadoraEscolhida;
-      quotation.valor_frete = parseFloat(finalizeDto.valorFrete.toString());
-      quotation.dias_para_entrega = finalizeDto.diasParaEntrega ?? null;
+      // Atribuição de campos com defaults para o fluxo WhatsApp
+      quotation.transportadora_escolhida = finalizeDto.transportadoraEscolhida || 'WHATSAPP (Pendente)';
+      quotation.valor_frete = finalizeDto.valorFrete ? parseFloat(finalizeDto.valorFrete.toString()) : 0;
+      quotation.dias_para_entrega = finalizeDto.diasParaEntrega !== undefined ? Number(finalizeDto.diasParaEntrega) : null;
 
-      // Novos campos
       if (finalizeDto.nf) quotation.nf = finalizeDto.nf;
       if (finalizeDto.dataColeta) quotation.data_coleta = finalizeDto.dataColeta;
       if (finalizeDto.tipoFrete) quotation.tipo_frete = finalizeDto.tipoFrete;
@@ -134,57 +110,33 @@ export class QuotationsService {
       let valorIpiTotalGeral = 0;
       let novoValorTotalProdutos = 0;
 
-      if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
-        for (const item of quotation.items) {
-          // Lógica de IPI baseada no nome/categoria do produto
+      for (const item of quotation.items) {
+        const subtotal = Number(item.quantidade) * Number(item.unidades_por_caixa) * Number(item.valor_unitario);
+        novoValorTotalProdutos += subtotal;
+
+        if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
           const nome = item.product.nome.toUpperCase();
-          const categoria = (item.product as any).categoria ? (item.product as any).categoria.toUpperCase() : 'POTE';
-
-          let aliquota = 9.75; // Padrão Potes
-
-          // Se for caixa, verifica se é para pote ou normal
-          if (nome.includes('CAIXA')) {
-            if (nome.includes('POTE') || nome.includes('PARA POTE')) {
-              aliquota = 9.75;
-            } else {
-              aliquota = 3.25;
-            }
-          } else if (categoria === 'CAIXA') {
-            aliquota = 3.25;
-          }
-
-          const valorOriginalItem = parseFloat(item.valor_total_item.toString());
-          const valorIpiItem = valorOriginalItem * (aliquota / 100);
-
-          const novoValorTotalItem = parseFloat((valorOriginalItem + valorIpiItem).toFixed(2));
-          item.valor_total_item = novoValorTotalItem;
-          item.valor_unitario_na_cotacao = parseFloat((novoValorTotalItem / item.quantidade).toFixed(4));
-
+          let aliquota = 9.75;
+          if (nome.includes('TAMPA')) aliquota = 15;
+          const valorIpiItem = subtotal * (aliquota / 100);
           valorIpiTotalGeral += valorIpiItem;
-          novoValorTotalProdutos += novoValorTotalItem;
-
-          await queryRunner.manager.save(item);
         }
-
-        quotation.valor_total_produtos = parseFloat(novoValorTotalProdutos.toFixed(2));
-        quotation.valor_ipi = parseFloat(valorIpiTotalGeral.toFixed(2));
-        quotation.percentual_ipi = 0; // Removido valor único pois agora é por item
-      } else {
-        // L_LOG e outros são Isentos (IPI = 0)
-        quotation.valor_ipi = 0;
-        quotation.percentual_ipi = 0;
       }
 
-      const valorTotalNota = parseFloat(quotation.valor_total_produtos.toString()) + (quotation.valor_frete || 0);
-      quotation.valor_total_nota = parseFloat(valorTotalNota.toFixed(2));
+      quotation.valor_total_produtos = Number(novoValorTotalProdutos.toFixed(2));
+      quotation.valor_ipi = Number(valorIpiTotalGeral.toFixed(2));
+      quotation.valor_total_nota = Number((quotation.valor_total_produtos + quotation.valor_ipi + (quotation.valor_frete || 0)).toFixed(2));
 
-      // Se for L_LOG, o status permanece PENDENTE ou algo que indique que precisa de WhatsApp no front
-      // Mas aqui liberamos a finalização normal.
+      // Se for WhatsApp, mantém PENDENTE, senão pode mudar para APROVADO se houver frete
+      if (quotation.transportadora_escolhida.includes('WHATSAPP')) {
+        quotation.status = QuotationStatus.PENDENTE;
+      } else {
+        quotation.status = QuotationStatus.APROVADO;
+      }
 
-      await queryRunner.manager.save(quotation);
+      const saved = await queryRunner.manager.save(quotation);
       await queryRunner.commitTransaction();
-
-      return this.findOne(id);
+      return saved;
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
@@ -193,13 +145,23 @@ export class QuotationsService {
     }
   }
 
-  async updateStatus(id: number, status: string): Promise<Quotation> {
-    await this.quotationRepository.update(id, { status: status as any });
-    return this.findOne(id);
+  async update(id: number, updateDto: any): Promise<Quotation> {
+    // Garantir que tipos numéricos sejam convertidos se vierem como string
+    if (updateDto.valor_frete !== undefined) updateDto.valor_frete = parseFloat(updateDto.valor_frete);
+    if (updateDto.dias_para_entrega !== undefined) updateDto.dias_para_entrega = parseInt(updateDto.dias_para_entrega);
+
+    await this.quotationRepository.update(id, updateDto);
+
+    // Recalcular totais se houve mudança no frete
+    const q = await this.findOne(id);
+    q.valor_total_nota = Number((Number(q.valor_total_produtos) + Number(q.valor_ipi) + Number(q.valor_frete || 0)).toFixed(2));
+    await this.quotationRepository.save(q);
+
+    return q;
   }
 
-  async update(id: number, updateDto: any): Promise<Quotation> {
-    await this.quotationRepository.update(id, updateDto);
+  async updateStatus(id: number, status: string): Promise<Quotation> {
+    await this.quotationRepository.update(id, { status: status as any });
     return this.findOne(id);
   }
 
@@ -209,126 +171,50 @@ export class QuotationsService {
   }
 
   async getAnalytics(days: number) {
-    try {
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
 
-      // Usando find com relação client para garantir dados completos
-      const quotations = await this.quotationRepository.find({
-        where: {
-          created_at: MoreThanOrEqual(startDate),
-        },
-        relations: ['client'],
-      });
+    const quotations = await this.quotationRepository.find({
+      where: { created_at: MoreThanOrEqual(startDate) },
+      relations: ['client'],
+    });
 
-      const approved = quotations.filter(q =>
-        q.status === QuotationStatus.APROVADO || q.status === QuotationStatus.ENVIADO
-      );
+    const approved = quotations.filter(q =>
+      q.status === QuotationStatus.APROVADO || q.status === QuotationStatus.ENVIADO
+    );
 
-      const totalSpend = approved.reduce((acc, q) => acc + Number(q.valor_total_nota || 0), 0);
-      const freightCount = approved.length;
+    const totalSpend = approved.reduce((acc, q) => acc + Number(q.valor_total_nota || 0), 0);
+    const freightCount = approved.length;
+    const leadTimeItems = approved.filter(q => q.dias_para_entrega !== null);
+    const avgLeadTime = leadTimeItems.length > 0
+      ? leadTimeItems.reduce((acc, q) => acc + (q.dias_para_entrega || 0), 0) / leadTimeItems.length
+      : 0;
 
-      const leadTimeItems = approved.filter(q => q.dias_para_entrega !== null);
-      const avgLeadTime = leadTimeItems.length > 0
-        ? leadTimeItems.reduce((acc, q) => acc + (q.dias_para_entrega || 0), 0) / leadTimeItems.length
-        : 0;
-
-      const totalSavings = totalSpend * 0.12;
-
-      const dailyDataMap = new Map<string, number>();
-      approved.forEach(q => {
-        try {
-          // Usa created_at como fonte primária, fallback para data_cotacao
-          const dateObj = q.created_at || q.data_cotacao;
-          if (dateObj) {
-            const dateStr = new Date(dateObj).toISOString().split('T')[0];
-            dailyDataMap.set(dateStr, (dailyDataMap.get(dateStr) || 0) + Number(q.valor_total_nota || 0));
-          }
-        } catch (err) {
-          console.warn(`Erro ao processar data da cotação #${q.id}`);
-        }
-      });
-
-      const dailyData = Array.from(dailyDataMap.entries())
-        .map(([date, value]) => ({ date, value }))
-        .sort((a, b) => a.date.localeCompare(b.date));
-
-      const carrierMap = new Map<string, number>();
-      approved.forEach(q => {
-        if (q.transportadora_escolhida) {
-          carrierMap.set(q.transportadora_escolhida, (carrierMap.get(q.transportadora_escolhida) || 0) + 1);
-        }
-      });
-
-      const topCarriers = Array.from(carrierMap.entries())
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
-
-      return {
-        totalSpend,
-        totalSavings,
-        freightCount,
-        avgLeadTime: parseFloat(avgLeadTime.toFixed(1)),
-        dailyData,
-        topCarriers
-      };
-    } catch (error) {
-      console.error('ERRO EM getAnalytics:', error);
-      throw error;
-    }
+    return {
+      totalSpend,
+      freightCount,
+      avgLeadTime: Number(avgLeadTime.toFixed(1)),
+      totalSavings: totalSpend * 0.12,
+    };
   }
 
   async getDashboardStats() {
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    const total = await this.quotationRepository.count();
+    const active = await this.quotationRepository.count({
+      where: { status: QuotationStatus.APROVADO },
+    });
+    const pending = await this.quotationRepository.count({
+      where: { status: QuotationStatus.PENDENTE },
+    });
 
-      const quotationsToday = await this.quotationRepository.count({
-        where: {
-          created_at: MoreThanOrEqual(today)
-        }
-      });
-
-      const approvedResults = await this.quotationRepository
-        .createQueryBuilder('q')
-        .select('SUM(q.valor_total_nota)', 'total')
-        .addSelect('COUNT(q.id)', 'count')
-        .where('q.status IN (:...statuses)', { statuses: [QuotationStatus.APROVADO, QuotationStatus.ENVIADO] })
-        .getRawOne();
-
-      const totalValue = parseFloat(approvedResults.total || 0);
-      const approvedCount = parseInt(approvedResults.count || 0);
-
-      const pendingCount = await this.quotationRepository.count({
-        where: { status: QuotationStatus.PENDENTE }
-      });
-
-      const totalQuotes = await this.quotationRepository.count();
-      const conversionRate = totalQuotes > 0 ? (approvedCount / totalQuotes) * 100 : 0;
-
-      return {
-        quotationsToday,
-        totalValue,
-        pendingCount,
-        conversionRate: parseFloat(conversionRate.toFixed(1))
-      };
-    } catch (error) {
-      console.error('Erro ao buscar estatísticas do dashboard:', error);
-      throw error;
-    }
+    return { total, active, pending };
   }
 
-  async getRecentQuotations(limit = 5) {
-    try {
-      return await this.quotationRepository.find({
-        relations: ['client'],
-        order: { id: 'DESC' },
-        take: limit
-      });
-    } catch (error) {
-      console.error('Erro ao buscar cotações recentes:', error);
-      throw error;
-    }
+  async getRecentQuotations(limit: number): Promise<Quotation[]> {
+    return this.quotationRepository.find({
+      relations: ['client'],
+      order: { created_at: 'DESC' },
+      take: limit,
+    });
   }
 }
