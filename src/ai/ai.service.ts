@@ -54,7 +54,7 @@ export class AiService {
         }));
 
         if (!this.genAI) {
-            return this.generateDynamicFallback(recentQuotations, totalValue, approvedCount, pendingCount);
+            return { ...this.generateDynamicFallback(recentQuotations, totalValue, approvedCount, pendingCount, carrierMetrics), carrierMetrics };
         }
 
         try {
@@ -80,52 +80,48 @@ export class AiService {
             const response = await result.response;
             const text = response.text();
 
+            console.log('Gemini raw response:', text);
             const cleanJson = text.replace(/```json|```/gi, '').trim();
             const aiResponse = JSON.parse(cleanJson);
 
-            // Garantir que os dados de métricas reais sejam retornados se a IA não retornar ou para consistência
             return {
-                insights: aiResponse.insights,
+                insights: aiResponse.insights || [],
                 carrierMetrics: carrierMetrics.length > 0 ? carrierMetrics : (aiResponse.carrierMetrics || [])
             };
         } catch (error) {
-            console.error('Erro ao gerar insights com Gemini:', error);
-            const fallback = this.generateDynamicFallback(recentQuotations, totalValue, approvedCount, pendingCount);
+            console.error('Erro no Gemini ou no JSON:', error);
+            const fallback = this.generateDynamicFallback(recentQuotations, totalValue, approvedCount, pendingCount, carrierMetrics);
             return { ...fallback, carrierMetrics };
         }
     }
 
-    private generateDynamicFallback(recent: Quotation[], totalValue: number, approved: number, pending: number) {
+    private generateDynamicFallback(recent: Quotation[], totalValue: number, approved: number, pending: number, carrierMetrics: any[]) {
         const insights: any[] = [];
 
-        if (pending > 0) {
+        if (carrierMetrics.length > 0) {
+            const sorted = [...carrierMetrics].sort((a, b) => b.value - a.value);
+            const top = sorted[0];
             insights.push({
-                type: 'Alerta',
-                text: `Existem ${pending} cotações aguardando finalização. Conclua hoje para evitar atrasos na coleta.`
+                type: 'Oportunidade',
+                text: `${top.name} concentra R$ ${Number(top.value).toFixed(2)} das suas cotações. Negocie uma redução baseada no volume.`
             });
         }
 
         if (recent.length > 0) {
             const conversion = Math.round((approved / recent.length) * 100);
             insights.push({
-                type: 'Oportunidade',
-                text: `Sua taxa de conversão na última semana foi de ${conversion}%. Considere renegociar fretes para bater a meta de 80%.`
+                type: 'Dica',
+                text: `Sua taxa de conversão atual é de ${conversion}%. Transportadoras com melhor lead time tendem a aumentar este índice.`
             });
         }
 
-        if (totalValue > 5000) {
+        if (pending > 0) {
             insights.push({
-                type: 'Dica',
-                text: `Volume negociado de R$ ${totalValue.toLocaleString('pt-BR')} justifica a solicitação de uma tabela spot com as principais transportadoras.`
-            });
-        } else {
-            insights.push({
-                type: 'Dica',
-                text: 'Consolidar mais itens em uma única cotação pode reduzir o valor do frete mínimo em até 20%.'
+                type: 'Alerta',
+                text: `Existem ${pending} cotações aguardando finalização. Conclua-as para agilizar o processo de coleta.`
             });
         }
 
-        // Garantir que sempre tenha ao menos 2
         if (insights.length < 2) {
             insights.push({ type: 'Dica', text: 'Mantenha o cadastro de clientes sempre atualizado para agilizar a emissão de minutas.' });
         }

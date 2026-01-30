@@ -276,13 +276,17 @@ export class QuotationsService {
       .sort((a, b) => a.date.localeCompare(b.date));
 
     // Agrupar por transportadora para topCarriers
-    const carrierMap = new Map<string, number>();
+    const carrierMap = new Map<string, { count: number, value: number }>();
     approved.forEach(q => {
       const name = q.transportadora_escolhida || 'Outros/Manual';
-      carrierMap.set(name, (carrierMap.get(name) || 0) + 1);
+      const current = carrierMap.get(name) || { count: 0, value: 0 };
+      carrierMap.set(name, {
+        count: current.count + 1,
+        value: current.value + Number(q.valor_total_nota || 0)
+      });
     });
     const topCarriers = Array.from(carrierMap.entries())
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, data]) => ({ name, count: data.count, value: data.value }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
