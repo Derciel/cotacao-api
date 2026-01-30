@@ -7,7 +7,8 @@ import {
   UpdateDateColumn,
   ManyToOne,
   OneToMany,
-  JoinColumn
+  JoinColumn,
+  type Relation
 } from 'typeorm';
 import { QuotationItem } from './quotation-item.entity.js';
 import { ApiProperty } from '@nestjs/swagger';
@@ -47,7 +48,7 @@ export class Quotation {
   @OneToMany(() => QuotationItem, (item) => item.quotation, {
     cascade: true,
   })
-  items!: QuotationItem[];
+  items!: Relation<QuotationItem>[];
 
   @Column({ type: 'date' })
   data_cotacao!: Date;

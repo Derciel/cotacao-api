@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, type Relation } from 'typeorm';
 import { Product } from '../../products/entities/product.entity.js';
 import { Quotation } from './quotation.entity.js';
 
@@ -9,11 +9,11 @@ export class QuotationItem {
 
   @ManyToOne(() => Quotation, (quotation: Quotation) => quotation.items) // Tipagem explícita para evitar TS18046
   @JoinColumn({ name: 'quotation_id' })
-  quotation!: Quotation;
+  quotation!: Relation<Quotation>;
 
   @ManyToOne(() => Product, { eager: true })
   @JoinColumn({ name: 'product_id' })
-  product!: Product;
+  product!: Relation<Product>;
 
   @Column()
   quantidade!: number;
