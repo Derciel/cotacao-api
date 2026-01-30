@@ -32,7 +32,13 @@ export class QuotationsService {
       quotation.tipo_frete = createDto.tipoFrete || '';
       quotation.obs = createDto.obs || '';
       quotation.empresa_faturamento = createDto.empresaFaturamento;
-      quotation.numero_pedido_manual = createDto.numeroPedidoManual || '';
+
+      // Corrigido para evitar erro de constraint UNIQUE '"UQ_quotations_numero_pedido_manual"'
+      // No Postgres, múltiplos NULLs são permitidos em uma index única, mas múltiplas strings vazias não.
+      quotation.numero_pedido_manual = createDto.numeroPedidoManual && createDto.numeroPedidoManual.trim() !== ''
+        ? createDto.numeroPedidoManual.trim()
+        : null;
+
       quotation.percentual_ipi = createDto.percentualIpi || 0;
       quotation.status = QuotationStatus.PENDENTE;
 
@@ -65,21 +71,28 @@ export class QuotationsService {
         accumulatedTotalProdutos += subtotal;
 
         // Lógica de IPI
+        let aliquotaResult = 0;
         if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
           const nome = product.nome.toUpperCase();
           const categoria = product.categoria ? product.categoria.toUpperCase() : 'POTE';
-          let aliquota = 9.75;
+          aliquotaResult = 9.75;
 
           if (categoria === 'CAIXA') {
             if (nome.includes('POTE') || nome.includes('PT')) {
-              aliquota = 9.75;
+              aliquotaResult = 9.75;
             } else {
-              aliquota = 15;
+              aliquotaResult = 15;
             }
           } else if (nome.includes('TAMPA')) {
-            aliquota = 15;
+            aliquotaResult = 15;
           }
-          accumulatedIpi += subtotal * (aliquota / 100);
+        } else if (createDto.percentualIpi) {
+          // Se não for Nicopel mas houver IPI manual no cabeçalho
+          aliquotaResult = createDto.percentualIpi;
+        }
+
+        if (aliquotaResult > 0) {
+          accumulatedIpi += subtotal * (aliquotaResult / 100);
         }
 
         quotationItems.push(qItem);
@@ -142,7 +155,13 @@ export class QuotationsService {
       if (finalizeDto.nf) quotation.nf = finalizeDto.nf;
       if (finalizeDto.dataColeta) quotation.data_coleta = finalizeDto.dataColeta;
       if (finalizeDto.tipoFrete) quotation.tipo_frete = finalizeDto.tipoFrete;
-      if (finalizeDto.numeroPedidoManual) quotation.numero_pedido_manual = finalizeDto.numeroPedidoManual;
+
+      // Mesmo ajuste para o número do pedido no finalize
+      if (finalizeDto.numeroPedidoManual !== undefined) {
+        quotation.numero_pedido_manual = finalizeDto.numeroPedidoManual && finalizeDto.numeroPedidoManual.trim() !== ''
+          ? finalizeDto.numeroPedidoManual.trim()
+          : null;
+      }
 
       let valorIpiTotalGeral = 0;
       let novoValorTotalProdutos = 0;
@@ -152,21 +171,27 @@ export class QuotationsService {
         const subtotal = Number(item.quantidade) * unitsPerBox * Number(item.valor_unitario_na_cotacao);
         novoValorTotalProdutos += subtotal;
 
+        let aliquotaResult = 0;
         if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
           const nome = item.product ? item.product.nome.toUpperCase() : '';
           const categoria = (item.product as any)?.categoria ? (item.product as any).categoria.toUpperCase() : 'POTE';
-          let aliquota = 9.75;
+          aliquotaResult = 9.75;
 
           if (categoria === 'CAIXA') {
             if (nome.includes('POTE') || nome.includes('PT')) {
-              aliquota = 9.75;
+              aliquotaResult = 9.75;
             } else {
-              aliquota = 15;
+              aliquotaResult = 15;
             }
           } else if (nome.includes('TAMPA')) {
-            aliquota = 15;
+            aliquotaResult = 15;
           }
-          valorIpiTotalGeral += subtotal * (aliquota / 100);
+        } else if (quotation.percentual_ipi) {
+          aliquotaResult = quotation.percentual_ipi;
+        }
+
+        if (aliquotaResult > 0) {
+          valorIpiTotalGeral += subtotal * (aliquotaResult / 100);
         }
       }
 
@@ -194,6 +219,13 @@ export class QuotationsService {
   async update(id: number, updateDto: any): Promise<Quotation> {
     if (updateDto.valor_frete !== undefined) updateDto.valor_frete = parseFloat(updateDto.valor_frete);
     if (updateDto.dias_para_entrega !== undefined) updateDto.dias_para_entrega = parseInt(updateDto.dias_para_entrega);
+
+    // Se vier numero_pedido_manual, tratar para null se vazio
+    if (updateDto.numero_pedido_manual !== undefined) {
+      updateDto.numero_pedido_manual = updateDto.numero_pedido_manual && updateDto.numero_pedido_manual.trim() !== ''
+        ? updateDto.numero_pedido_manual.trim()
+        : null;
+    }
 
     await this.quotationRepository.update(id, updateDto);
 

@@ -29,17 +29,16 @@ export enum QuotationStatus {
 @Entity({ name: 'quotations' })
 export class Quotation {
   @PrimaryGeneratedColumn()
-  id!: number; // Adicionado '!' para erro TS2564
+  id!: number;
 
   @ApiProperty({ description: 'Número do pedido/cotação definido manualmente pelo usuário', required: false, example: 'COT-2025-001' })
   @Column({
     type: 'varchar',
     length: 50,
     nullable: true,
-    unique: true,
     comment: 'Número do pedido/cotação definido manualmente pelo usuário',
   })
-  numero_pedido_manual!: string;
+  numero_pedido_manual!: string | null;
 
   @ManyToOne(() => Client)
   @JoinColumn({ name: 'client_id' })
