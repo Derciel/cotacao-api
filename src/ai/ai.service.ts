@@ -30,30 +30,56 @@ export class AiService {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
+            let quotationsCount: number;
+            let recentQuotations: Quotation[];
+            let timeFrameDescription: string;
+
             const totalToday = await this.quotationRepository.count({
                 where: { created_at: MoreThanOrEqual(today) }
             });
 
-            const recentQuotations = await this.quotationRepository.find({
-                order: { created_at: 'DESC' },
-                take: 10,
-                relations: ['client']
-            });
+            if (totalToday === 0) {
+                // Se não houver cotações hoje, expande para os últimos 7 dias
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(today.getDate() - 7);
+                sevenDaysAgo.setHours(0, 0, 0, 0);
+
+                quotationsCount = await this.quotationRepository.count({
+                    where: { created_at: MoreThanOrEqual(sevenDaysAgo) }
+                });
+                recentQuotations = await this.quotationRepository.find({
+                    where: { created_at: MoreThanOrEqual(sevenDaysAgo) },
+                    order: { created_at: 'DESC' },
+                    take: 10,
+                    relations: ['client']
+                });
+                timeFrameDescription = 'dos últimos 7 dias';
+            } else {
+                // Caso contrário, usa os dados de hoje
+                quotationsCount = totalToday;
+                recentQuotations = await this.quotationRepository.find({
+                    where: { created_at: MoreThanOrEqual(today) },
+                    order: { created_at: 'DESC' },
+                    take: 10,
+                    relations: ['client']
+                });
+                timeFrameDescription = 'de hoje';
+            }
 
             const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-            const prompt = `Você é um consultor logístico especialista da empresa Nicopel Cargo. 
-      Analise os dados abaixo e forneça 2 insights curtos e práticos para o dashboard.
-      Cada insight deve ter no máximo 150 caracteres.
+            const prompt = `Você é um consultor logístico especialista da Nicopel Cargo, focado em otimização de fretes e processos.
+      Analise os dados de cotações ${timeFrameDescription} abaixo e forneça 2 insights curtos e práticos para o dashboard.
+      Cada insight deve ter no máximo 150 caracteres e ser relevante para a gestão logística.
       Retorne em formato JSON: { "insights": [ { "type": "Oportunidade/Dica/Alerta", "text": "..." }, ... ] }
-      
-      Dados de hoje: ${totalToday} cotações.
+
+      Dados de cotações ${timeFrameDescription}: ${quotationsCount} cotações.
       Cotações recentes: ${JSON.stringify(recentQuotations.map(q => ({
                 cliente: q.client?.fantasia || q.client?.razao_social,
                 valor: q.valor_total_nota,
                 status: q.status
             })))}
-      
+
       Importante: Responda apenas o JSON.`;
 
             const result = await model.generateContent(prompt);

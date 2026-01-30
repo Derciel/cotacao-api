@@ -18,6 +18,11 @@ export class UsersService {
     }
 
     async create(userData: any) {
+        // Se o ID vier vazio do frontend, removemos para o TypeORM gerar um novo
+        if (userData.id === '' || userData.id === null) {
+            delete userData.id;
+        }
+
         const hashedPassword = await bcrypt.hash(userData.password, 10);
         const newUser = this.userRepository.create({
             ...userData,
