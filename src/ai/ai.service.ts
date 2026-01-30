@@ -40,6 +40,19 @@ export class AiService {
         const approvedCount = recentQuotations.filter(q => q.status === QuotationStatus.APROVADO).length;
         const pendingCount = recentQuotations.filter(q => q.status === QuotationStatus.PENDENTE).length;
 
+        // Análise por transportadora
+        const carrierMap = new Map<string, { count: number, value: number }>();
+        recentQuotations.filter(q => q.status === QuotationStatus.APROVADO || q.status === QuotationStatus.ENVIADO).forEach(q => {
+            const name = q.transportadora_escolhida || 'Manual/Outros';
+            const cur = carrierMap.get(name) || { count: 0, value: 0 };
+            carrierMap.set(name, { count: cur.count + 1, value: cur.value + Number(q.valor_total_nota || 0) });
+        });
+        const carrierMetrics = Array.from(carrierMap.entries()).map(([name, data]) => ({
+            name,
+            count: data.count,
+            value: data.value
+        }));
+
         if (!this.genAI) {
             return this.generateDynamicFallback(recentQuotations, totalValue, approvedCount, pendingCount);
         }
@@ -55,27 +68,30 @@ export class AiService {
       - Total de Cotações Analisadas: ${recentQuotations.length}
       - Valor Bruto em Negociação: R$ ${totalValue.toFixed(2)}
       - Taxa de Conversão Atual: ${recentQuotations.length > 0 ? Math.round((approvedCount / recentQuotations.length) * 100) : 0}%
-      - Cotações Pendentes: ${pendingCount}
+      Métricas por Transportadora (7 dias):
+      ${JSON.stringify(carrierMetrics)}
 
-      Lista para Análise:
-      ${JSON.stringify(recentQuotations.map(q => ({
-                cliente: q.client?.fantasia || q.client?.razao_social,
-                valor: q.valor_total_nota,
-                status: q.status,
-                transportadora: q.transportadora_escolhida
-            })))}
-
-      Retorne APENAS um JSON no formato: { "insights": [ { "type": "Oportunidade/Dica/Alerta", "text": "..." } ] }`;
+      Retorne APENAS um JSON no formato: { 
+        "insights": [ { "type": "Oportunidade/Dica/Alerta", "text": "..." } ],
+        "carrierMetrics": [ { "name": "...", "value": 0, "count": 0 } ]
+      }`;
 
             const result = await model.generateContent(prompt);
             const response = await result.response;
             const text = response.text();
 
             const cleanJson = text.replace(/```json|```/gi, '').trim();
-            return JSON.parse(cleanJson);
+            const aiResponse = JSON.parse(cleanJson);
+
+            // Garantir que os dados de métricas reais sejam retornados se a IA não retornar ou para consistência
+            return {
+                insights: aiResponse.insights,
+                carrierMetrics: carrierMetrics.length > 0 ? carrierMetrics : (aiResponse.carrierMetrics || [])
+            };
         } catch (error) {
             console.error('Erro ao gerar insights com Gemini:', error);
-            return this.generateDynamicFallback(recentQuotations, totalValue, approvedCount, pendingCount);
+            const fallback = this.generateDynamicFallback(recentQuotations, totalValue, approvedCount, pendingCount);
+            return { ...fallback, carrierMetrics };
         }
     }
 
