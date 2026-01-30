@@ -64,8 +64,7 @@ export class QuotationsService {
         const valUnit = item.valorUnitario !== undefined ? item.valorUnitario : Number(product.valor_unitario);
         qItem.valor_unitario_na_cotacao = valUnit;
 
-        const unitsPerBox = product.unidades_caixa ? Number(product.unidades_caixa) : 1;
-        const subtotal = Number((qItem.quantidade * unitsPerBox * qItem.valor_unitario_na_cotacao).toFixed(2));
+        const subtotal = Number((qItem.quantidade * qItem.valor_unitario_na_cotacao).toFixed(2));
         qItem.valor_total_item = subtotal;
 
         accumulatedTotalProdutos += subtotal;
@@ -167,8 +166,7 @@ export class QuotationsService {
       let novoValorTotalProdutos = 0;
 
       for (const item of quotation.items) {
-        const unitsPerBox = item.product ? Number(item.product.unidades_caixa) : 1;
-        const subtotal = Number(item.quantidade) * unitsPerBox * Number(item.valor_unitario_na_cotacao);
+        const subtotal = Number(item.quantidade) * Number(item.valor_unitario_na_cotacao);
         novoValorTotalProdutos += subtotal;
 
         let aliquotaResult = 0;
