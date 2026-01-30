@@ -1,0 +1,60 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import CadastrarClienteComponent from '../components/CadastrarCliente.vue';
+---
+
+<MainLayout title="Cadastrar Cliente | Nicopel Cargo">
+  <div class="page-container">
+    <header class="page-header">
+      <div class="header-left">
+        <h1>Cadastro de Cliente</h1>
+        <p>Adicione novos parceiros comerciais com agilidade e precisão.</p>
+      </div>
+      <div class="header-right">
+         <a href="/" class="btn-back"><i class="fas fa-arrow-left"></i> Voltar ao Dashboard</a>
+      </div>
+    </header>
+
+    <CadastrarClienteComponent client:load />
+  </div>
+</MainLayout>
+
+<style>
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+    gap: 30px;
+    flex-wrap: wrap;
+  }
+
+  .header-left h1 {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin: 0;
+    letter-spacing: -1px;
+  }
+
+  .header-left p {
+    color: var(--text-light);
+    font-size: 1.1rem;
+    margin-top: 5px;
+  }
+
+  .btn-back {
+    color: var(--text-light);
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-back:hover { color: var(--primary); }
+
+  @media (max-width: 1024px) {
+    .page-header { flex-direction: column; align-items: flex-start; }
+  }
+</style>

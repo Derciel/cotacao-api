@@ -1,0 +1,181 @@
+---
+interface Props {
+	title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="description" content="Sistema de Cotação EstoquePro" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+		
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+		
+		<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+		<title>{title}</title>
+	</head>
+	<body>
+		
+		<nav class="navbar">
+			<div class="nav-content">
+				<a href="/" class="logo">
+					<i class="fas fa-truck-fast"></i>
+					ESTOQUE<span>PRO</span>
+				</a>
+				
+				<div class="nav-links">
+					<a href="/" class="nav-item">Dashboard</a>
+					<a href="/nova-cotacao" class="nav-item active">Nova Cotação</a>
+					<a href="/historico" class="nav-item">Histórico</a>
+				</div>
+
+				<div class="user-profile">
+					<span class="user-name">João Silva</span>
+					<div class="avatar">JS</div>
+				</div>
+			</div>
+		</nav>
+
+		<main class="main-container">
+			<slot />
+		</main>
+
+		<footer class="footer">
+			<p>&copy; 2026 EstoquePro - Logística Inteligente</p>
+		</footer>
+
+		<div id="toast-container"></div>
+
+		<script is:inline>
+			window.showToast = function(message, type = 'info', duration = 5000) {
+				const container = document.getElementById('toast-container');
+				const toast = document.createElement('div');
+				
+				const colors = {
+					success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#004a99'
+				};
+				
+				toast.style.background = colors[type];
+				toast.className = 'toast-message';
+				toast.innerHTML = `<span>${message}</span> <button onclick="this.parentElement.remove()">&times;</button>`;
+				
+				container.appendChild(toast);
+				
+				setTimeout(() => {
+					toast.style.opacity = '0';
+					setTimeout(() => toast.remove(), 300);
+				}, duration);
+			};
+		</script>
+	</body>
+</html>
+
+<style is:global>
+	/* --- VARIÁVEIS GLOBAIS --- */
+	:root {
+		--primary: #004a99;
+		--primary-dark: #003366;
+		--accent: #f39c12;
+		--bg-body: #f4f7fa;
+		--text-main: #1e293b;
+		--text-light: #64748b;
+		--white: #ffffff;
+		--border: #e2e8f0;
+	}
+
+	* { box-sizing: border-box; margin: 0; padding: 0; }
+
+	body {
+		font-family: 'Inter', sans-serif;
+		background-color: var(--bg-body);
+		color: var(--text-main);
+		display: flex;
+		flex-direction: column;
+		min-height: 100vh;
+	}
+
+	/* --- NAVBAR --- */
+	.navbar {
+		background-color: var(--primary);
+		height: 70px;
+		display: flex;
+		align-items: center;
+		box-shadow: 0 4px 15px rgba(0,74,153,0.2);
+		position: sticky; top: 0; z-index: 1000;
+	}
+
+	.nav-content {
+		max-width: 1200px; width: 100%; margin: 0 auto; padding: 0 20px;
+		display: flex; justify-content: space-between; align-items: center;
+	}
+
+	.logo {
+		font-size: 1.4rem; font-weight: 900; color: white;
+		text-decoration: none; letter-spacing: -0.5px;
+		display: flex; align-items: center; gap: 10px;
+	}
+	.logo span { color: var(--accent); }
+
+	.nav-links { display: flex; gap: 20px; }
+	.nav-item {
+		color: rgba(255,255,255,0.7); text-decoration: none;
+		font-weight: 600; font-size: 0.9rem; transition: 0.3s; padding: 5px 10px; border-radius: 4px;
+	}
+	.nav-item:hover, .nav-item.active { color: white; background: rgba(255,255,255,0.1); }
+
+	/* PERFIL */
+	.user-profile { display: flex; align-items: center; gap: 10px; color: white; }
+	.user-name { font-size: 0.85rem; font-weight: 500; }
+	.avatar {
+		width: 32px; height: 32px; background: var(--accent); border-radius: 50%;
+		display: flex; align-items: center; justify-content: center;
+		font-weight: 800; font-size: 0.8rem; color: white;
+	}
+
+	/* --- LAYOUT --- */
+	.main-container {
+		flex: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: 40px 20px;
+	}
+
+	/* --- FOOTER --- */
+	.footer {
+		text-align: center; padding: 20px; background: white;
+		border-top: 1px solid var(--border); color: var(--text-light); font-size: 0.85rem;
+	}
+
+	/* --- TOAST NOTIFICATIONS --- */
+	#toast-container {
+		position: fixed; bottom: 20px; right: 20px; z-index: 2000;
+		display: flex; flex-direction: column; gap: 10px;
+	}
+	.toast-message {
+		min-width: 300px; padding: 15px 20px; border-radius: 8px; color: white;
+		box-shadow: 0 5px 15px rgba(0,0,0,0.2); font-weight: 600;
+		display: flex; justify-content: space-between; align-items: center;
+		animation: slideIn 0.3s ease; transition: opacity 0.3s;
+	}
+	.toast-message button {
+		background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer;
+	}
+
+	@keyframes slideIn {
+		from { transform: translateX(100%); }
+		to { transform: translateX(0); }
+	}
+
+	/* RESPONSIVIDADE */
+	@media (max-width: 768px) {
+		.nav-links { display: none; }
+		.user-name { display: none; }
+	}
+</style>

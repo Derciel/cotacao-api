@@ -1,0 +1,256 @@
+---
+import Layout from '../layouts/MainLayout.astro';
+---
+
+<Layout title="Login | Nicopel Cargo" hideNavbar={true}>
+  <div class="login-container">
+    <div class="login-card glass-premium animate-fade-in">
+      <div class="login-header">
+        <div class="brand-logo-large">
+          <img src="/logo-npcargo.jpg" alt="Nicopel Cargo Logo" />
+        </div>
+        <h1>Bem-vindo à Nicopel Cargo</h1>
+        <p>Acesse sua plataforma logística inteligente</p>
+      </div>
+
+      <form id="login-form" class="login-form">
+        <div class="form-group">
+          <label for="username">Usuário</label>
+          <div class="input-wrapper">
+            <i class="fas fa-user"></i>
+            <input type="text" id="username" name="username" placeholder="Seu usuário" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Senha</label>
+          <div class="input-wrapper">
+            <i class="fas fa-lock"></i>
+            <input type="password" id="password" name="password" placeholder="Sua senha" required />
+          </div>
+        </div>
+
+        <button type="submit" class="btn-login" id="login-btn">
+          <span>Entrar no Sistema</span>
+          <i class="fas fa-arrow-right"></i>
+        </button>
+      </form>
+
+      <div class="login-footer">
+        <p>Esqueceu sua senha? Entre em contato com o administrador.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script is:inline>
+  const loginForm = document.getElementById('login-form');
+  const loginBtn = document.getElementById('login-btn');
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(loginForm);
+    const body = Object.fromEntries(formData.entries());
+
+    loginBtn.disabled = true;
+    loginBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Autenticando...';
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.access_token) {
+        localStorage.setItem('auth_token', data.access_token);
+        localStorage.setItem('user_info', JSON.stringify({
+          username: data.user.username, // Assuming data.user contains username
+          role: data.user.role,         // Assuming data.user contains role
+          permissions: data.user.permissions || [] // Assuming data.user contains permissions
+        }));
+        
+        window.showToast('Login realizado com sucesso!', 'success');
+        
+        // Redireciona para o dashboard
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1000);
+      } else {
+        window.showToast(data.message || 'Erro ao realizar login', 'error');
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = '<span>Entrar no Sistema</span> <i class="fas fa-arrow-right"></i>';
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      window.showToast('Erro de conexão com o servidor', 'error');
+      loginBtn.disabled = false;
+      loginBtn.innerHTML = '<span>Entrar no Sistema</span> <i class="fas fa-arrow-right"></i>';
+    }
+  });
+
+  // Se já estiver logado, redireciona
+  if (localStorage.getItem('auth_token')) {
+    window.location.href = '/';
+  }
+</script>
+
+<style>
+  .login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 250px);
+    padding: 20px;
+  }
+
+  .login-card {
+    width: 100%;
+    max-width: 450px;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(15px);
+    border-radius: 24px;
+    padding: 50px 40px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+  }
+
+  .login-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .brand-large {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+  }
+
+  .brand-logo-large {
+    width: 220px;
+    height: 80px;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .brand-logo-large img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  .brand-large h1 {
+    font-size: 2rem;
+    font-weight: 850;
+    letter-spacing: -1px;
+    background: linear-gradient(90deg, #2563eb, #4f46e5);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+  }
+
+  .login-header p {
+    color: #6b7280;
+    font-size: 0.95rem;
+  }
+
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-group label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #374151;
+    margin-left: 4px;
+  }
+
+  .input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .input-wrapper i {
+    position: absolute;
+    left: 16px;
+    color: #9ca3af;
+    font-size: 1rem;
+  }
+
+  .input-wrapper input {
+    width: 100%;
+    padding: 14px 16px 14px 48px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    outline: none;
+  }
+
+  .input-wrapper input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+  }
+
+  .btn-login {
+    margin-top: 10px;
+    background: linear-gradient(135deg, #2563eb, #1e40af);
+    color: white;
+    padding: 16px;
+    border-radius: 12px;
+    border: none;
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+  }
+
+  .btn-login:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 25px -5px rgba(37, 99, 235, 0.4);
+  }
+
+  .btn-login:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .login-footer {
+    margin-top: 30px;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #9ca3af;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>

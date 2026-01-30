@@ -1,0 +1,128 @@
+<div class="search-wrapper">
+  <label for="clientSearch" class="search-label">
+    BUSCAR CLIENTE NA BASE
+    <span v-if="isLoading" class="status-text">Pesquisando...</span>
+  </label>
+  
+  <div class="input-container">
+    <div class="icon-slot left">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+    </div>
+
+    <input 
+      id="clientSearch"
+      type="text" 
+      v-model="modalSearch" 
+      @input="handleSearchInput" 
+      placeholder="Digite CNPJ ou Razão Social..." 
+      class="robust-search-input"
+      autocomplete="off"
+    >
+
+    <div v-if="isLoading" class="icon-slot right">
+      <div class="spinner"></div>
+    </div>
+  </div>
+</div>
+
+<style scoped>
+/* --- ESTILO ROBUSTO & MODERNO --- */
+
+.search-wrapper {
+  width: 100%;
+  margin-bottom: 25px;
+  position: relative;
+}
+
+/* Label estilizada */
+.search-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #004a99; /* Azul Marca */
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+  padding-left: 15px; /* Alinhado com o arredondamento */
+}
+
+.status-text {
+  color: #f39c12; /* Laranja Marca */
+  animation: pulse 1.5s infinite;
+}
+
+/* Container do Input */
+.input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Ícones Absolutos */
+.icon-slot {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.icon-slot.left {
+  left: 20px;
+  color: #94a3b8;
+  transition: color 0.3s;
+}
+
+.icon-slot.right {
+  right: 20px;
+}
+
+/* Input Principal "Pill" */
+.robust-search-input {
+  width: 100%;
+  padding: 16px 50px 16px 55px; /* Espaço para ícones */
+  border-radius: 999px; /* Pill Shape Perfeito */
+  border: 2px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #1e293b;
+  outline: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+}
+
+/* Estado de Foco (Ativo) */
+.robust-search-input:focus {
+  background: #ffffff;
+  border-color: #004a99;
+  box-shadow: 0 0 0 5px rgba(0, 74, 153, 0.15), 0 10px 20px -5px rgba(0, 74, 153, 0.1);
+}
+
+/* Quando focado, muda a cor do ícone */
+.robust-search-input:focus ~ .icon-slot.left {
+  color: #004a99;
+}
+
+/* Spinner Animado */
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #f39c12; /* Laranja */
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 50% { opacity: 0.5; } }
+
+/* Placeholder Styling */
+::placeholder { color: #cbd5e1; font-weight: 400; }
+</style>

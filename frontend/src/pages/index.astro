@@ -1,0 +1,215 @@
+---
+// src/pages/index.astro
+import MainLayout from '../layouts/MainLayout.astro';
+import DashboardStats from '../components/DashboardStats.vue';
+import RecentQuotations from '../components/RecentQuotations.vue';
+import AIInsights from '../components/AIInsights.vue';
+import QuickActions from '../components/QuickActions.astro';
+---
+
+<MainLayout title="Dashboard | Nicopel Cargo">
+  <div class="dashboard-header animate-fade-in">
+    <div class="header-content">
+      <h1>Olá, João! 👋</h1>
+      <p>Bem-vindo ao seu painel estratégico de logística.</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn-secondary"><i class="fas fa-download"></i> Exportar Dados</button>
+      <a href="/nova-cotacao" class="btn-primary"><i class="fas fa-plus"></i> Nova Cotação</a>
+    </div>
+  </div>
+  
+  <DashboardStats client:load />
+  
+  <div class="dashboard-grid">
+    <div class="grid-main">
+      <RecentQuotations client:load />
+    </div>
+    
+    <div class="grid-side">
+      <QuickActions />
+    </div>
+  </div>
+
+  <AIInsights client:load />
+</MainLayout>
+
+<script is:inline>
+  // Auth Check
+  function checkAuth() {
+    const token = localStorage.getItem('auth_token');
+    const userInfo = localStorage.getItem('user_info');
+    
+    if (!token || !userInfo) {
+      window.location.href = '/login';
+      return;
+    }
+
+    const user = JSON.parse(userInfo);
+    
+    // Atualiza nome do usuário se houver elemento
+    const welcomeTitle = document.querySelector('.header-content h1');
+    if (welcomeTitle) {
+      welcomeTitle.innerHTML = 'Olá, ' + user.username + '! 👋';
+    }
+  }
+
+  checkAuth();
+</script>
+
+<style>
+  .dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+    gap: 30px;
+  }
+
+  .header-content h1 {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin: 0;
+    letter-spacing: -1px;
+  }
+
+  .header-content p {
+    color: var(--text-light);
+    font-size: 1.1rem;
+    margin-top: 5px;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.2);
+    transition: 0.2s;
+  }
+
+  .btn-secondary {
+    background: white;
+    color: var(--text-main);
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  .btn-primary:hover, .btn-secondary:hover {
+    transform: translateY(-2px);
+  }
+
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 40px;
+  }
+
+  .grid-main {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  .ai-insight-card {
+    border: 1px solid rgba(37, 99, 235, 0.1);
+    background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%);
+  }
+
+  .insight-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 25px;
+  }
+
+  .ai-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--primary);
+    color: white;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    box-shadow: 0 8px 16px rgba(37, 99, 235, 0.2);
+  }
+
+  .ai-title h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--primary);
+  }
+
+  .ai-title p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-light);
+  }
+
+  .insight-body {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .insight-item {
+    display: flex;
+    gap: 12px;
+    padding: 15px;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+
+  .status-dot.green { background: #10b981; }
+  .status-dot.blue { background: #3b82f6; }
+
+  @media (max-width: 1024px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr;
+    }
+    .grid-side {
+      order: -1;
+    }
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.8s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>

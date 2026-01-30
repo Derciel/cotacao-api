@@ -1,0 +1,95 @@
+---
+// src/components/DashboardStats.astro
+const stats = [
+  { label: 'Cotações Hoje', value: '12', icon: 'fas fa-file-invoice', color: 'blue' },
+  { label: 'Valor Total', value: 'R$ 4.5k', icon: 'fas fa-dollar-sign', color: 'green' },
+  { label: 'Aguardando', value: '5', icon: 'fas fa-clock', color: 'orange' },
+  { label: 'Taxa de Conv.', value: '32%', icon: 'fas fa-chart-line', color: 'purple' }
+];
+---
+
+<div class="stats-grid">
+  {stats.map(stat => (
+    <div class="stat-card glass-premium">
+      <div class={`icon-wrapper bg-${stat.color}`}>
+        <i class={stat.icon}></i>
+      </div>
+      <div class="stat-info">
+        <span class="label text-muted">{stat.label}</span>
+        <strong class="value text-main">{stat.value}</strong>
+      </div>
+    </div>
+  ))}
+</div>
+
+<style>
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 30px;
+    margin-bottom: 50px;
+  }
+
+  .stat-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(8px);
+    padding: 24px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.03), 0 4px 6px -2px rgba(0,0,0,0.02);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: default;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-5px);
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.04);
+    border-color: var(--primary);
+  }
+
+  .icon-wrapper {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    color: white;
+    flex-shrink: 0;
+    box-shadow: 0 8px 16px -4px rgba(0,0,0,0.1);
+  }
+
+  /* Cores dos ícones com gradientes premium */
+  .bg-blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+  .bg-green { background: linear-gradient(135deg, #10b981, #059669); }
+  .bg-orange { background: linear-gradient(135deg, #f59e0b, #d97706); }
+  .bg-purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+
+  .stat-info { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 2px;
+  }
+  
+  .label { 
+    font-size: 0.85rem; 
+    font-weight: 600; 
+    letter-spacing: -0.01em;
+  }
+  
+  .value { 
+    font-size: 1.6rem; 
+    font-weight: 850; 
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  @media (max-width: 640px) {
+    .stats-grid { grid-template-columns: 1fr; }
+  }
+</style>

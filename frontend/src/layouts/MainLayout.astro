@@ -1,0 +1,352 @@
+---
+// src/layouts/MainLayout.astro
+import '../styles/global.css';
+
+const { pathname } = Astro.url;
+const { title, hideNavbar = false } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nicopel Cargo - Logística Inteligente</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+  
+  <div class="bg-wrapper">
+    <div class="bg-pattern"></div>
+  </div>
+  
+  {!hideNavbar && (
+  <nav class="navbar">
+    <div class="container nav-content">
+      
+      <div class="nav-left">
+        <a href="/" class="brand">
+          <div class="brand-logo">
+            <img src="/logo-npcargo.jpg" alt="Nicopel Cargo Logo" />
+          </div>
+        </a>
+
+        <div class="nav-links" id="main-nav-links">
+          <!-- Links serão preenchidos via JS para respeitar o Role -->
+          <a href="/" class={`nav-item ${pathname === '/' ? 'active-pill' : ''}`} data-role="ANY">
+            <i class="fas fa-home"></i> Dashboard
+          </a>
+          <a href="/nova-cotacao" class={`nav-item ${pathname === '/nova-cotacao' ? 'active-pill' : ''}`} data-role="ANY">
+            <i class="fas fa-plus-circle"></i> Nova Cotação
+          </a>
+          <a href="/historico" class={`nav-item ${pathname === '/historico' ? 'active-pill' : ''}`} data-role="ANY">
+            <i class="fas fa-history"></i> Histórico
+          </a>
+          <a href="/relatorios" class={`nav-item ${pathname === '/relatorios' ? 'active-pill' : ''}`} data-role="ANY">
+            <i class="fas fa-chart-line"></i> Analytics
+          </a>
+          <a href="/usuarios" class={`nav-item ${pathname === '/usuarios' ? 'active-pill' : ''}`} data-role="ADMIN">
+            <i class="fas fa-users-cog"></i> Usuários
+          </a>
+        </div>
+      </div>
+      
+      <div class="nav-right">
+        <div id="user-menu" class="user-menu" style="display: none;">
+          <span id="nav-username" class="username"></span>
+          <button id="logout-btn" class="logout-btn" title="Sair"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+      </div>
+    </div>
+  </nav>
+  )}
+
+  <main class="main-content">
+    <div class="container">
+      <slot />
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="footer-brand">
+        <strong>Nicopel Cargo</strong> &copy; {new Date().getFullYear()}
+      </div>
+      <div class="footer-links">
+        <a href="#">Suporte</a>
+        <a href="#">Termos</a>
+      </div>
+    </div>
+  </footer>
+
+  <div id="toast-container"></div>
+
+  <script is:inline>
+    // Sistema de Notificação (Toast) sem Template Literals para evitar pânico do compilador Astro
+    window.showToast = function(message, type, duration) {
+      type = type || 'info';
+      duration = duration || 5000;
+      var container = document.getElementById('toast-container');
+      if (!container) return;
+      
+      var toast = document.createElement('div');
+      var colors = { 
+        success: 'linear-gradient(135deg, #10b981, #059669)', 
+        error: 'linear-gradient(135deg, #ef4444, #b91c1c)', 
+        warning: 'linear-gradient(135deg, #f59e0b, #d97706)', 
+        info: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' 
+      };
+      var icons = { 
+        success: 'fas fa-check-circle', 
+        error: 'fas fa-times-circle', 
+        warning: 'fas fa-exclamation-triangle', 
+        info: 'fas fa-info-circle' 
+      };
+      
+      toast.className = 'toast-message';
+      toast.style.background = colors[type] || colors.info;
+      
+      var iconClass = icons[type] || icons.info;
+      
+      toast.innerHTML = 
+        '<div class="toast-body">' +
+          '<i class="' + iconClass + '"></i> ' +
+          '<span>' + message + '</span>' +
+        '</div>' +
+        '<button onclick="this.parentElement.remove()" class="toast-close"><i class="fas fa-times"></i></button>';
+      
+      container.appendChild(toast);
+      
+      setTimeout(function() { 
+        toast.style.transform = 'translateX(0)'; 
+      }, 10);
+      
+      setTimeout(function() { 
+        if(toast.parentElement) {
+          toast.style.transform = 'translateX(150%)';
+          toast.style.opacity = '0';
+          setTimeout(function() { if(toast.parentElement) toast.remove(); }, 400);
+        } 
+      }, duration);
+    };
+
+    // Lógica de Autenticação Global
+    (function() {
+      const pathname = window.location.pathname;
+      if (pathname === '/login') return;
+
+      const token = localStorage.getItem('auth_token');
+      const userInfo = localStorage.getItem('user_info');
+
+      if (!token || !userInfo) {
+        window.location.href = '/login';
+        return;
+      }
+
+      const user = JSON.parse(userInfo);
+      
+      // Ajustar Menu baseado no Role e Permissões Granulares
+      const navLinks = document.getElementById('main-nav-links');
+      if (navLinks) {
+        const allLinks = navLinks.querySelectorAll('.nav-item');
+        allLinks.forEach(link => {
+           const href = link.getAttribute('href');
+           if (user.role === 'ADMIN') {
+              // Admin vê tudo por padrão, mas podemos refinar se quiser
+              link.style.display = 'flex';
+           } else {
+              // Vendedor (USER) vê apenas o que está em user.permissions
+              const hasPermission = user.permissions && user.permissions.includes(href);
+              link.style.display = hasPermission ? 'flex' : 'none';
+              
+              // Se o usuário tentar acessar uma página proibida, redireciona
+              if (pathname === href && !hasPermission) {
+                 window.location.href = '/';
+              }
+           }
+        });
+      }
+
+      // Exibir Menu de Usuário
+      const userMenu = document.getElementById('user-menu');
+      const navUsername = document.getElementById('nav-username');
+      const logoutBtn = document.getElementById('logout-btn');
+
+      if (userMenu && navUsername) {
+        userMenu.style.display = 'flex';
+        navUsername.textContent = user.username;
+      }
+
+      if (logoutBtn) {
+        logoutBtn.onclick = () => {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_info');
+          window.location.href = '/login';
+        };
+      }
+    })();
+  </script>
+
+  <style>
+    /* --- VARIÁVEIS --- */
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1e40af;
+      --accent: #4f46e5;
+      --bg-light: #f9fafb;
+      --text-main: #111827;
+      --text-muted: #6b7280;
+      --white: #ffffff;
+      --border: #e2e8f0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      color: var(--text-main);
+      display: flex; flex-direction: column;
+      min-height: 100vh;
+      background-color: var(--bg-light);
+    }
+
+    a { text-decoration: none; color: inherit; }
+
+    /* Fundo */
+    .bg-wrapper { position: fixed; inset: 0; z-index: -10; background: linear-gradient(to bottom right, #f9fafb, #eff6ff); }
+    .bg-pattern { width: 100%; height: 100%; background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 16px 16px; opacity: 0.6; }
+
+    .container { max-width: 1440px; margin: 0 auto; padding: 0 60px; }
+
+    /* --- NAVBAR --- */
+    .navbar {
+      position: sticky; top: 0; z-index: 50; height: 80px;
+      background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border); display: flex; align-items: center;
+    }
+    .nav-content { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+    .nav-left, .nav-right { display: flex; align-items: center; gap: 30px; }
+
+    /* Logo */
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-logo {
+      width: 120px; height: 40px; 
+      display: flex; align-items: center; justify-content: center;
+    }
+    .brand-logo img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    .brand-text {
+      font-size: 1.4rem; font-weight: 850; letter-spacing: -0.5px;
+      color: #1e293b;
+      /* Remove gradient to match logo simplicity or keep if preferred. User's logo is B/W, so simple black/slate is good. */
+    }
+
+    /* Links */
+    .nav-links { display: flex; gap: 12px; margin-left: 30px; }
+    .nav-item {
+      padding: 10px 20px; border-radius: 10px; font-size: 0.95rem; font-weight: 600;
+      color: var(--text-main); transition: 0.2s; display: flex; align-items: center; gap: 10px;
+    }
+    .nav-item:hover { background: #f3f4f6; color: var(--primary); }
+    .active-pill { background: #eff6ff; color: var(--primary); font-weight: 600; }
+
+    /* User Menu */
+    .user-menu { display: flex; align-items: center; gap: 12px; background: #f3f4f6; padding: 5px 15px; border-radius: 99px; }
+    .username { font-size: 0.85rem; font-weight: 700; color: var(--text-main); }
+    .logout-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1rem; transition: 0.2s; padding: 5px; }
+    .logout-btn:hover { transform: scale(1.1); }
+
+    /* Conteúdo */
+    .main-content { flex: 1; padding: 60px 0; }
+
+    /* Footer */
+    .footer { background: rgba(255, 255, 255, 0.6); border-top: 1px solid var(--border); padding: 30px 0; margin-top: auto; }
+    .footer-content { display: flex; justify-content: space-between; align-items: center; color: var(--text-muted); font-size: 0.85rem; }
+    .footer-links { display: flex; gap: 20px; }
+
+    /* Toast Premium */
+    #toast-container { 
+      position: fixed; 
+      top: 30px; 
+      right: 30px; 
+      z-index: 9999; 
+      display: flex; 
+      flex-direction: column; 
+      gap: 12px; 
+      pointer-events: none;
+    }
+    
+    .toast-message {
+      pointer-events: auto;
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between; 
+      min-width: 320px; 
+      max-width: 450px;
+      padding: 16px 20px;
+      border-radius: 14px; 
+      color: white; 
+      box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+      transform: translateX(120%); 
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      border-left: 6px solid rgba(0,0,0,0.1);
+      backdrop-filter: blur(8px);
+    }
+    
+    .toast-body { 
+      display: flex; 
+      align-items: center; 
+      gap: 14px; 
+      font-weight: 600;
+      font-size: 0.95rem;
+      letter-spacing: -0.01em;
+    }
+    
+    .toast-body i {
+      font-size: 1.25rem;
+      width: 28px;
+      height: 28px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .toast-close { 
+      background: rgba(255,255,255,0.1); 
+      border: none; 
+      color: white; 
+      cursor: pointer; 
+      font-size: 1.1rem; 
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.2s;
+      margin-left: 15px;
+    }
+    
+    .toast-close:hover {
+      background: rgba(255,255,255,0.3);
+      transform: scale(1.1);
+    }
+
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .nav-content { padding: 0 15px; }
+    }
+  </style>
+</body>
+</html>

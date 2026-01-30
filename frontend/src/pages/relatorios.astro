@@ -1,0 +1,47 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import AnalyticsDashboard from '../components/AnalyticsDashboard.vue';
+---
+
+<MainLayout title="Analytics & Relatórios | Nicopel Cargo">
+  <div class="page-container">
+    <AnalyticsDashboard client:load />
+
+    <div class="glass-card mt-40 shadow-lg animate-fade-in ai-insights">
+      <div class="insight-header">
+        <div class="ai-badge"><i class="fas fa-robot"></i> IA Insights</div>
+        <h3>Otimizações Recomendadas</h3>
+      </div>
+      <div class="insight-grid">
+        <div class="insight-box">
+          <i class="fas fa-lightbulb text-yellow"></i>
+          <p><strong>São Paulo Capital:</strong> Agrupar coletas que saem nas segundas e terças pode reduzir seu custo em até 14% via TNT.</p>
+        </div>
+        <div class="insight-box">
+          <i class="fas fa-exclamation-triangle text-orange"></i>
+          <p><strong>Alerta de Prazo:</strong> A Azul Cargo está operando com +1 dia de atraso médio na região Nordeste desde o dia 20/01.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</MainLayout>
+
+<style>
+  .page-container { padding: 40px; }
+  .mt-40 { margin-top: 40px; }
+  .ai-insights { border: 1.5px solid rgba(255, 138, 0, 0.1); background: linear-gradient(135deg, #ffffff 0%, #fffcf0 100%); padding: 30px; border-radius: 24px; }
+  .ai-badge {
+    background: #1e293b; color: white; padding: 4px 10px; border-radius: 8px;
+    font-size: 0.7rem; font-weight: 800; text-transform: uppercase; display: inline-block; margin-bottom: 10px;
+  }
+  .insight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-top: 20px; }
+  .insight-box { display: flex; gap: 15px; background: white; padding: 20px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.05); }
+  .insight-box i { font-size: 1.2rem; }
+  .insight-box p { font-size: 0.9rem; margin: 0; color: #475569; line-height: 1.5; }
+  .text-yellow { color: #f59e0b; }
+  .text-orange { color: #ea580c; }
+  
+  @media (max-width: 1024px) {
+    .insight-grid { grid-template-columns: 1fr; }
+  }
+</style>

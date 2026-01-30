@@ -1,0 +1,73 @@
+/* src/styles/global.css */
+:root {
+    --primary: #004a99;
+    /* Azul Nicopel */
+    --primary-dark: #003366;
+    --accent: #f39c12;
+    /* Laranja Botão */
+    --bg-body: #f4f7fa;
+    /* Fundo Cinza Claro */
+    --white: #ffffff;
+    --text-main: #1e293b;
+    --text-light: #64748b;
+    --border: #e2e8f0;
+    --radius-pill: 999px;
+    /* Arredondamento Pill */
+    --radius-card: 20px;
+    --shadow-card: 0 10px 30px -5px rgba(0, 0, 0, 0.08);
+}
+
+* {
+    box-sizing: border-box;
+    outline: none;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-body);
+    color: var(--text-main);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Utilitários de Layout */
+.page-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+.glass-card {
+    background: var(--white);
+    border-radius: var(--radius-card);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+    padding: 30px;
+    margin-bottom: 30px;
+}
+
+/* Inputs Globais (Estilo Pill) */
+input,
+select,
+.pill-input {
+    width: 100%;
+    padding: 14px 20px;
+    border-radius: var(--radius-pill);
+    border: 2px solid var(--border);
+    background: #f8fafc;
+    font-size: 1rem;
+    color: var(--text-main);
+    transition: 0.3s;
+}
+
+input:focus,
+select:focus {
+    border-color: var(--primary);
+    background: var(--white);
+    box-shadow: 0 0 0 4px rgba(0, 74, 153, 0.1);
+}
