@@ -42,30 +42,57 @@ export class QuotationsService {
 
       const savedQuotation = await queryRunner.manager.save(quotation);
 
+      let accumulatedTotalProdutos = 0;
+      let accumulatedIpi = 0;
+
       const quotationItems: QuotationItem[] = [];
       for (const item of createDto.items) {
+        const product = await queryRunner.manager.findOne(Product, { where: { id: item.productId } });
+        if (!product) continue;
+
         const qItem = new QuotationItem();
         qItem.quotation = savedQuotation;
-        qItem.product = { id: item.productId } as any;
+        qItem.product = product;
         qItem.quantidade = item.quantidade;
 
-        let valUnit = item.valorUnitario;
-        if (valUnit === undefined) {
-          const prod = await queryRunner.manager.findOne(Product, { where: { id: item.productId } });
-          valUnit = prod ? Number(prod.valor_unitario) : 0;
-        }
-
+        const valUnit = item.valorUnitario !== undefined ? item.valorUnitario : Number(product.valor_unitario);
         qItem.valor_unitario_na_cotacao = valUnit;
 
-        const productForCalc = await queryRunner.manager.findOne(Product, { where: { id: item.productId } });
-        const unitsPerBox = productForCalc ? Number(productForCalc.unidades_caixa) : 1;
+        const unitsPerBox = product.unidades_caixa ? Number(product.unidades_caixa) : 1;
+        const subtotal = Number((qItem.quantidade * unitsPerBox * qItem.valor_unitario_na_cotacao).toFixed(2));
+        qItem.valor_total_item = subtotal;
 
-        qItem.valor_total_item = Number((qItem.quantidade * unitsPerBox * qItem.valor_unitario_na_cotacao).toFixed(2));
+        accumulatedTotalProdutos += subtotal;
+
+        // Lógica de IPI
+        if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
+          const nome = product.nome.toUpperCase();
+          const categoria = product.categoria ? product.categoria.toUpperCase() : 'POTE';
+          let aliquota = 9.75;
+
+          if (categoria === 'CAIXA') {
+            if (nome.includes('POTE') || nome.includes('PT')) {
+              aliquota = 9.75;
+            } else {
+              aliquota = 15;
+            }
+          } else if (nome.includes('TAMPA')) {
+            aliquota = 15;
+          }
+          accumulatedIpi += subtotal * (aliquota / 100);
+        }
 
         quotationItems.push(qItem);
       }
 
       await queryRunner.manager.save(quotationItems);
+
+      // Atualiza os totais da cotação
+      savedQuotation.valor_total_produtos = Number(accumulatedTotalProdutos.toFixed(2));
+      savedQuotation.valor_ipi = Number(accumulatedIpi.toFixed(2));
+      savedQuotation.valor_total_nota = Number((savedQuotation.valor_total_produtos + savedQuotation.valor_ipi).toFixed(2));
+
+      await queryRunner.manager.save(savedQuotation);
 
       await queryRunner.commitTransaction();
       return this.findOne(savedQuotation.id);
@@ -127,10 +154,19 @@ export class QuotationsService {
 
         if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
           const nome = item.product ? item.product.nome.toUpperCase() : '';
+          const categoria = (item.product as any)?.categoria ? (item.product as any).categoria.toUpperCase() : 'POTE';
           let aliquota = 9.75;
-          if (nome.includes('TAMPA')) aliquota = 15;
-          const valorIpiItem = subtotal * (aliquota / 100);
-          valorIpiTotalGeral += valorIpiItem;
+
+          if (categoria === 'CAIXA') {
+            if (nome.includes('POTE') || nome.includes('PT')) {
+              aliquota = 9.75;
+            } else {
+              aliquota = 15;
+            }
+          } else if (nome.includes('TAMPA')) {
+            aliquota = 15;
+          }
+          valorIpiTotalGeral += subtotal * (aliquota / 100);
         }
       }
 
