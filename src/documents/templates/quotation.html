@@ -13,11 +13,13 @@
         }
 
         .main-card {
-            border: 1px solid #000;
-            border-radius: 25px;
-            padding: 15px;
-            width: 180mm;
-            display: inline-block;
+            border: 1.5px solid #000;
+            border-radius: 50px;
+            padding: 30px;
+            width: 195mm;
+            min-height: 270mm;
+            display: block;
+            margin: 0 auto;
             box-sizing: border-box;
             background: #FFF;
         }
@@ -99,75 +101,79 @@
 </head>
 
 <body>
-    <div class="header-title">
-        COTAÇÃO
-        <svg class="truck-icon" viewBox="0 0 640 512" xmlns="http://www.w3.org/2000/svg">
-            <path
-                d="M624 352h-16V243.9c0-12.7-5.1-24.9-14.1-33.9L494 110.1c-9-9-21.2-14.1-33.9-14.1H416V48c0-26.5-21.5-48-48-48H48C21.5 0 0 21.5 0 48v320c0 26.5 21.5 48 48 48h48c0 53 43 96 96 96s96-43 96-96h128c0 53 43 96 96 96s96-43 96-96h48c8.8 0 16-7.2 16-16v-32c0-8.8-7.2-16-16-16zM192 464c-26.5 0-48-21.5-48-48s21.5-48 48-48 48 21.5 48 48-21.5 48-48 48zm336 0c-26.5 0-48-21.5-48-48s21.5-48 48-48 48 21.5 48 48-21.5 48-48 48zm48-112H416V144h44.1l99.9 99.9V352z" />
-        </svg>
-    </div>
+    <div class="main-card">
+        <div class="header-title">
+            COTAÇÃO
+            <svg class="truck-icon" viewBox="0 0 640 512" xmlns="http://www.w3.org/2000/svg">
+                <path
+                    d="M624 352h-16V243.9c0-12.7-5.1-24.9-14.1-33.9L494 110.1c-9-9-21.2-14.1-33.9-14.1H416V48c0-26.5-21.5-48-48-48H48C21.5 0 0 21.5 0 48v320c0 26.5 21.5 48 48 48h48c0 53 43 96 96 96s96-43 96-96h128c0 53 43 96 96 96s96-43 96-96h48c8.8 0 16-7.2 16-16v-32c0-8.8-7.2-16-16-16zM192 464c-26.5 0-48-21.5-48-48s21.5-48 48-48 48 21.5 48 48-21.5 48-48 48zm336 0c-26.5 0-48-21.5-48-48s21.5-48 48-48 48 21.5 48 48-21.5 48-48 48zm48-112H416V144h44.1l99.9 99.9V352z" />
+            </svg>
+        </div>
 
-    <table class="no-border">
-        <tr>
-            <td rowspan="2" class="no-border" style="width: 25%; text-align: center; padding: 10px;">
-                {{#if logoUrl}}
-                <img src="{{logoUrl}}" alt="Logo"
-                    style="max-width: 130px; max-height: 55px; display: block; margin: 0 auto;">
-                {{/if}}
-            </td>
-            <td class="label-theme" style="background-color: {{themeColor}}; border: 1px solid #000;">Nº PEDIDO</td>
-            <td class="label-theme" style="background-color: {{themeColor}}; border: 1px solid #000;">FRENET</td>
-            <td class="label-theme" style="background-color: {{themeColor}}; border: 1px solid #000;">EMPRESA</td>
-            <td class="label-theme" style="width: 20%; background-color: {{themeColor}}; border: 1px solid #000;">OBS:
-            </td>
-        </tr>
-        <tr>
-            <td class="value-cell" style="border: 1px solid #000;">{{valueOrDefault quotation.numero_pedido_manual}}
-            </td>
-            <td class="value-cell" style="border: 1px solid #000;">{{quotation.id}}</td>
-            <td class="value-cell" style="border: 1px solid #000; color: #000;">{{quotation.empresa_faturamento}}</td>
-            <td class="text-center" style="border: 1px solid #000;">{{valueOrDefault quotation.obs}}</td>
-        </tr>
-    </table>
+        <table class="no-border">
+            <tr>
+                <td rowspan="2" class="no-border" style="width: 25%; text-align: center; padding: 10px;">
+                    {{#if logoUrl}}
+                    <img src="{{logoUrl}}" alt="Logo"
+                        style="max-width: 130px; max-height: 55px; display: block; margin: 0 auto;">
+                    {{/if}}
+                </td>
+                <td class="label-theme" style="background-color: {{themeColor}}; border: 1px solid #000;">Nº PEDIDO</td>
+                <td class="label-theme" style="background-color: {{themeColor}}; border: 1px solid #000;">CONDIÇÃO DE
+                    PAG.</td>
+                <td class="label-theme" style="background-color: {{themeColor}}; border: 1px solid #000;">EMPRESA</td>
+                <td class="label-theme" style="width: 20%; background-color: {{themeColor}}; border: 1px solid #000;">
+                    OBS:
+                </td>
+            </tr>
+            <tr>
+                <td class="value-cell" style="border: 1px solid #000;">{{valueOrDefault quotation.numero_pedido_manual}}
+                </td>
+                <td class="value-cell" style="border: 1px solid #000;">{{valueOrDefault quotation.prazo_pagamento}}</td>
+                <td class="value-cell" style="border: 1px solid #000; color: #000;">{{quotation.empresa_faturamento}}
+                </td>
+                <td class="text-center" style="border: 1px solid #000;">{{valueOrDefault quotation.obs}}</td>
+            </tr>
+        </table>
 
-    <table style="margin-top: 5px;">
-        <tr>
-            <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">CLIENTE</td>
-            <td colspan="2" class="value-cell">{{quotation.client.razao_social}}</td>
-            <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">FANTASIA</td>
-            <td colspan="2" class="value-cell">{{valueOrDefault quotation.client.fantasia}}</td>
-        </tr>
-        <tr>
-            <td class="label-theme" style="background-color: {{themeColor}};">CNPJ/CPF</td>
-            <td colspan="2" class="value-cell">{{formatDocument quotation.client.cnpj}}</td>
-            <td class="label-theme" style="background-color: {{themeColor}};">DATA COTAÇÃO</td>
-            <td class="value-cell">{{formattedDate}}</td>
-            <td class="label-theme" style="width: 12%; background-color: {{themeColor}};">COLETA</td>
-        </tr>
-        <tr>
-            <td class="label-theme" style="background-color: {{themeColor}};">CIDADE - UF</td>
-            <td colspan="2" class="value-cell">{{cityState}}</td>
-            <td class="label-theme" style="background-color: {{themeColor}};">DIAS ENTREGA</td>
-            <td class="value-cell">{{formatDeliveryDays quotation.dias_para_entrega}}</td>
-            <td class="value-cell">{{valueOrDefault quotation.data_coleta}}</td>
-        </tr>
-        <tr>
-            <td class="label-theme" style="background-color: {{themeColor}};">CEP</td>
-            <td colspan="5" class="value-cell" style="text-align: left; padding-left: 10px;">{{formatCEP
-                quotation.client.cep}}</td>
-        </tr>
-    </table>
+        <table style="margin-top: 5px;">
+            <tr>
+                <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">RAZÃO SOCIAL</td>
+                <td colspan="4" class="value-cell">{{quotation.client.razao_social}}</td>
+                <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">CEP</td>
+            </tr>
+            <tr>
+                <td class="label-theme" style="background-color: {{themeColor}};">CNPJ</td>
+                <td colspan="2" class="value-cell">{{formatDocument quotation.client.cnpj}}</td>
+                <td class="label-theme" style="background-color: {{themeColor}};">FANTASIA</td>
+                <td class="value-cell">{{valueOrDefault quotation.client.fantasia}}</td>
+                <td class="value-cell">{{formatCEP quotation.client.cep}}</td>
+            </tr>
+            <tr>
+                <td class="label-theme" style="background-color: {{themeColor}};">CIDADE - UF</td>
+                <td colspan="2" class="value-cell">{{cityState}}</td>
+                <td class="label-theme" style="background-color: {{themeColor}};">DATA DA COTAÇÃO</td>
+                <td class="value-cell">{{formattedDate}}</td>
+                <td class="label-theme" style="width: 12%; background-color: {{themeColor}};">COLETA</td>
+            </tr>
+            <tr>
+                <td class="label-theme" style="background-color: {{themeColor}};">PRAZO</td>
+                <td colspan="2" class="value-cell">{{formatDeliveryDays quotation.dias_para_entrega}}</td>
+                <td class="no-border"></td>
+                <td class="no-border"></td>
+                <td class="value-cell">{{valueOrDefault quotation.data_coleta}}</td>
+            </tr>
+        </table>
 
-    <table style="margin-top: 5px;">
         <thead>
             <tr class="label-theme" style="background-color: {{themeColor}};">
-                <td style="width: 10%;">QTD</td>
-                <td style="width: 35%;">PRODUTO</td>
-                <td style="width: 10%;">VOL</td>
+                <td style="width: 12%;">QUANTIDADE</td>
+                <td style="width: 33%;">PRODUTO</td>
+                <td style="width: 10%;">VOLUME</td>
                 <td style="width: 10%;">PESO</td>
                 <td style="width: 10%;">MEDIDA</td>
-                <td style="width: 12%;">UNIT.</td>
-                <td style="width: 13%;">TOTAL</td>
+                <td style="width: 12%;">V. UNITÁRIO</td>
+                <td style="width: 13%;">R$ - TOTAL</td>
             </tr>
         </thead>
         <tbody>
@@ -211,33 +217,33 @@
                     quotation.valor_total_nota}}</td>
             </tr>
         </tbody>
-    </table>
+        </table>
 
-    <table style="margin-top: 5px;">
-        <tr class="label-theme" style="background-color: {{themeColor}};">
-            <td>TRANSP.</td>
-            <td>FRENET</td>
-            <td>FRETE R$</td>
-            <td>TIPO</td>
-            <td>PAGAR</td>
-            <td>NF</td>
-            <td>CONT.</td>
-        </tr>
-        <tr class="value-cell">
-            <td>{{valueOrDefault quotation.transportadora_escolhida}}</td>
-            <td>{{displayQuotationNumber quotation}}</td>
-            <td>{{formatCurrency quotation.valor_frete}}</td>
-            <td>{{valueOrDefault quotation.tipo_frete}}</td>
-            <td>{{#if quotation.valor_frete}}SIM{{else}}NÃO{{/if}}</td>
-            <td>{{valueOrDefault quotation.nf}}</td>
-            <td>SITE</td>
-        </tr>
-    </table>
+        <table style="margin-top: 5px;">
+            <tr class="label-theme" style="background-color: {{themeColor}};">
+                <td>TRANSPORTADORA</td>
+                <td>Nº COTAÇÃO</td>
+                <td>FRETE R$</td>
+                <td>TIPO DE FRETE</td>
+                <td>PAGAR FRETE</td>
+                <td>NF</td>
+                <td>CONT. TRP</td>
+            </tr>
+            <tr class="value-cell">
+                <td>{{valueOrDefault quotation.transportadora_escolhida}}</td>
+                <td>FRENET<br>{{quotation.id}}</td>
+                <td>{{formatCurrency quotation.valor_frete}}</td>
+                <td>{{valueOrDefault quotation.tipo_frete}}</td>
+                <td>{{#if quotation.valor_frete}}SIM{{else}}NÃO{{/if}}</td>
+                <td>{{valueOrDefault quotation.nf}}</td>
+                <td>SITE</td>
+            </tr>
+        </table>
 
-    <div class="signature-section">
-        <div class="sig-line"></div>
-        <div class="sig-text">ASSINATURA</div>
-    </div>
+        <div class="signature-section">
+            <div class="sig-line"></div>
+            <div class="sig-text">ASSINATURA</div>
+        </div>
     </div>
 </body>
 
