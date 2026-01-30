@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Quotation } from '../quotations/entities/quotation.entity.js';
+import { Quotation, QuotationStatus } from '../quotations/entities/quotation.entity.js';
 import { Repository, MoreThanOrEqual } from 'typeorm';
 
 @Injectable()
@@ -25,7 +25,6 @@ export class AiService {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        let quotationsToday: Quotation[];
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(today.getDate() - 7);
         sevenDaysAgo.setHours(0, 0, 0, 0);
@@ -38,8 +37,8 @@ export class AiService {
         });
 
         const totalValue = recentQuotations.reduce((acc, q) => acc + Number(q.valor_total_nota || 0), 0);
-        const approvedCount = recentQuotations.filter(q => q.status === 'APROVADO').length;
-        const pendingCount = recentQuotations.filter(q => q.status === 'PENDENTE').length;
+        const approvedCount = recentQuotations.filter(q => q.status === QuotationStatus.APROVADO).length;
+        const pendingCount = recentQuotations.filter(q => q.status === QuotationStatus.PENDENTE).length;
 
         if (!this.genAI) {
             return this.generateDynamicFallback(recentQuotations, totalValue, approvedCount, pendingCount);
@@ -81,7 +80,7 @@ export class AiService {
     }
 
     private generateDynamicFallback(recent: Quotation[], totalValue: number, approved: number, pending: number) {
-        const insights = [];
+        const insights: any[] = [];
 
         if (pending > 0) {
             insights.push({
