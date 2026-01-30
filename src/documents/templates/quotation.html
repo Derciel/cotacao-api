@@ -118,13 +118,14 @@
                         style="max-width: 130px; max-height: 55px; display: block; margin: 0 auto;">
                     {{/if}}
                 </td>
-                <td class="label-theme" style="background-color: {{themeColor}}; border: 1px solid #000;">Nº PEDIDO</td>
-                <td class="label-theme" style="background-color: {{themeColor}}; border: 1px solid #000;">CONDIÇÃO DE
-                    PAG.</td>
-                <td class="label-theme" style="background-color: {{themeColor}}; border: 1px solid #000;">EMPRESA</td>
+                <td class="label-theme" style="width: 15%; background-color: {{themeColor}}; border: 1px solid #000;">Nº
+                    PEDIDO</td>
                 <td class="label-theme" style="width: 20%; background-color: {{themeColor}}; border: 1px solid #000;">
-                    OBS:
-                </td>
+                    CONDIÇÃO DE PAG.</td>
+                <td class="label-theme" style="width: 20%; background-color: {{themeColor}}; border: 1px solid #000;">
+                    EMPRESA</td>
+                <td class="label-theme" style="width: 20%; background-color: {{themeColor}}; border: 1px solid #000;">
+                    OBS:</td>
             </tr>
             <tr>
                 <td class="value-cell" style="border: 1px solid #000;">{{valueOrDefault quotation.numero_pedido_manual}}
@@ -139,104 +140,106 @@
         <table style="margin-top: 5px;">
             <tr>
                 <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">RAZÃO SOCIAL</td>
-                <td colspan="4" class="value-cell">{{quotation.client.razao_social}}</td>
+                <td colspan="4" class="value-cell" style="width: 70%;">{{quotation.client.razao_social}}</td>
                 <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">CEP</td>
             </tr>
             <tr>
-                <td class="label-theme" style="background-color: {{themeColor}};">CNPJ</td>
-                <td colspan="2" class="value-cell">{{formatDocument quotation.client.cnpj}}</td>
-                <td class="label-theme" style="background-color: {{themeColor}};">FANTASIA</td>
-                <td class="value-cell">{{valueOrDefault quotation.client.fantasia}}</td>
-                <td class="value-cell">{{formatCEP quotation.client.cep}}</td>
+                <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">CNPJ</td>
+                <td colspan="2" class="value-cell" style="width: 35%;">{{formatDocument quotation.client.cnpj}}</td>
+                <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">FANTASIA</td>
+                <td class="value-cell" style="width: 20%;">{{valueOrDefault quotation.client.fantasia}}</td>
+                <td class="value-cell" style="width: 15%;">{{formatCEP quotation.client.cep}}</td>
             </tr>
             <tr>
-                <td class="label-theme" style="background-color: {{themeColor}};">CIDADE - UF</td>
-                <td colspan="2" class="value-cell">{{cityState}}</td>
-                <td class="label-theme" style="background-color: {{themeColor}};">DATA DA COTAÇÃO</td>
-                <td class="value-cell">{{formattedDate}}</td>
-                <td class="label-theme" style="width: 12%; background-color: {{themeColor}};">COLETA</td>
+                <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">CIDADE - UF</td>
+                <td colspan="2" class="value-cell" style="width: 35%;">{{cityState}}</td>
+                <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">DATA DA COTAÇÃO</td>
+                <td class="value-cell" style="width: 20%;">{{formattedDate}}</td>
+                <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">COLETA</td>
             </tr>
             <tr>
-                <td class="label-theme" style="background-color: {{themeColor}};">PRAZO</td>
-                <td colspan="2" class="value-cell">{{formatDeliveryDays quotation.dias_para_entrega}}</td>
-                <td class="no-border"></td>
-                <td class="no-border"></td>
-                <td class="value-cell">{{valueOrDefault quotation.data_coleta}}</td>
+                <td class="label-theme" style="width: 15%; background-color: {{themeColor}};">PRAZO</td>
+                <td colspan="2" class="value-cell" style="width: 35%;">{{formatDeliveryDays
+                    quotation.dias_para_entrega}}</td>
+                <td class="no-border" style="width: 15%;"></td>
+                <td class="no-border" style="width: 20%;"></td>
+                <td class="value-cell" style="width: 15%;">{{valueOrDefault quotation.data_coleta}}</td>
             </tr>
         </table>
 
-        <thead>
-            <tr class="label-theme" style="background-color: {{themeColor}};">
-                <td style="width: 12%;">QUANTIDADE</td>
-                <td style="width: 33%;">PRODUTO</td>
-                <td style="width: 10%;">VOLUME</td>
-                <td style="width: 10%;">PESO</td>
-                <td style="width: 10%;">MEDIDA</td>
-                <td style="width: 12%;">V. UNITÁRIO</td>
-                <td style="width: 13%;">R$ - TOTAL</td>
-            </tr>
-        </thead>
-        <tbody>
-            {{#each quotation.items}}
-            <tr>
-                <td class="text-center">{{this.quantidade}}</td>
-                <td>{{this.product.nome}}</td>
-                <td class="text-center">{{calculateVolume this.product.unidades_caixa this.quantidade}}</td>
-                <td class="text-center">{{calculateWeight this.product.peso_caixa_kg this.quantidade
-                    this.product.unidades_caixa}}</td>
-                <td class="text-center">{{this.product.medida_cm}}</td>
-                <td class="text-right">{{formatCurrency this.valor_unitario_na_cotacao}}</td>
-                <td class="text-right">{{formatCurrency this.valor_total_item}}</td>
-            </tr>
-            {{/each}}
+        <table style="margin-top: 5px;">
+            <thead>
+                <tr class="label-theme" style="background-color: {{themeColor}};">
+                    <td style="width: 12%;">QUANTIDADE</td>
+                    <td style="width: 33%;">PRODUTO</td>
+                    <td style="width: 10%;">VOLUME</td>
+                    <td style="width: 10%;">PESO</td>
+                    <td style="width: 10%;">MEDIDA</td>
+                    <td style="width: 12%;">V. UNITÁRIO</td>
+                    <td style="width: 13%;">R$ - TOTAL</td>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each quotation.items}}
+                <tr>
+                    <td class="text-center">{{this.quantidade}}</td>
+                    <td>{{this.product.nome}}</td>
+                    <td class="text-center">{{calculateVolume this.product.unidades_caixa this.quantidade}}</td>
+                    <td class="text-center">{{calculateWeight this.product.peso_caixa_kg this.quantidade
+                        this.product.unidades_caixa}}</td>
+                    <td class="text-center">{{this.product.medida_cm}}</td>
+                    <td class="text-right">{{formatCurrency this.valor_unitario_na_cotacao}}</td>
+                    <td class="text-right">{{formatCurrency this.valor_total_item}}</td>
+                </tr>
+                {{/each}}
 
-            <tr>
-                <td colspan="2" class="no-border"></td>
-                <td class="value-cell" style="border-top: 1.5px solid #000;">{{totalVolume}}</td>
-                <td class="value-cell" style="border-top: 1.5px solid #000;">{{totalWeight}}</td>
-                <td class="no-border"></td>
-                <td class="label-theme" style="background-color: {{themeColor}};">TOTAL PRODUTO</td>
-                <td class="text-right">{{formatCurrency quotation.valor_total_produtos}}</td>
-            </tr>
-            {{#if quotation.valor_ipi}}
-            <tr>
-                <td colspan="5" class="no-border"></td>
-                <td class="label-theme" style="background-color: {{themeColor}};">IPI</td>
-                <td class="text-right">{{formatCurrency quotation.valor_ipi}}</td>
-            </tr>
-            {{/if}}
-            <tr>
-                <td colspan="5" class="no-border"></td>
-                <td class="label-theme" style="background-color: {{themeColor}};">FRETE</td>
-                <td class="text-right">{{formatCurrency quotation.valor_frete}}</td>
-            </tr>
-            <tr>
-                <td colspan="5" class="no-border"></td>
-                <td class="label-theme" style="background-color: {{themeColor}};">TOTAL NOTA</td>
-                <td class="text-right" style="background-color: {{themeColor}}; font-weight: bold;">{{formatCurrency
-                    quotation.valor_total_nota}}</td>
-            </tr>
-        </tbody>
+                <tr>
+                    <td colspan="2" class="no-border"></td>
+                    <td class="value-cell" style="border-top: 1.5px solid #000;">{{totalVolume}}</td>
+                    <td class="value-cell" style="border-top: 1.5px solid #000;">{{totalWeight}}</td>
+                    <td class="no-border"></td>
+                    <td class="label-theme" style="background-color: {{themeColor}};">TOTAL PRODUTO</td>
+                    <td class="text-right">{{formatCurrency quotation.valor_total_produtos}}</td>
+                </tr>
+                {{#if quotation.valor_ipi}}
+                <tr>
+                    <td colspan="5" class="no-border"></td>
+                    <td class="label-theme" style="background-color: {{themeColor}};">IPI</td>
+                    <td class="text-right">{{formatCurrency quotation.valor_ipi}}</td>
+                </tr>
+                {{/if}}
+                <tr>
+                    <td colspan="5" class="no-border"></td>
+                    <td class="label-theme" style="background-color: {{themeColor}};">FRETE</td>
+                    <td class="text-right">{{formatCurrency quotation.valor_frete}}</td>
+                </tr>
+                <tr>
+                    <td colspan="5" class="no-border"></td>
+                    <td class="label-theme" style="background-color: {{themeColor}};">TOTAL NOTA</td>
+                    <td class="text-right" style="background-color: {{themeColor}}; font-weight: bold;">{{formatCurrency
+                        quotation.valor_total_nota}}</td>
+                </tr>
+            </tbody>
         </table>
 
         <table style="margin-top: 5px;">
             <tr class="label-theme" style="background-color: {{themeColor}};">
-                <td>TRANSPORTADORA</td>
-                <td>Nº COTAÇÃO</td>
-                <td>FRETE R$</td>
-                <td>TIPO DE FRETE</td>
-                <td>PAGAR FRETE</td>
-                <td>NF</td>
-                <td>CONT. TRP</td>
+                <td style="width: 20%;">TRANSPORTADORA</td>
+                <td style="width: 15%;">Nº COTAÇÃO</td>
+                <td style="width: 13%;">FRETE R$</td>
+                <td style="width: 13%;">TIPO DE FRETE</td>
+                <td style="width: 13%;">PAGAR FRETE</td>
+                <td style="width: 13%;">NF</td>
+                <td style="width: 13%;">CONT. TRP</td>
             </tr>
             <tr class="value-cell">
-                <td>{{valueOrDefault quotation.transportadora_escolhida}}</td>
-                <td>FRENET<br>{{quotation.id}}</td>
-                <td>{{formatCurrency quotation.valor_frete}}</td>
-                <td>{{valueOrDefault quotation.tipo_frete}}</td>
-                <td>{{#if quotation.valor_frete}}SIM{{else}}NÃO{{/if}}</td>
-                <td>{{valueOrDefault quotation.nf}}</td>
-                <td>SITE</td>
+                <td style="width: 20%;">{{valueOrDefault quotation.transportadora_escolhida}}</td>
+                <td style="width: 15%;">FRENET<br>{{quotation.id}}</td>
+                <td style="width: 13%;">{{formatCurrency quotation.valor_frete}}</td>
+                <td style="width: 13%;">{{valueOrDefault quotation.tipo_frete}}</td>
+                <td style="width: 13%;">{{#if quotation.valor_frete}}SIM{{else}}NÃO{{/if}}</td>
+                <td style="width: 13%;">{{valueOrDefault quotation.nf}}</td>
+                <td style="width: 13%;">SITE</td>
             </tr>
         </table>
 
