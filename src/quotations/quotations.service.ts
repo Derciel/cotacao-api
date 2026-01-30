@@ -5,6 +5,7 @@ import { Quotation, QuotationStatus, EmpresaFaturamento } from './entities/quota
 import { QuotationItem } from './entities/quotation-item.entity.js';
 import { CreateQuotationDto } from './dto/create-quotation.dto.js';
 import { FinalizeQuotationDto } from './dto/finalize-quotation.dto.js';
+import { Product } from '../products/entities/product.entity.js';
 
 @Injectable()
 export class QuotationsService {
@@ -13,6 +14,8 @@ export class QuotationsService {
     private quotationRepository: Repository<Quotation>,
     @InjectRepository(QuotationItem)
     private itemRepository: Repository<QuotationItem>,
+    @InjectRepository(Product)
+    private productRepository: Repository<Product>,
     private dataSource: DataSource,
   ) { }
 
@@ -33,26 +36,34 @@ export class QuotationsService {
       quotation.percentual_ipi = createDto.percentualIpi || 0;
       quotation.status = QuotationStatus.PENDENTE;
 
-      // Inicializar valores que serão calculados no finalize ou mantidos default
       quotation.valor_total_produtos = 0;
       quotation.valor_ipi = 0;
       quotation.valor_total_nota = 0;
 
       const savedQuotation = await queryRunner.manager.save(quotation);
 
-      const quotationItems = createDto.items.map((item) => {
+      const quotationItems: QuotationItem[] = [];
+      for (const item of createDto.items) {
         const qItem = new QuotationItem();
         qItem.quotation = savedQuotation;
         qItem.product = { id: item.productId } as any;
-        qItem.quantidade = item.qty;
-        qItem.unidades_por_caixa = item.units || 1;
-        qItem.valor_unitario = item.unitValue;
-        qItem.peso_total = item.weight || 0;
-        qItem.altura = item.height || 0;
-        qItem.largura = item.width || 0;
-        qItem.comprimento = item.length || 0;
-        return qItem;
-      });
+        qItem.quantidade = item.quantidade;
+
+        let valUnit = item.valorUnitario;
+        if (valUnit === undefined) {
+          const prod = await queryRunner.manager.findOne(Product, { where: { id: item.productId } });
+          valUnit = prod ? Number(prod.valor_unitario) : 0;
+        }
+
+        qItem.valor_unitario_na_cotacao = valUnit;
+
+        const productForCalc = await queryRunner.manager.findOne(Product, { where: { id: item.productId } });
+        const unitsPerBox = productForCalc ? Number(productForCalc.unidades_caixa) : 1;
+
+        qItem.valor_total_item = Number((qItem.quantidade * unitsPerBox * qItem.valor_unitario_na_cotacao).toFixed(2));
+
+        quotationItems.push(qItem);
+      }
 
       await queryRunner.manager.save(quotationItems);
 
@@ -97,7 +108,6 @@ export class QuotationsService {
 
       if (!quotation) throw new NotFoundException(`Cotação #${id} não encontrada.`);
 
-      // Atribuição de campos com defaults para o fluxo WhatsApp
       quotation.transportadora_escolhida = finalizeDto.transportadoraEscolhida || 'WHATSAPP (Pendente)';
       quotation.valor_frete = finalizeDto.valorFrete ? parseFloat(finalizeDto.valorFrete.toString()) : 0;
       quotation.dias_para_entrega = finalizeDto.diasParaEntrega !== undefined ? Number(finalizeDto.diasParaEntrega) : null;
@@ -111,11 +121,12 @@ export class QuotationsService {
       let novoValorTotalProdutos = 0;
 
       for (const item of quotation.items) {
-        const subtotal = Number(item.quantidade) * Number(item.unidades_por_caixa) * Number(item.valor_unitario);
+        const unitsPerBox = item.product ? Number(item.product.unidades_caixa) : 1;
+        const subtotal = Number(item.quantidade) * unitsPerBox * Number(item.valor_unitario_na_cotacao);
         novoValorTotalProdutos += subtotal;
 
         if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
-          const nome = item.product.nome.toUpperCase();
+          const nome = item.product ? item.product.nome.toUpperCase() : '';
           let aliquota = 9.75;
           if (nome.includes('TAMPA')) aliquota = 15;
           const valorIpiItem = subtotal * (aliquota / 100);
@@ -127,7 +138,6 @@ export class QuotationsService {
       quotation.valor_ipi = Number(valorIpiTotalGeral.toFixed(2));
       quotation.valor_total_nota = Number((quotation.valor_total_produtos + quotation.valor_ipi + (quotation.valor_frete || 0)).toFixed(2));
 
-      // Se for WhatsApp, mantém PENDENTE, senão pode mudar para APROVADO se houver frete
       if (quotation.transportadora_escolhida.includes('WHATSAPP')) {
         quotation.status = QuotationStatus.PENDENTE;
       } else {
@@ -146,15 +156,13 @@ export class QuotationsService {
   }
 
   async update(id: number, updateDto: any): Promise<Quotation> {
-    // Garantir que tipos numéricos sejam convertidos se vierem como string
     if (updateDto.valor_frete !== undefined) updateDto.valor_frete = parseFloat(updateDto.valor_frete);
     if (updateDto.dias_para_entrega !== undefined) updateDto.dias_para_entrega = parseInt(updateDto.dias_para_entrega);
 
     await this.quotationRepository.update(id, updateDto);
 
-    // Recalcular totais se houve mudança no frete
     const q = await this.findOne(id);
-    q.valor_total_nota = Number((Number(q.valor_total_produtos) + Number(q.valor_ipi) + Number(q.valor_frete || 0)).toFixed(2));
+    q.valor_total_nota = Number((Number(q.valor_total_produtos || 0) + Number(q.valor_ipi || 0) + Number(q.valor_frete || 0)).toFixed(2));
     await this.quotationRepository.save(q);
 
     return q;
