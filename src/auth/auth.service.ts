@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole } from './entities/user.entity.js';
@@ -11,6 +12,7 @@ export class AuthService {
         @InjectRepository(User)
         private readonly userRepository: Repository<User>,
         private readonly jwtService: JwtService,
+        private readonly configService: ConfigService,
     ) {
         // Cria usuário admin inicial se não existir
         this.createInitialAdmin();
@@ -19,15 +21,18 @@ export class AuthService {
     async createInitialAdmin() {
         const admin = await this.userRepository.findOne({ where: { role: UserRole.ADMIN } });
         if (!admin) {
-            const hashedPassword = await bcrypt.hash('admin123', 10);
+            const username = this.configService.get<string>('INITIAL_ADMIN_USER') || 'admin';
+            const password = this.configService.get<string>('INITIAL_ADMIN_PASS') || 'admin123';
+
+            const hashedPassword = await bcrypt.hash(password, 10);
             const newUser = this.userRepository.create({
-                username: 'admin',
+                username: username,
                 password: hashedPassword,
                 role: UserRole.ADMIN,
                 permissions: ['/', '/nova-cotacao', '/historico', '/relatorios', '/usuarios']
             });
             await this.userRepository.save(newUser);
-            console.log('Usuário administrador inicial criado: admin / admin123');
+            // Removido log de senha por segurança
         }
     }
 
