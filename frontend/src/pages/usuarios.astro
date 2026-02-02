@@ -392,7 +392,7 @@ import Layout from '../layouts/MainLayout.astro';
     .title-group h1 i { color: #2563eb; }
     .title-group p { color: #64748b; font-size: 1.1rem; }
 
-    /* Users Card Overhaul */
+    /* Users Table Overhaul */
     .users-card { padding: 0; overflow: hidden; border: none; background: transparent; box-shadow: none; min-height: auto; }
     
     .table-responsive { 
@@ -449,7 +449,7 @@ import Layout from '../layouts/MainLayout.astro';
     .action-btn.view:hover { color: #3b82f6; border-color: #3b82f6; background: #eff6ff; }
     .action-btn.edit:hover { color: #f59e0b; border-color: #f59e0b; background: #fffbeb; }
 
-    /* Modal Styling */
+    /* Modal Framework */
     .modal {
       position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);
       z-index: 2000; display: none; justify-content: center; align-items: center;
@@ -457,30 +457,46 @@ import Layout from '../layouts/MainLayout.astro';
     }
     
     .modal-content {
-      background: white; width: 100%; max-width: 640px; 
-      border-radius: 28px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+      background: white; width: 100%; max-width: 680px; 
+      border-radius: 32px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
       display: flex; flex-direction: column; max-height: 90vh;
       border: 1px solid rgba(255,255,255,0.1); overflow: hidden;
     }
 
-    .modal-header { padding: 32px 40px; display: flex; justify-content: space-between; align-items: center; }
+    .modal-header { padding: 32px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; }
     .modal-header h2 { font-size: 1.6rem; font-weight: 900; color: #0f172a; letter-spacing: -0.02em; }
     .close-modal { background: #f1f5f9; border: none; width: 36px; height: 36px; border-radius: 50%; color: #64748b; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-    .close-modal:hover { background: #e2e8f0; color: #0f172a; transform: rotate(90deg); }
+    .close-modal:hover { background: #fee2e2; color: #ef4444; transform: rotate(90deg); }
 
-    .modal-body-scroll { padding: 0 40px 40px 40px; overflow-y: auto; flex: 1; scrollbar-width: thin; }
+    .modal-body-scroll { padding: 30px 40px; overflow-y: auto; flex: 1; scrollbar-width: thin; }
     
-    .form-section.ux-square { 
-      margin-bottom: 25px; 
-      background: #f8fafc; 
-      padding: 30px; 
-      border-radius: 24px; 
-      border: 1.5px solid #e2e8f0; 
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-      transition: 0.3s;
+    .modal-footer { 
+      padding: 24px 40px; border-top: 1px solid #f1f5f9; background: #fbfcfe; 
+      display: flex; justify-content: flex-end; gap: 16px; 
     }
-    .form-section.ux-square:hover { border-color: #2563eb; }
-    
+
+    /* Buttons Premium */
+    .btn-primary { 
+      background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; border: none;
+      padding: 14px 28px; border-radius: 16px; font-weight: 800; font-size: 0.95rem;
+      cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+    }
+    .btn-primary:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 15px 25px -5px rgba(37, 99, 235, 0.4); }
+    .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .btn-secondary { 
+      background: #f1f5f9; color: #475569; border: none; padding: 14px 24px; 
+      border-radius: 16px; font-weight: 800; cursor: pointer; transition: 0.2s;
+    }
+    .btn-secondary:hover { background: #e2e8f0; color: #1e293b; }
+
+    /* Form Design UX Squares */
+    .form-section.ux-square { 
+      margin-bottom: 25px; background: #f8fafc; padding: 30px; 
+      border-radius: 24px; border: 1.5px solid #e2e8f0; transition: 0.3s;
+    }
+    .form-section.ux-square:hover { border-color: #2563eb; background: #fbfcfe; }
     .section-title { font-size: 0.8rem; font-weight: 900; color: #2563eb; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; text-transform: uppercase; letter-spacing: 0.1em; }
 
     .form-grid-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -489,54 +505,51 @@ import Layout from '../layouts/MainLayout.astro';
     .form-group input, .form-group select {
       padding: 14px 18px; border-radius: 16px; border: 1.5px solid #e2e8f0; outline: none; transition: 0.2s; font-size: 1rem; color: #0f172a; background: white;
     }
-    .form-group input::placeholder { color: #94a3b8; }
-    .form-group input:focus, .form-group select:focus { border-color: #2563eb; box-shadow: 0 0 0 4px rgba(37,99,235,0.1); background: white; }
+    .form-group input:focus, .form-group select:focus { border-color: #2563eb; box-shadow: 0 0 0 4px rgba(37,99,235,0.1); }
     .hint-text { font-size: 0.75rem; color: #94a3b8; margin-top: -10px; margin-bottom: 10px; padding-left: 4px; }
 
-    /* Permissions Cards Design */
+    /* Permissions Cards */
     .permissions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
     .permission-card {
-      display: flex; align-items: flex-start; gap: 12px; padding: 15px; 
+      display: flex; align-items: center; gap: 12px; padding: 15px; 
       background: white; border: 1.5px solid #e2e8f0; border-radius: 20px; 
       cursor: pointer; transition: 0.3s; position: relative;
     }
     .permission-card:hover { border-color: #2563eb; transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }
     .permission-card input[type="checkbox"] { 
-      position: absolute; top: 15px; right: 15px; width: 22px; height: 22px; cursor: pointer; accent-color: #2563eb; margin: 0; 
-      z-index: 2;
+      position: absolute; top: 15px; right: 15px; width: 22px; height: 22px; accent-color: #2563eb; margin: 0; z-index: 2;
     }
+    .permission-card:has(input:checked) { border-color: #2563eb; background: #f0f7ff; }
+    .permission-card:has(input:checked) .perm-icon { background: #2563eb; color: white; }
     
     .perm-card-content { display: flex; align-items: center; gap: 15px; width: 100%; }
-    .perm-icon { width: 40px; height: 40px; background: #eff6ff; color: #2563eb; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .perm-icon { width: 40px; height: 40px; background: #eff6ff; color: #2563eb; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transition: 0.3s; }
     .perm-info { display: flex; flex-direction: column; line-height: 1.3; }
     .perm-name { font-weight: 850; color: #1e293b; font-size: 0.95rem; }
     .perm-desc { font-size: 0.7rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 
-    /* Profile View Layout Overhaul */
+    /* Profile View Overhaul */
     .user-profile-view { animation: slideUp 0.4s ease; display: flex; flex-direction: column; gap: 20px; }
-    
     .profile-card.ux-square { background: linear-gradient(135deg, #f8fafc, #eff6ff); border: 2px solid #dbeafe; padding: 25px !important; }
     .profile-header-premium { display: flex; align-items: center; gap: 30px; }
     .profile-avatar-large { 
       width: 100px; height: 100px; background: linear-gradient(135deg, #2563eb, #1d4ed8); 
       color: white; border-radius: 32px; display: flex; align-items: center; justify-content: center; 
-      font-size: 3rem; font-weight: 900; border: 4px solid white;
+      font-size: 3rem; font-weight: 900; border: 4px solid white; box-shadow: 0 10px 30px rgba(37, 99, 235, 0.3);
     }
-    .shadow-glow { box-shadow: 0 10px 30px rgba(37, 99, 235, 0.3); }
     .profile-title-group h3 { font-size: 2rem; font-weight: 900; color: #0f172a; margin-bottom: 8px; letter-spacing: -1px; }
     .role-badge-large { 
-      padding: 10px 20px; border-radius: 16px; font-size: 0.9rem; font-weight: 900; 
-      display: inline-flex; align-items: center; gap: 10px; text-transform: uppercase; letter-spacing: 1px;
+      padding: 10px 20px; border-radius: 16px; font-size: 0.85rem; font-weight: 900; 
+      display: inline-flex; align-items: center; gap: 10px; text-transform: uppercase;
     }
-    .role-badge-large.admin { background: #fef3c7; color: #92400e; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.1); }
-    .role-badge-large.seller, .role-badge-large.user { background: #dcfce7; color: #166534; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.1); }
+    .role-badge-large.admin { background: #fef3c7; color: #92400e; }
+    .role-badge-large.seller, .role-badge-large.user { background: #dcfce7; color: #166534; }
 
     .profile-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     .detail-card { padding: 30px !important; display: flex; flex-direction: column; gap: 12px; }
-    .detail-label { font-size: 0.75rem; font-weight: 900; color: #64748b; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 10px; }
-    .detail-label-large { font-size: 0.85rem; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: 1.5px; display: flex; align-items: center; gap: 15px; margin-bottom: 25px; }
+    .detail-label { font-size: 0.75rem; font-weight: 900; color: #64748b; text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
     .detail-value { font-size: 1.2rem; font-weight: 850; color: #334155; }
-    .detail-value code { background: #f1f5f9; padding: 5px 12px; border-radius: 10px; color: #2563eb; font-size: 1rem; border: 1.5px solid #e2e8f0; }
+    .detail-value code { background: #f1f5f9; padding: 5px 12px; border-radius: 10px; color: #2563eb; }
     .status-active { color: #10b981; }
 
     .profile-permissions-card { padding: 35px !important; }
@@ -545,36 +558,25 @@ import Layout from '../layouts/MainLayout.astro';
       background: white; border: 2px solid #f1f5f9; padding: 15px 20px; border-radius: 20px; 
       display: flex; align-items: center; gap: 15px; transition: 0.3s;
     }
-    .view-perm-card:hover { border-color: #dbeafe; background: #fbfcfe; transform: scale(1.02); }
     .perm-icon-small { width: 40px; height: 40px; background: #f0f7ff; color: #2563eb; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
     .view-perm-card span { font-weight: 850; color: #1e293b; font-size: 0.95rem; }
 
-    @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-    
-    @media (max-width: 768px) {
-      .profile-header-premium { flex-direction: column; text-align: center; gap: 20px; }
-      .profile-info-grid { grid-template-columns: 1fr; }
-      .modal-content { max-height: 100vh; border-radius: 0; }
-      .view-perms-grid-premium { grid-template-columns: 1fr; }
-    }
-
-
-    /* UX States */
+    /* States & Feedback */
     .loading-state, .error-state, .empty-state { padding: 80px 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; gap: 15px; text-align: center; }
     .loading-state i { font-size: 2.5rem; color: #2563eb; margin-bottom: 15px; }
-    .empty-state i { font-size: 3rem; color: #e2e8f0; margin-bottom: 20px; }
     .empty-state h3 { color: #475569; font-weight: 900; }
-    .empty-state p { color: #94a3b8; }
 
+    /* Animations */
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     .animate-fade-in { animation: fadeIn 0.5s ease; }
 
-    @media (max-width: 640px) {
+    @media (max-width: 768px) {
       .header-section { flex-direction: column; align-items: flex-start; gap: 20px; }
-      .permissions-grid, .profile-details-grid, .view-perms-grid { grid-template-columns: 1fr; }
-      .modal-content { max-height: 95vh; border-radius: 0; }
-      .modal { padding: 0; }
+      .profile-header-premium { flex-direction: column; text-align: center; gap: 20px; }
+      .profile-info-grid { grid-template-columns: 1fr; }
+      .modal-content { max-height: 100vh; border-radius: 0; width: 100%; }
+      .view-perms-grid-premium { grid-template-columns: 1fr; }
     }
   </style>
 </Layout>
