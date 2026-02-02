@@ -54,6 +54,12 @@ import Layout from '../layouts/MainLayout.astro';
               </div>
             </div>
             <p id="pw-hint" class="hint-text">Deixe em branco para manter a senha atual ao editar.</p>
+            
+            <div class="form-actions-inline">
+              <button type="submit" class="btn-primary-inline">
+                <i class="fas fa-save"></i> Salvar Alterações
+              </button>
+            </div>
           </div>
 
           <div class="form-section ux-square">
@@ -334,9 +340,12 @@ import Layout from '../layouts/MainLayout.astro';
          return;
       }
 
-      const btn = document.getElementById('save-user-btn');
-      btn.disabled = true;
-      btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processando...';
+      const submitBtns = userForm.querySelectorAll('button[type="submit"]');
+      submitBtns.forEach(btn => {
+        btn.disabled = true;
+        btn.dataset.originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processando...';
+      });
 
       try {
         const response = await fetch(isEdit ? `/api/users/${data.id}` : '/api/users', {
@@ -359,8 +368,10 @@ import Layout from '../layouts/MainLayout.astro';
       } catch (error) {
         window.showToast('Erro de conexão com o servidor', 'error');
       } finally {
-        btn.disabled = false;
-        btn.textContent = 'Salvar Usuário';
+        submitBtns.forEach(btn => {
+          btn.disabled = false;
+          btn.innerHTML = btn.dataset.originalText || (btn.id === 'save-user-btn' ? 'Salvar Usuário' : 'Salvar Alterações');
+        });
       }
     };
 
@@ -486,6 +497,19 @@ import Layout from '../layouts/MainLayout.astro';
     }
     .page-usuarios .btn-primary:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 15px 25px -5px rgba(0, 74, 153, 0.4); }
     .page-usuarios .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .page-usuarios .btn-primary-inline {
+      background: #004a99; color: white; border: none;
+      padding: 12px 24px; border-radius: 12px; font-weight: 800; font-size: 0.85rem;
+      cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px;
+    }
+    .page-usuarios .btn-primary-inline:hover { background: #003366; transform: translateY(-1px); }
+    .page-usuarios .btn-primary-inline i { font-size: 0.9rem; }
+    .page-usuarios .btn-primary-inline:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .page-usuarios .form-actions-inline {
+      display: flex; justify-content: flex-end; margin-top: 10px;
+    }
 
     .page-usuarios .btn-secondary { 
       background: #f1f5f9; color: #475569; border: none; padding: 14px 24px; 
