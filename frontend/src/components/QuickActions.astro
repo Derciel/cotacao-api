@@ -8,7 +8,7 @@ const actions = [
 ];
 ---
 
-<div class="actions-card glass-premium">
+<div class="actions-card glass-premium" id="quick-actions-card">
   <div class="card-header">
     <i class="fas fa-bolt icon-yellow"></i>
     <h3>Ações Rápidas</h3>
@@ -16,7 +16,7 @@ const actions = [
   
   <div class="actions-grid">
     {actions.map(action => (
-      <a href={action.href} class={`action-btn btn-${action.color}`}>
+      <a href={action.href} class={`action-btn btn-${action.color}`} data-href={action.href}>
         <div class="icon-circle">
           <i class={action.icon}></i>
         </div>
@@ -25,6 +25,31 @@ const actions = [
     ))}
   </div>
 </div>
+
+<script is:inline>
+  (function() {
+    const userInfo = localStorage.getItem('user_info');
+    if (!userInfo) return;
+    
+    const user = JSON.parse(userInfo);
+    if (user.role === 'ADMIN') return; // Admin sees everything
+
+    const actions = document.querySelectorAll('#quick-actions-card .action-btn');
+    actions.forEach(btn => {
+      const href = btn.getAttribute('data-href');
+      const hasPermission = user.permissions && user.permissions.includes(href);
+      if (!hasPermission) {
+        btn.style.display = 'none';
+      }
+    });
+
+    // If no actions left, hide the whole card
+    const visibleActions = document.querySelectorAll('#quick-actions-card .action-btn[style*="display: none"]');
+    if (visibleActions.length === actions.length) {
+      document.getElementById('quick-actions-card').style.display = 'none';
+    }
+  })();
+</script>
 
 <style>
   .actions-card {

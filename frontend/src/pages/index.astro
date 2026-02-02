@@ -8,7 +8,8 @@ import QuickActions from '../components/QuickActions.astro';
 ---
 
 <MainLayout title="Dashboard | Nicopel Cargo">
-  <div class="dashboard-header animate-fade-in">
+  <div class="dashboard-root" id="dashboard-root">
+    <div class="dashboard-header animate-fade-in">
     <div class="header-content">
       <h1>Olá, João! 👋</h1>
       <p>Bem-vindo ao seu painel estratégico de logística.</p>
@@ -31,7 +32,8 @@ import QuickActions from '../components/QuickActions.astro';
     </div>
   </div>
 
-  <AIInsights client:load />
+    <AIInsights client:load />
+  </div>
 </MainLayout>
 
 <script is:inline>
@@ -47,6 +49,12 @@ import QuickActions from '../components/QuickActions.astro';
 
     const user = JSON.parse(userInfo);
     
+    // Role based classes
+    const root = document.getElementById('dashboard-root');
+    if (root && user.role !== 'ADMIN') {
+      root.classList.add('is-seller');
+    }
+
     // Atualiza nome do usuário se houver elemento
     const welcomeTitle = document.querySelector('.header-content h1');
     if (welcomeTitle) {
@@ -206,6 +214,22 @@ import QuickActions from '../components/QuickActions.astro';
 
   .animate-fade-in {
     animation: fadeIn 0.8s ease-out;
+  }
+
+  /* Seller Specific View Adjustments */
+  .is-seller :global(.stats-grid),
+  .is-seller :global(.ai-insight-card) {
+    display: none !important;
+  }
+
+  .is-seller .dashboard-header {
+    margin-bottom: 20px;
+  }
+
+  /* Make recent quotations full width for sellers if stats are missing */
+  .is-seller .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
 
   @keyframes fadeIn {
