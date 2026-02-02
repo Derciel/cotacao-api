@@ -203,9 +203,9 @@ export class QuotationsService {
         quotation.status = QuotationStatus.APROVADO;
       }
 
-      const saved = await queryRunner.manager.save(quotation);
+      await queryRunner.manager.save(quotation);
       await queryRunner.commitTransaction();
-      return saved;
+      return this.findOne(id);
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
