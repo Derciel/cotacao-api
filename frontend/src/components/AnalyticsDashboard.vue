@@ -7,11 +7,23 @@ const metrics = ref({
     totalSavings: 0,
     freightCount: 0,
     avgLeadTime: 0,
-    dailyData: [] as { date: string, value: number }[],
+    dailyData: [] as { date: string, value: number, count: number }[],
     topCarriers: [] as { name: string, count: number, value: number }[]
 });
+const aiInsights = ref<any[]>([]);
 const isLoading = ref(true);
 const carrierMetricType = ref<'count' | 'value'>('count');
+const selectedDay = ref<any>(null);
+
+const fetchAiInsights = async () => {
+    try {
+        const res = await fetch('/api/ai/insights');
+        const data = await res.json();
+        aiInsights.value = data.insights || [];
+    } catch (e) {
+        console.error("Erro ao buscar AI insights", e);
+    }
+};
 
 const fetchAnalytics = async () => {
     isLoading.value = true;
@@ -26,8 +38,19 @@ const fetchAnalytics = async () => {
     }
 };
 
-onMounted(fetchAnalytics);
-watch(period, fetchAnalytics);
+onMounted(() => {
+    fetchAnalytics();
+    fetchAiInsights();
+});
+
+const handleBarClick = (day: any) => {
+    selectedDay.value = selectedDay.value?.date === day.date ? null : day;
+};
+
+watch(period, () => {
+    fetchAnalytics();
+    selectedDay.value = null;
+});
 
 const formatCurrency = (val: number) => {
     return val?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00';
@@ -118,8 +141,11 @@ const getChartHeight = (value: number) => {
                 
                 <div class="chart-viewport" v-if="!isLoading">
                     <div v-if="metrics.dailyData.length > 0" class="bar-chart">
-                        <div v-for="d in metrics.dailyData" :key="d.date" class="bar-container">
-                            <div class="bar-value">R$ {{ d.value >= 1000 ? (d.value/1000).toFixed(1)+'k' : d.value }}</div>
+                        <div v-for="d in metrics.dailyData" :key="d.date" 
+                             class="bar-container" 
+                             :class="{ active: selectedDay?.date === d.date }"
+                             @click="handleBarClick(d)">
+                            <div class="bar-value">{{ formatCurrency(d.value) }}</div>
                             <div class="bar-pill" :style="{ height: getChartHeight(d.value) }"></div>
                             <div class="bar-label">{{ formatDateShort(d.date) }}</div>
                         </div>
@@ -132,6 +158,26 @@ const getChartHeight = (value: number) => {
                 <div v-else class="chart-loading">
                     <div class="skeleton-bar" v-for="n in 7" :key="n"></div>
                 </div>
+
+                <!-- Day Detail Overlay -->
+                <transition name="slide-up">
+                    <div v-if="selectedDay" class="day-detail-box">
+                        <div class="detail-header">
+                            <strong>{{ formatDateShort(selectedDay.date) }}</strong>
+                            <button @click="selectedDay = null" class="close-detail">&times;</button>
+                        </div>
+                        <div class="detail-stats">
+                            <div class="d-stat">
+                                <small>Volume</small>
+                                <span>{{ selectedDay.count }} fretes</span>
+                            </div>
+                            <div class="d-stat">
+                                <small>Faturamento</small>
+                                <span>{{ formatCurrency(selectedDay.value) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </transition>
             </div>
 
             <div class="glass-card top-carriers">
@@ -159,6 +205,26 @@ const getChartHeight = (value: number) => {
                 </div>
                 <div v-else class="list-loading">
                     <div class="skeleton-row" v-for="n in 5" :key="n"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic AI Insights -->
+        <div class="ai-insights-section animate-fade-in" v-if="aiInsights.length > 0">
+            <div class="ai-header">
+                <div class="ai-badge-premium"><i class="fas fa-robot"></i> IA Insights</div>
+                <h3>Otimizações Recomendadas</h3>
+            </div>
+            <div class="insight-cards">
+                <div v-for="(insight, idx) in aiInsights" :key="idx" class="insight-card-item">
+                    <div class="insight-icon" :class="insight.type.toLowerCase()">
+                        <i v-if="insight.type === 'Oportunidade'" class="fas fa-lightbulb"></i>
+                        <i v-else-if="insight.type === 'Alerta'" class="fas fa-exclamation-triangle"></i>
+                        <i v-else class="fas fa-info-circle"></i>
+                    </div>
+                    <div class="insight-text">
+                        <strong>{{ insight.type }}:</strong> {{ insight.text }}
+                    </div>
                 </div>
             </div>
         </div>
@@ -227,7 +293,40 @@ const getChartHeight = (value: number) => {
 .empty-chart, .empty-list { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; gap: 15px; text-align: center; }
 .empty-chart i { font-size: 3.5rem; opacity: 0.3; }
 
-/* Skeletons */
+/* Day Detail Styling */
+.day-detail-box {
+    position: absolute; bottom: 30px; left: 30px; right: 30px; background: #1e293b; color: white; border-radius: 16px; padding: 15px 25px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10;
+}
+.detail-header { display: flex; align-items: center; gap: 15px; }
+.detail-header strong { font-size: 1.1rem; border-right: 1px solid rgba(255,255,255,0.2); padding-right: 15px; }
+.close-detail { background: transparent; border: none; color: rgba(255,255,255,0.5); font-size: 1.5rem; cursor: pointer; transition: 0.2s; }
+.close-detail:hover { color: white; }
+.detail-stats { display: flex; gap: 30px; }
+.d-stat { display: flex; flex-direction: column; }
+.d-stat small { font-size: 0.65rem; color: rgba(255,255,255,0.6); font-weight: 800; text-transform: uppercase; }
+.d-stat span { font-size: 1.1rem; font-weight: 850; color: #3b82f6; }
+
+/* AI Insights Section Integration */
+.ai-insights-section { margin-top: 40px; background: #fffcf4; border: 1.5px solid #ffe9b1; border-radius: 28px; padding: 35px; }
+.ai-header { display: flex; align-items: center; gap: 20px; margin-bottom: 25px; }
+.ai-badge-premium { background: #1e293b; color: white; padding: 6px 14px; border-radius: 99px; font-size: 0.75rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.ai-header h3 { font-size: 1.5rem; font-weight: 850; color: #1e293b; margin: 0; }
+.insight-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.insight-card-item { background: white; border: 1px solid #f1f5f9; padding: 25px; border-radius: 20px; display: flex; gap: 20px; align-items: center; transition: 0.3s; }
+.insight-card-item:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+.insight-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+.insight-icon.oportunidade { color: #f59e0b; background: #fffcf0; }
+.insight-icon.alerta { color: #ef4444; background: #fff1f1; }
+.insight-icon.dica { color: #3b82f6; background: #eff6ff; }
+.insight-text { font-size: 0.95rem; color: #475569; line-height: 1.5; }
+.insight-text strong { color: #1e293b; }
+
+/* Skeletons & Transitions */
+.slide-up-enter-active, .slide-up-leave-active { transition: all 0.3s ease; }
+.slide-up-enter-from, .slide-up-leave-to { opacity: 0; transform: translateY(15px); }
+
+.bar-container.active .bar-pill { background: #004a99; transform: scaleX(1.1); box-shadow: 0 5px 15px rgba(0,74,153,0.3); }
+
 .chart-loading { display: flex; align-items: flex-end; justify-content: space-around; height: 260px; margin-top: 30px; width: 100%; }
 .skeleton-bar { width: 30px; background: #f1f5f9; border-radius: 8px; animation: pulse 1.5s infinite; }
 .skeleton-bar:nth-child(n) { height: 40%; }
@@ -244,9 +343,11 @@ const getChartHeight = (value: number) => {
 @media (max-width: 1200px) {
     .kpi-grid { grid-template-columns: repeat(2, 1fr); }
     .charts-section { grid-template-columns: 1fr; }
+    .insight-cards { grid-template-columns: 1fr; }
 }
 @media (max-width: 600px) {
     .kpi-grid { grid-template-columns: 1fr; }
     .analytics-header { flex-direction: column; align-items: flex-start; gap: 20px; }
+    .day-detail-box { flex-direction: column; align-items: flex-start; gap: 10px; }
 }
 </style>

@@ -265,14 +265,18 @@ export class QuotationsService {
       ? leadTimeItems.reduce((acc, q) => acc + (q.dias_para_entrega || 0), 0) / leadTimeItems.length
       : 0;
 
-    // Agrupar por dia para dailyData
-    const dailyMap = new Map<string, number>();
+    // Agrupar por dia para dailyData (Valor e Quantidade)
+    const dailyMap = new Map<string, { value: number, count: number }>();
     approved.forEach(q => {
       const dateStr = new Date(q.created_at).toISOString().split('T')[0];
-      dailyMap.set(dateStr, (dailyMap.get(dateStr) || 0) + Number(q.valor_total_nota || 0));
+      const current = dailyMap.get(dateStr) || { value: 0, count: 0 };
+      dailyMap.set(dateStr, {
+        value: current.value + Number(q.valor_total_nota || 0),
+        count: current.count + 1
+      });
     });
     const dailyData = Array.from(dailyMap.entries())
-      .map(([date, value]) => ({ date, value }))
+      .map(([date, data]) => ({ date, value: data.value, count: data.count }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
     // Agrupar por transportadora para topCarriers
