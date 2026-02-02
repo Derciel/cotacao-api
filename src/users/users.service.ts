@@ -40,8 +40,10 @@ export class UsersService {
         if (updateData.password) {
             updateData.password = await bcrypt.hash(updateData.password, 10);
         } else {
-            delete updateData.password; // Não atualiza senha se estiver vazio
+            delete updateData.password;
         }
+
+        delete updateData.id; // Garante que não tentamos alterar o ID
 
         Object.assign(user, updateData);
         return this.userRepository.save(user);

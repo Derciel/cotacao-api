@@ -90,6 +90,7 @@ import Layout from '../layouts/MainLayout.astro';
                   <span class="perm-name">Usuários</span>
                   <span class="perm-desc">Gestão de acessos</span>
                 </div>
+              </label>
             </div>
           </div>
         </div>
@@ -175,7 +176,7 @@ import Layout from '../layouts/MainLayout.astro';
                       <div class="avatar-circle">${user.username.charAt(0).toUpperCase()}</div>
                       <div class="user-meta">
                         <span class="username">${user.username}</span>
-                        <span class="user-id">#${user.id.substring(0, 8)}</span>
+                        <span class="user-id">#${user.id}</span>
                       </div>
                     </div>
                   </td>
@@ -315,7 +316,7 @@ import Layout from '../layouts/MainLayout.astro';
       btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processando...';
 
       try {
-        const response = await fetch('/api/users', {
+        const response = await fetch(isEdit ? `/api/users/${data.id}` : '/api/users', {
           method: isEdit ? 'PATCH' : 'POST',
           headers: { 
             'Content-Type': 'application/json',
