@@ -56,43 +56,48 @@ export class QuotationsService {
         const product = await queryRunner.manager.findOne(Product, { where: { id: item.productId } });
         if (!product) continue;
 
+        const valUnitInput = item.valorUnitario !== undefined ? item.valorUnitario : Number(product.valor_unitario);
         const qItem = new QuotationItem();
         qItem.quotation = savedQuotation;
         qItem.product = product;
         qItem.quantidade = item.quantidade;
 
-        const valUnit = item.valorUnitario !== undefined ? item.valorUnitario : Number(product.valor_unitario);
-        qItem.valor_unitario_na_cotacao = valUnit;
+        // Cálculo do Total com IPI Embutido (para Nicopel) ou Total Direto (outros)
+        const totalComIpiInput = Number((qItem.quantidade * valUnitInput).toFixed(2));
 
-        const subtotal = Number((qItem.quantidade * qItem.valor_unitario_na_cotacao).toFixed(2));
-        qItem.valor_total_item = subtotal;
-
-        accumulatedTotalProdutos += subtotal;
-
-        // Lógica de IPI
+        // Determinação da Alíquota
         let aliquotaResult = 0;
         if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
-          const nome = product.nome.toUpperCase();
-          const categoria = product.categoria ? product.categoria.toUpperCase() : 'POTE';
-          aliquotaResult = 9.75;
+          const nomeSuperior = product.nome.toUpperCase();
+          const categoriaSuperior = product.categoria ? product.categoria.toUpperCase() : 'POTE';
 
-          if (categoria === 'CAIXA') {
-            if (nome.includes('POTE') || nome.includes('PT')) {
-              aliquotaResult = 9.75;
-            } else {
-              aliquotaResult = 15;
-            }
-          } else if (nome.includes('TAMPA')) {
-            aliquotaResult = 15;
+          if (nomeSuperior.includes('SERIGRAFIA') || nomeSuperior.includes('TAMPA')) {
+            aliquotaResult = 0;
+          } else if (categoriaSuperior === 'POTE') {
+            aliquotaResult = 9.75;
+          } else {
+            aliquotaResult = 3.25;
           }
         } else if (createDto.percentualIpi) {
-          // Se não for Nicopel mas houver IPI manual no cabeçalho
           aliquotaResult = createDto.percentualIpi;
         }
 
+        // Extração/Cálculo
+        let valorBaseItem = totalComIpiInput;
+        let valorIpiItem = 0;
+
         if (aliquotaResult > 0) {
-          accumulatedIpi += subtotal * (aliquotaResult / 100);
+          // Fórmula: Base = Total / (1 + Alíquota/100)
+          valorBaseItem = Number((totalComIpiInput / (1 + aliquotaResult / 100)).toFixed(2));
+          valorIpiItem = Number((totalComIpiInput - valorBaseItem).toFixed(2));
         }
+
+        // Salvando os resultados no item
+        qItem.valor_total_item = valorBaseItem;
+        qItem.valor_unitario_na_cotacao = Number((valorBaseItem / qItem.quantidade).toFixed(2));
+
+        accumulatedTotalProdutos += valorBaseItem;
+        accumulatedIpi += valorIpiItem;
 
         quotationItems.push(qItem);
       }

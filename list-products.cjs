@@ -9,8 +9,8 @@ const client = new Client({
 async function run() {
     try {
         await client.connect();
-        const res = await client.query("SELECT * FROM products LIMIT 5");
-        console.log('FIRST 5 PRODUCTS:');
+        const res = await client.query("SELECT id, nome, categoria, peso_caixa_kg, unidades_caixa, valor_unitario FROM products ORDER BY id DESC");
+        console.log('ALL PRODUCTS:');
         console.log(JSON.stringify(res.rows, null, 2));
 
     } catch (err) {
