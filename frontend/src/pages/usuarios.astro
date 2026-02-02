@@ -20,7 +20,6 @@ import Layout from '../layouts/MainLayout.astro';
         <span>Sincronizando base de usuários...</span>
       </div>
     </div>
-  </div>
 
   <!-- Modal Novo/Editar Usuário -->
   <div id="user-modal" class="modal">
@@ -232,13 +231,13 @@ import Layout from '../layouts/MainLayout.astro';
     window.handleViewUser = (user) => {
       const perms = (user.permissions || []).map(p => `
         <div class="view-perm-card ux-square-mini">
-          <div class="perm-icon-small"><i class="fas fa-${p === '/' ? 'home' : p === '/nova-cotacao' ? 'plus-circle' : p === '/historico' ? 'history' : p === '/relatorios' ? 'chart-line' : 'users-cog'}"></i></div>
+          <div class="perm-icon-small"><i class="${p === '/' ? 'fas fa-home' : p === '/nova-cotacao' ? 'fas fa-plus-circle' : p === '/historico' ? 'fas fa-history' : p === '/relatorios' ? 'fas fa-chart-line' : 'fas fa-users-cog'}"></i></div>
           <span>${PERM_NAMES[p] || p}</span>
         </div>
-      `).join('') || '<p class="no-perms">Sem permissões específicas atribuídas.</p>';
+      `).join('') || '<p class="tag-none">Sem permissões específicas atribuídas.</p>';
       
       viewContainer.innerHTML = `
-        <div class="user-profile-view">
+        <div class="user-profile-view animate-fade-in">
           <div class="profile-card ux-square">
             <div class="profile-header-premium">
               <div class="profile-avatar-large shadow-glow">${user.username.charAt(0).toUpperCase()}</div>
@@ -554,6 +553,13 @@ import Layout from '../layouts/MainLayout.astro';
     .page-usuarios .detail-value { font-size: 1.2rem; font-weight: 850; color: #334155; }
     .page-usuarios .detail-value code { background: #f1f5f9; padding: 5px 12px; border-radius: 10px; color: #2563eb; }
     .page-usuarios .status-active { color: #10b981; }
+
+    .page-usuarios .detail-label-large { 
+      font-size: 0.85rem; font-weight: 850; color: #1e293b; 
+      margin-bottom: 25px; display: flex; align-items: center; gap: 12px; 
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .page-usuarios .detail-label-large i { color: #2563eb; background: #eff6ff; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
 
     .page-usuarios .profile-permissions-card { padding: 35px !important; }
     .page-usuarios .view-perms-grid-premium { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
