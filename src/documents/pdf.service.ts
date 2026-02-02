@@ -28,6 +28,12 @@ export class PdfService {
     const template = handlebars.compile(templateHtml);
     const cleaned = JSON.parse(JSON.stringify(quotation));
 
+    // Lógica de Isenção de Frete Visual no PDF
+    const isExento = this.quotationsService.isFreightExempt(quotation.client.razao_social, quotation.client.fantasia);
+    if (isExento) {
+      cleaned.valor_frete = 0;
+    }
+
     const themes: Record<string, string> = {
       [EmpresaFaturamento.NICOPEL]: '#F2F2F2',
       [EmpresaFaturamento.FLEXOBOX]: '#BDD7EE',

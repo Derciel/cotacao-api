@@ -178,16 +178,13 @@ export class QuotationsService {
         if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
           const nome = item.product ? item.product.nome.toUpperCase() : '';
           const categoria = (item.product as any)?.categoria ? (item.product as any).categoria.toUpperCase() : 'POTE';
-          aliquotaResult = 9.75;
 
-          if (categoria === 'CAIXA') {
-            if (nome.includes('POTE') || nome.includes('PT')) {
-              aliquotaResult = 9.75;
-            } else {
-              aliquotaResult = 15;
-            }
-          } else if (nome.includes('TAMPA')) {
-            aliquotaResult = 15;
+          if (nome.includes('SERIGRAFIA') || nome.includes('TAMPA')) {
+            aliquotaResult = 0;
+          } else if (categoria === 'POTE') {
+            aliquotaResult = 9.75;
+          } else {
+            aliquotaResult = 3.25;
           }
         } else if (quotation.percentual_ipi) {
           aliquotaResult = quotation.percentual_ipi;
@@ -200,7 +197,12 @@ export class QuotationsService {
 
       quotation.valor_total_produtos = Number(novoValorTotalProdutos.toFixed(2));
       quotation.valor_ipi = Number(valorIpiTotalGeral.toFixed(2));
-      quotation.valor_total_nota = Number((quotation.valor_total_produtos + quotation.valor_ipi + (quotation.valor_frete || 0)).toFixed(2));
+
+      // Lógica de Isenção de Frete para o cliente
+      const isExento = this.isFreightExempt(quotation.client.razao_social, quotation.client.fantasia);
+      const freteAplicado = isExento ? 0 : (quotation.valor_frete || 0);
+
+      quotation.valor_total_nota = Number((quotation.valor_total_produtos + quotation.valor_ipi + freteAplicado).toFixed(2));
 
       if (quotation.transportadora_escolhida.includes('WHATSAPP')) {
         quotation.status = QuotationStatus.PENDENTE;
@@ -217,6 +219,21 @@ export class QuotationsService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  public isFreightExempt(razaoSocial: string, fantasia?: string): boolean {
+    const r = (razaoSocial || '').toUpperCase();
+    const f = (fantasia || '').toUpperCase();
+    const grupos = [
+      'THE BEST',
+      'GELA BOCA',
+      'BARONE',
+      'SANTA PIZZA',
+      'PIMENTA ROSA',
+      'FRATELLO',
+      'GMEL'
+    ];
+    return grupos.some(g => r.includes(g) || f.includes(g));
   }
 
   async update(id: number, updateDto: any): Promise<Quotation> {
