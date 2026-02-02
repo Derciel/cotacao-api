@@ -27,7 +27,7 @@
           </div>
 
           <!-- Carrier Metrics Table -->
-          <div class="carrier-analysis-box">
+          <div v-if="isAdmin" class="carrier-analysis-box">
             <div class="box-header">
               <h3><i class="fas fa-chart-pie"></i> Gasto por Transportadora (Últimos 7 dias)</h3>
               <button @click="fetchInsights" class="btn-refresh-ai" :disabled="loading">
@@ -63,6 +63,7 @@ import { ref, onMounted } from 'vue';
 const insights = ref([]);
 const carrierMetrics = ref([]);
 const loading = ref(true);
+const isAdmin = ref(false);
 
 const formatCurrency = (val) => {
     return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -90,7 +91,14 @@ const fetchInsights = async () => {
     }
 };
 
-onMounted(fetchInsights);
+onMounted(() => {
+    const userInfo = localStorage.getItem('user_info');
+    if (userInfo) {
+        const user = JSON.parse(userInfo);
+        isAdmin.value = user.role === 'ADMIN';
+    }
+    fetchInsights();
+});
 </script>
 
 <style scoped>

@@ -1,6 +1,6 @@
 <template>
   <div class="stats-grid">
-    <div v-for="stat in stats" :key="stat.label" class="stat-card glass-premium">
+    <div v-for="stat in filteredStats" :key="stat.label" class="stat-card glass-premium">
       <div :class="['icon-wrapper', `bg-${stat.color}`]">
         <i :class="stat.icon"></i>
       </div>
@@ -16,12 +16,20 @@
 import { ref, onMounted } from 'vue';
 
 const loading = ref(true);
+const isAdmin = ref(false);
 const stats = ref([
   { label: 'Cotações Hoje', value: '0', icon: 'fas fa-file-invoice', color: 'blue' },
   { label: 'Valor Total', value: 'R$ 0,00', icon: 'fas fa-dollar-sign', color: 'green' },
   { label: 'Aguardando', value: '0', icon: 'fas fa-clock', color: 'orange' },
   { label: 'Taxa de Conv.', value: '0%', icon: 'fas fa-chart-line', color: 'purple' }
 ]);
+
+import { computed } from 'vue';
+
+const filteredStats = computed(() => {
+  if (isAdmin.value) return stats.value;
+  return stats.value.filter(s => s.label !== 'Valor Total');
+});
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -46,6 +54,11 @@ const fetchStats = async () => {
 };
 
 onMounted(() => {
+  const userInfo = localStorage.getItem('user_info');
+  if (userInfo) {
+    const user = JSON.parse(userInfo);
+    isAdmin.value = user.role === 'ADMIN';
+  }
   fetchStats();
 });
 </script>
