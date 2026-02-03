@@ -94,7 +94,7 @@ export class QuotationsService {
 
         // Salvando os resultados no item
         qItem.valor_total_item = valorBaseItem;
-        qItem.valor_unitario_na_cotacao = Number((valorBaseItem / qItem.quantidade).toFixed(2));
+        qItem.valor_unitario_na_cotacao = Number((valorBaseItem / qItem.quantidade).toFixed(4));
 
         accumulatedTotalProdutos += valorBaseItem;
         accumulatedIpi += valorIpiItem;
@@ -171,7 +171,7 @@ export class QuotationsService {
       let novoValorTotalProdutos = 0;
 
       for (const item of quotation.items) {
-        const subtotal = Number(item.quantidade) * Number(item.valor_unitario_na_cotacao);
+        const subtotal = Number(item.valor_total_item);
         novoValorTotalProdutos += subtotal;
 
         let aliquotaResult = 0;
