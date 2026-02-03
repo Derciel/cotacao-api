@@ -276,10 +276,10 @@ export class QuotationsService {
     });
 
     const approved = quotations.filter(q =>
-      q.status === QuotationStatus.APROVADO || q.status === QuotationStatus.ENVIADO
+      (q.status === QuotationStatus.APROVADO || q.status === QuotationStatus.ENVIADO) && Number(q.valor_frete || 0) > 0
     );
 
-    const totalSpend = approved.reduce((acc, q) => acc + Number(q.valor_total_nota || 0), 0);
+    const totalSpend = approved.reduce((acc, q) => acc + Number(q.valor_frete || 0), 0);
     const freightCount = approved.length;
 
     const leadTimeItems = approved.filter(q => q.dias_para_entrega !== null);
@@ -293,7 +293,7 @@ export class QuotationsService {
       const dateStr = new Date(q.created_at).toISOString().split('T')[0];
       const current = dailyMap.get(dateStr) || { value: 0, count: 0 };
       dailyMap.set(dateStr, {
-        value: current.value + Number(q.valor_total_nota || 0),
+        value: current.value + Number(q.valor_frete || 0),
         count: current.count + 1
       });
     });
@@ -308,7 +308,7 @@ export class QuotationsService {
       const current = carrierMap.get(name) || { count: 0, value: 0 };
       carrierMap.set(name, {
         count: current.count + 1,
-        value: current.value + Number(q.valor_total_nota || 0)
+        value: current.value + Number(q.valor_frete || 0)
       });
     });
     const topCarriers = Array.from(carrierMap.entries())
@@ -345,7 +345,7 @@ export class QuotationsService {
         created_at: MoreThanOrEqual(today)
       },
     });
-    const totalValue = approvedToday.reduce((acc, q) => acc + Number(q.valor_total_nota || 0), 0);
+    const totalValue = approvedToday.reduce((acc, q) => acc + Number(q.valor_frete || 0), 0);
 
     const totalAll = await this.quotationRepository.count();
     const approvedAll = await this.quotationRepository.count({
