@@ -82,6 +82,11 @@ import QuickActions from '../components/QuickActions.astro';
     margin: 0;
     letter-spacing: -1px;
   }
+ 
+  @media (max-width: 768px) {
+    .header-content h1 { font-size: 1.8rem; }
+    .dashboard-header { margin-bottom: 25px; gap: 15px; }
+  }
 
   .header-content p {
     color: var(--text-light);

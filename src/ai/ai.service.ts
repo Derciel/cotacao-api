@@ -36,16 +36,16 @@ export class AiService {
             relations: ['client']
         });
 
-        const totalValue = recentQuotations.reduce((acc, q) => acc + Number(q.valor_total_nota || 0), 0);
+        const totalValue = recentQuotations.reduce((acc, q) => acc + Number(q.valor_frete || 0), 0);
         const approvedCount = recentQuotations.filter(q => q.status === QuotationStatus.APROVADO).length;
         const pendingCount = recentQuotations.filter(q => q.status === QuotationStatus.PENDENTE).length;
 
         // Análise por transportadora
         const carrierMap = new Map<string, { count: number, value: number }>();
-        recentQuotations.filter(q => q.status === QuotationStatus.APROVADO || q.status === QuotationStatus.ENVIADO).forEach(q => {
+        recentQuotations.filter(q => (q.status === QuotationStatus.APROVADO || q.status === QuotationStatus.ENVIADO) && Number(q.valor_frete || 0) > 0).forEach(q => {
             const name = q.transportadora_escolhida || 'Manual/Outros';
             const cur = carrierMap.get(name) || { count: 0, value: 0 };
-            carrierMap.set(name, { count: cur.count + 1, value: cur.value + Number(q.valor_total_nota || 0) });
+            carrierMap.set(name, { count: cur.count + 1, value: cur.value + Number(q.valor_frete || 0) });
         });
         const carrierMetrics = Array.from(carrierMap.entries()).map(([name, data]) => ({
             name,
@@ -66,9 +66,9 @@ export class AiService {
       
       Métricas Consolidadas:
       - Total de Cotações Analisadas: ${recentQuotations.length}
-      - Valor Bruto em Negociação: R$ ${totalValue.toFixed(2)}
+      - Gasto Total com Frete (7 dias): R$ ${totalValue.toFixed(2)}
       - Taxa de Conversão Atual: ${recentQuotations.length > 0 ? Math.round((approvedCount / recentQuotations.length) * 100) : 0}%
-      Métricas por Transportadora (7 dias):
+      Gasto Logístico por Transportadora (7 dias):
       ${JSON.stringify(carrierMetrics)}
 
       Retorne APENAS um JSON no formato: { 
@@ -103,7 +103,7 @@ export class AiService {
             const top = sorted[0];
             insights.push({
                 type: 'Oportunidade',
-                text: `${top.name} concentra R$ ${Number(top.value).toFixed(2)} das suas cotações. Negocie uma redução baseada no volume.`
+                text: `${top.name} concentra R$ ${Number(top.value).toFixed(2)} gastos com frete. Negocie uma redução baseada no volume.`
             });
         }
 
