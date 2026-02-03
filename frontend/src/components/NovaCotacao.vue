@@ -648,10 +648,6 @@ const formatCurrency = (val: number) => val?.toLocaleString('pt-BR', { style: 'c
 
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; }
  
-@media (max-width: 640px) {
-  .form-grid { grid-template-columns: 1fr; gap: 10px; }
-  .modal-actions-grid { grid-template-columns: 1fr; }
-}
  
 .form-field { display: flex; flex-direction: column; gap: 8px; }
 .form-field label { font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
@@ -665,10 +661,6 @@ const formatCurrency = (val: number) => val?.toLocaleString('pt-BR', { style: 'c
 .modal-box { background: #fff; border-radius: 25px; padding: 35px; width: 95%; max-width: 550px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); display: flex; flex-direction: column; max-height: 90vh; }
 .modal-box.giant { max-width: 1000px; width: 95%; }
  
-@media (max-width: 640px) {
-  .modal-box { padding: 20px; border-radius: 20px; }
-  .modal-box h3 { font-size: 1.2rem; }
-}
 .modal-scroll-area { overflow-y: auto; flex: 1; padding-right: 10px; margin-top: 15px; }
 /* Personaliza scrollbar */
 .modal-scroll-area::-webkit-scrollbar { width: 8px; }
@@ -720,9 +712,4 @@ const formatCurrency = (val: number) => val?.toLocaleString('pt-BR', { style: 'c
 
 .wa-warning-inline { background: #f0fdf4; border: 1px solid #bbfcce; color: #166534; padding: 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
  
-@media (max-width: 768px) {
-  .items-table th:nth-child(4), .items-table td:nth-child(4) { display: none; } /* Ocultar medidas no mob para caber */
-  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -15px; padding: 0 15px; }
-  .items-table { min-width: 500px; }
-}
 </style>

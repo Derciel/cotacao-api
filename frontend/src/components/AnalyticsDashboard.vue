@@ -81,7 +81,7 @@ const getChartHeight = (value: number) => {
     <div class="analytics-container animate-fade-in">
         <header class="analytics-header">
             <div class="header-left">
-                <h1>Analytics</h1>
+                <h1>Análises de Fretes</h1>
                 <p>Insights estratégicos e performance da sua operação logística.</p>
             </div>
             
@@ -340,14 +340,4 @@ const getChartHeight = (value: number) => {
 @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .animate-fade-in { animation: fade-in 0.5s ease-out; }
 
-@media (max-width: 1200px) {
-    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-    .charts-section { grid-template-columns: 1fr; }
-    .insight-cards { grid-template-columns: 1fr; }
-}
-@media (max-width: 600px) {
-    .kpi-grid { grid-template-columns: 1fr; }
-    .analytics-header { flex-direction: column; align-items: flex-start; gap: 20px; }
-    .day-detail-box { flex-direction: column; align-items: flex-start; gap: 10px; }
-}
 </style>
