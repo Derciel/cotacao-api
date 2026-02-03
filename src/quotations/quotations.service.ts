@@ -147,7 +147,7 @@ export class QuotationsService {
     try {
       const quotation = await queryRunner.manager.findOne(Quotation, {
         where: { id },
-        relations: ['items', 'items.product'],
+        relations: ['client', 'items', 'items.product'],
       });
 
       if (!quotation) throw new NotFoundException(`Cotação #${id} não encontrada.`);
