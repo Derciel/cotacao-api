@@ -66,7 +66,7 @@ const __dirname = dirname(__filename);
     AiModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'frontend', 'dist'),
-      exclude: ['/api/(.*)'], // Opcional, se você decidir prefixar
+      exclude: ['/api*'], // Correção para evitar PathError: Missing parameter name
     }),
   ],
   controllers: [AppController],
