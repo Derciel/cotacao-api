@@ -10,8 +10,8 @@ import ormConfig from './src/orm.config';
  */
 const dataSource = new DataSource({
   ...ormConfig,
-  entities: ['dist/**/*.entity.{js,ts}'],
-  migrations: ['dist/migrations/*{.js,.ts}'],
+  entities: ['src/**/*.entity.ts'],
+  migrations: ['src/migrations/*.ts'],
 });
 
 export default dataSource;
