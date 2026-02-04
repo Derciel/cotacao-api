@@ -1,7 +1,8 @@
 import {
   Controller, Get, Post, Body, Patch, Param, Delete,
-  UseInterceptors, UploadedFile, Query
+  UseInterceptors, UploadedFile, Query, UseGuards
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ClientsService } from './clients.service.js';
 import { CreateClientDto } from './dto/create-client.dto.js';
@@ -12,6 +13,7 @@ import {
 
 @ApiTags('Clients')
 @Controller('clients')
+@UseGuards(JwtAuthGuard)
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) { }
 

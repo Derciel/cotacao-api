@@ -240,7 +240,7 @@ const calculateFreight = async () => {
     });
     if (!resQuo.ok) {
         const err = await resQuo.json();
-        throw new Error(err.error || "Erro ao gerar cotação base");
+        throw new Error(err.message || err.error || "Erro ao gerar cotação base");
     }
     const quoData = await resQuo.json();
     lastQuotationId.value = quoData.id;
