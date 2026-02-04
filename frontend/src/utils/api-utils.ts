@@ -2,9 +2,28 @@ export const getBackendUrl = () => {
     return import.meta.env.PUBLIC_API_URL || 'https://cotacao-api-ppiy.onrender.com';
 };
 
+export const getAuthToken = () => {
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem('auth_token');
+    }
+    return null;
+};
+
 export const safeFetch = async (url: string, options: RequestInit = {}) => {
+    const token = getAuthToken();
+    const headers = new Headers(options.headers || {});
+
+    if (token) {
+        headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    const finalOptions = {
+        ...options,
+        headers
+    };
+
     try {
-        const response = await fetch(url, options);
+        const response = await fetch(url, finalOptions);
         const contentType = response.headers.get('content-type');
 
         let data;

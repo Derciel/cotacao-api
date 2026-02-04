@@ -37,7 +37,10 @@ const formatCurrency = (value) => {
 
 const fetchStats = async () => {
   try {
-    const response = await fetch('/api/quotations/dashboard/stats');
+    const token = localStorage.getItem('auth_token');
+    const response = await fetch('/api/quotations/dashboard/stats', {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    });
     const data = await response.json();
     
     if (response.ok) {

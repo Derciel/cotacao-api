@@ -38,6 +38,11 @@ const selectedCarrier = ref<any>(null);
 const pdfLink = ref("");
 let searchTimeout: ReturnType<typeof setTimeout>;
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('auth_token');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+};
+
 // Dados da Cotação
 const origin = reactive<Client>({ razao_social: '', cnpj: '', cidade: '', estado: '', cep: '' });
 const dest = reactive<Client>({ razao_social: '', cnpj: '', cidade: '', estado: '', cep: '' });
@@ -60,7 +65,9 @@ const fetchClients = async () => {
   try {
     const term = modalSearch.value.trim();
     // Aumentado para 10 como pedido, mas permitindo busca vazia para o preview
-    const res = await fetch(`/api/clients?search=${encodeURIComponent(term)}&limit=10`);
+    const res = await fetch(`/api/clients?search=${encodeURIComponent(term)}&limit=10`, {
+      headers: getAuthHeaders()
+    });
     const data = await res.json();
     modalClients.value = data.data || (Array.isArray(data) ? data : []);
   } catch (e) {
@@ -95,7 +102,10 @@ const selectClient = async (client: any) => {
           estado: client.estado || '',
           empresa_faturamento: originCompany.value
         }),
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        }
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || data.error || "Falha ao registrar cliente");
@@ -108,7 +118,9 @@ const selectClient = async (client: any) => {
   if (!client.isExternal && (!client.cep || !client.cidade || !client.estado) && client.cnpj) {
     try {
       window.showToast("Completando dados cadastrais...", "info");
-      const enrichRes = await fetch(`/api/clients/cnpj/${client.cnpj}`);
+      const enrichRes = await fetch(`/api/clients/cnpj/${client.cnpj}`, {
+          headers: getAuthHeaders()
+      });
       if (enrichRes.ok) {
         const enrichData = await enrichRes.json();
         const details = enrichData.data || enrichData;
@@ -135,7 +147,9 @@ const findProduct = async (idx: number) => {
   const query = items.value[idx].search;
   if (query.length < 3) return;
   try {
-    const res = await fetch(`/api/products-proxy?search=${encodeURIComponent(query)}`);
+    const res = await fetch(`/api/products-proxy?search=${encodeURIComponent(query)}`, {
+        headers: getAuthHeaders()
+    });
     const data = await res.json();
     const allProducts = data.data || data;
     const products = Array.isArray(allProducts) ? allProducts.filter(p => p.nome && p.nome.trim() !== "") : [];
@@ -153,7 +167,9 @@ const openProductSearch = (idx: number) => {
 const fetchProducts = async (term: string) => {
   isSearching.value = true;
   try {
-    const res = await fetch(`/api/products?search=${encodeURIComponent(term)}`);
+    const res = await fetch(`/api/products?search=${encodeURIComponent(term)}`, {
+        headers: getAuthHeaders()
+    });
     const data = await res.json();
     const rawList = data.data || (Array.isArray(data) ? data : []);
     productList.value = rawList.filter((p: any) => p.nome && p.nome.trim() !== "");
@@ -217,7 +233,10 @@ const calculateFreight = async () => {
     const resQuo = await fetch('/api/quotations', {
       method: 'POST',
       body: JSON.stringify(quotationPayload),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+      }
     });
     if (!resQuo.ok) {
         const err = await resQuo.json();
@@ -228,7 +247,10 @@ const calculateFreight = async () => {
     const resFreight = await fetch(`/api/quotations/${quoData.id}/calculate-freight`, {
       method: 'POST',
       body: JSON.stringify({ quotationId: quoData.id }),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+      }
     });
     if (!resFreight.ok) {
         const err = await resFreight.json();
@@ -337,7 +359,10 @@ const confirmFinalization = async () => {
         const res = await fetch(`/api/quotations/${lastQuotationId.value}/finalize`, {
             method: 'PATCH',
             body: JSON.stringify(payload),
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+            }
         });
         if (!res.ok) throw new Error("Erro ao finalizar cotação");
         pdfLink.value = `/api/quotations/${lastQuotationId.value}/pdf`;

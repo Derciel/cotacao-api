@@ -21,10 +21,17 @@ const editFreightValue = ref(0);
 const editDeadline = ref("");
 const editFreightType = ref("CIF");
 
+const getAuthHeaders = () => {
+    const token = localStorage.getItem('auth_token');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+};
+
 const fetchQuotations = async () => {
     isLoading.value = true;
     try {
-        const res = await fetch('/api/quotations');
+        const res = await fetch('/api/quotations', {
+            headers: getAuthHeaders()
+        });
         const data = await res.json();
         quotations.value = Array.isArray(data) ? data : (data.data || []);
     } catch (e) {
@@ -47,7 +54,8 @@ const confirmDelete = async () => {
 
     try {
         const res = await fetch(`/api/quotations/${quotationToDelete.value}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: getAuthHeaders()
         });
 
         if (res.ok) {
@@ -86,7 +94,10 @@ const updateStatus = async () => {
                 dias_para_entrega: editDeadline.value,
                 tipo_frete: editFreightType.value
             }),
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+            }
         });
 
         if (resQuo.ok) {

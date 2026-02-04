@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, MoreThanOrEqual } from 'typeorm';
 import { Quotation, QuotationStatus, EmpresaFaturamento } from './entities/quotation.entity.js';
+import { User, UserRole } from '../auth/entities/user.entity.js';
 import { QuotationItem } from './entities/quotation-item.entity.js';
 import { CreateQuotationDto } from './dto/create-quotation.dto.js';
 import { FinalizeQuotationDto } from './dto/finalize-quotation.dto.js';
@@ -19,7 +20,7 @@ export class QuotationsService {
     private dataSource: DataSource,
   ) { }
 
-  async create(createDto: CreateQuotationDto): Promise<Quotation> {
+  async create(createDto: CreateQuotationDto, user?: any): Promise<Quotation> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -45,6 +46,10 @@ export class QuotationsService {
       quotation.valor_total_produtos = 0;
       quotation.valor_ipi = 0;
       quotation.valor_total_nota = 0;
+
+      if (user && user.userId) {
+        quotation.userId = user.userId;
+      }
 
       const savedQuotation = await queryRunner.manager.save(quotation);
 
@@ -121,8 +126,14 @@ export class QuotationsService {
     }
   }
 
-  async findAll(): Promise<Quotation[]> {
+  async findAll(user?: any): Promise<Quotation[]> {
+    const where: any = {};
+    if (user && user.role !== UserRole.ADMIN) {
+      where.userId = user.userId;
+    }
+
     return this.quotationRepository.find({
+      where,
       relations: ['client'],
       order: { id: 'DESC' },
     });
@@ -266,12 +277,17 @@ export class QuotationsService {
     await this.quotationRepository.remove(quotation);
   }
 
-  async getAnalytics(days: number) {
+  async getAnalytics(days: number, user?: any) {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
+    const where: any = { created_at: MoreThanOrEqual(startDate) };
+    if (user && user.role !== UserRole.ADMIN) {
+      where.userId = user.userId;
+    }
+
     const quotations = await this.quotationRepository.find({
-      where: { created_at: MoreThanOrEqual(startDate) },
+      where,
       relations: ['client'],
     });
 
@@ -281,6 +297,10 @@ export class QuotationsService {
 
     const totalSpend = approved.reduce((acc, q) => acc + Number(q.valor_frete || 0), 0);
     const freightCount = approved.length;
+
+    // Freight Categories Breakdown (FOB vs CIF)
+    const fobCount = approved.filter(q => q.tipo_frete === 'FOB').length;
+    const cifCount = approved.filter(q => q.tipo_frete === 'CIF').length;
 
     const leadTimeItems = approved.filter(q => q.dias_para_entrega !== null);
     const avgLeadTime = leadTimeItems.length > 0
@@ -319,6 +339,8 @@ export class QuotationsService {
     return {
       totalSpend,
       freightCount,
+      fobCount,
+      cifCount,
       avgLeadTime: Number(avgLeadTime.toFixed(1)),
       totalSavings: totalSpend * 0.12,
       dailyData,
@@ -326,30 +348,54 @@ export class QuotationsService {
     };
   }
 
-  async getDashboardStats() {
+  async getDashboardStats(user?: any) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    const baseWhere: any = { created_at: MoreThanOrEqual(today) };
+    if (user && user.role !== UserRole.ADMIN) {
+      baseWhere.userId = user.userId;
+    }
+
     const quotationsToday = await this.quotationRepository.count({
-      where: { created_at: MoreThanOrEqual(today) },
+      where: baseWhere,
     });
 
+    const pendingWhere: any = { status: QuotationStatus.PENDENTE };
+    if (user && user.role !== UserRole.ADMIN) {
+      pendingWhere.userId = user.userId;
+    }
+
     const pendingCount = await this.quotationRepository.count({
-      where: { status: QuotationStatus.PENDENTE },
+      where: pendingWhere,
     });
 
     // Valor Total hoje (aprovadas/enviadas hoje)
+    const approvedWhere: any = {
+      status: QuotationStatus.APROVADO,
+      created_at: MoreThanOrEqual(today)
+    };
+    if (user && user.role !== UserRole.ADMIN) {
+      approvedWhere.userId = user.userId;
+    }
+
     const approvedToday = await this.quotationRepository.find({
-      where: {
-        status: QuotationStatus.APROVADO,
-        created_at: MoreThanOrEqual(today)
-      },
+      where: approvedWhere,
     });
     const totalValue = approvedToday.reduce((acc, q) => acc + Number(q.valor_frete || 0), 0);
 
-    const totalAll = await this.quotationRepository.count();
+    const totalAllWhere: any = {};
+    if (user && user.role !== UserRole.ADMIN) {
+      totalAllWhere.userId = user.userId;
+    }
+    const totalAll = await this.quotationRepository.count({ where: totalAllWhere });
+
+    const approvedAllWhere: any = { status: QuotationStatus.APROVADO };
+    if (user && user.role !== UserRole.ADMIN) {
+      approvedAllWhere.userId = user.userId;
+    }
     const approvedAll = await this.quotationRepository.count({
-      where: { status: QuotationStatus.APROVADO },
+      where: approvedAllWhere,
     });
     const conversionRate = totalAll > 0 ? Math.round((approvedAll / totalAll) * 100) : 0;
 
@@ -361,8 +407,14 @@ export class QuotationsService {
     };
   }
 
-  async getRecentQuotations(limit: number): Promise<Quotation[]> {
+  async getRecentQuotations(limit: number, user?: any): Promise<Quotation[]> {
+    const where: any = {};
+    if (user && user.role !== UserRole.ADMIN) {
+      where.userId = user.userId;
+    }
+
     return this.quotationRepository.find({
+      where,
       relations: ['client'],
       order: { created_at: 'DESC' },
       take: limit,

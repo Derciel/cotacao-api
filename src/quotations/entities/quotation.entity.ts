@@ -1,4 +1,5 @@
 import { Client } from '../../clients/entities/client.entity.js';
+import { User } from '../../auth/entities/user.entity.js';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -43,6 +44,13 @@ export class Quotation {
   @ManyToOne(() => Client)
   @JoinColumn({ name: 'client_id' })
   client!: Client;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'user_id' })
+  user!: User;
+
+  @Column({ name: 'user_id', nullable: true })
+  userId!: number | null;
 
   @OneToMany(() => QuotationItem, (item) => item.quotation, {
     cascade: true,

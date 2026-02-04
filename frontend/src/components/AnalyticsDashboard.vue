@@ -6,6 +6,8 @@ const metrics = ref({
     totalSpend: 0,
     totalSavings: 0,
     freightCount: 0,
+    fobCount: 0,
+    cifCount: 0,
     avgLeadTime: 0,
     dailyData: [] as { date: string, value: number, count: number }[],
     topCarriers: [] as { name: string, count: number, value: number }[]
@@ -15,9 +17,16 @@ const isLoading = ref(true);
 const carrierMetricType = ref<'count' | 'value'>('count');
 const selectedDay = ref<any>(null);
 
+const getAuthHeaders = () => {
+    const token = localStorage.getItem('auth_token');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+};
+
 const fetchAiInsights = async () => {
     try {
-        const res = await fetch('/api/ai/insights');
+        const res = await fetch('/api/ai/insights', {
+            headers: getAuthHeaders()
+        });
         const data = await res.json();
         aiInsights.value = data.insights || [];
     } catch (e) {
@@ -28,7 +37,9 @@ const fetchAiInsights = async () => {
 const fetchAnalytics = async () => {
     isLoading.value = true;
     try {
-        const res = await fetch(`/api/quotations/analytics?days=${period.value}`);
+        const res = await fetch(`/api/quotations/analytics?days=${period.value}`, {
+            headers: getAuthHeaders()
+        });
         const data = await res.json();
         metrics.value = data;
     } catch (e) {
@@ -128,6 +139,24 @@ const getChartHeight = (value: number) => {
                 <div class="kpi-content">
                     <small>LEAD TIME MÉDIO</small>
                     <h2>{{ metrics.avgLeadTime }} dias</h2>
+                </div>
+            </div>
+
+            <div class="kpi-card glass-glow kpi-split">
+                <div class="kpi-half">
+                    <div class="kpi-icon teal"><i class="fas fa-file-invoice"></i></div>
+                    <div class="kpi-content">
+                        <small>FOB</small>
+                        <h3>{{ metrics.fobCount }}</h3>
+                    </div>
+                </div>
+                <div class="kpi-divider"></div>
+                <div class="kpi-half">
+                    <div class="kpi-icon indigo"><i class="fas fa-truck-loading"></i></div>
+                    <div class="kpi-content">
+                        <small>CIF</small>
+                        <h3>{{ metrics.cifCount }}</h3>
+                    </div>
                 </div>
             </div>
         </div>
@@ -254,9 +283,17 @@ const getChartHeight = (value: number) => {
 .kpi-icon.green { background: #f0fdf4; color: #10b981; }
 .kpi-icon.purple { background: #f5f3ff; color: #8b5cf6; }
 .kpi-icon.orange { background: #fff7ed; color: #f59e0b; }
+.kpi-icon.teal { background: #f0fdfa; color: #0d9488; }
+.kpi-icon.indigo { background: #eef2ff; color: #4f46e5; }
 
 .kpi-content small { font-weight: 800; color: #94a3b8; font-size: 0.7rem; letter-spacing: 0.8px; text-transform: uppercase; display: block; margin-bottom: 4px; }
 .kpi-content h2 { font-size: 1.6rem; color: #1e293b; font-weight: 800; margin: 0; }
+.kpi-content h3 { font-size: 1.2rem; color: #1e293b; font-weight: 800; margin: 0; }
+
+.kpi-split { display: flex; padding: 15px 25px; gap: 0; position: relative; }
+.kpi-half { flex: 1; display: flex; align-items: center; gap: 12px; }
+.kpi-divider { width: 1px; height: 40px; background: #e2e8f0; margin: 0 20px; }
+.kpi-half .kpi-icon { width: 40px; height: 40px; font-size: 1rem; border-radius: 12px; }
 
 .charts-section { display: grid; grid-template-columns: 1.5fr 1fr; gap: 30px; }
 .glass-card { background: white; padding: 30px; border-radius: 28px; border: 1px solid #e2e8f0; position: relative; }

@@ -65,7 +65,10 @@ const formatCurrency = (value) => {
 
 const fetchRecent = async () => {
   try {
-    const response = await fetch('/api/quotations/dashboard/recent?limit=5');
+    const token = localStorage.getItem('auth_token');
+    const response = await fetch('/api/quotations/dashboard/recent?limit=5', {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    });
     const data = await response.json();
     if (response.ok) {
       recentQuotes.value = data;

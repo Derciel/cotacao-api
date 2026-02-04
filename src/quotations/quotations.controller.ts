@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, Res, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Res, Delete, Query, UseGuards, Req } from '@nestjs/common';
 import type { Response } from 'express';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
@@ -8,6 +8,7 @@ import { PdfService } from '../documents/pdf.service.js';
 
 import { CreateQuotationDto } from './dto/create-quotation.dto.js';
 import { FinalizeQuotationDto } from './dto/finalize-quotation.dto.js';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 
 /**
  * @ApiTags('Quotations')
@@ -16,6 +17,7 @@ import { FinalizeQuotationDto } from './dto/finalize-quotation.dto.js';
  */
 @ApiTags('Quotations')
 @Controller('quotations')
+@UseGuards(JwtAuthGuard)
 export class QuotationsController {
   constructor(
     private readonly quotationsService: QuotationsService,
@@ -27,33 +29,33 @@ export class QuotationsController {
   @ApiOperation({ summary: 'Cria uma nova cotação com seus itens' })
   @ApiResponse({ status: 201, description: 'Cotação criada com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
-  create(@Body() createQuotationDto: CreateQuotationDto) {
-    return this.quotationsService.create(createQuotationDto);
+  create(@Body() createQuotationDto: CreateQuotationDto, @Req() req: any) {
+    return this.quotationsService.create(createQuotationDto, req.user);
   }
 
   @Get()
   @ApiOperation({ summary: 'Lista todas as cotações' })
   @ApiResponse({ status: 200, description: 'Lista de cotações retornada com sucesso.' })
-  findAll() {
-    return this.quotationsService.findAll();
+  findAll(@Req() req: any) {
+    return this.quotationsService.findAll(req.user);
   }
 
   @Get('analytics')
   @ApiOperation({ summary: 'Retorna estatísticas operacionais' })
-  getAnalytics(@Query('days') days: string) {
-    return this.quotationsService.getAnalytics(days ? +days : 30);
+  getAnalytics(@Query('days') days: string, @Req() req: any) {
+    return this.quotationsService.getAnalytics(days ? +days : 30, req.user);
   }
 
   @Get('dashboard/stats')
   @ApiOperation({ summary: 'Retorna estatísticas simplificadas para o dashboard principal' })
-  getDashboardStats() {
-    return this.quotationsService.getDashboardStats();
+  getDashboardStats(@Req() req: any) {
+    return this.quotationsService.getDashboardStats(req.user);
   }
 
   @Get('dashboard/recent')
   @ApiOperation({ summary: 'Retorna as cotações mais recentes' })
-  getRecent(@Query('limit') limit: string) {
-    return this.quotationsService.getRecentQuotations(limit ? +limit : 5);
+  getRecent(@Query('limit') limit: string, @Req() req: any) {
+    return this.quotationsService.getRecentQuotations(limit ? +limit : 5, req.user);
   }
 
   @Get(':id')
