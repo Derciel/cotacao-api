@@ -1,5 +1,5 @@
 export const getBackendUrl = () => {
-    return import.meta.env.PUBLIC_API_URL || 'https://cotacao-api-ppiy.onrender.com';
+    return import.meta.env.PUBLIC_API_URL || 'https://cotacao.nicopel.com.br';
 };
 
 export const getAuthToken = () => {
