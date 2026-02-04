@@ -59,6 +59,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { getAuthToken } from '../utils/api-utils';
 
 const insights = ref([]);
 const carrierMetrics = ref([]);
@@ -78,7 +79,10 @@ const getWidth = (val) => {
 const fetchInsights = async () => {
     loading.value = true;
     try {
-        const response = await fetch('/api/ai/insights');
+        const token = getAuthToken();
+        const response = await fetch('/api/ai/insights', {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
         const data = await response.json();
         if (response.ok) {
             insights.value = data.insights || [];

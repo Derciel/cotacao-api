@@ -1,27 +1,10 @@
 ---
 import MainLayout from '../layouts/MainLayout.astro';
+import FinalizarResumo from '../components/FinalizarResumo.vue';
 
 // Captura o ID da cotação gerada na URL
 const { searchParams } = Astro.url;
 const quotationId = searchParams.get('id');
-const apiUrl = "https://cotacao-api-ppiy.onrender.com";
-
-let quotation = null;
-let todayQuotations = [];
-
-try {
-  // Busca os detalhes da cotação atual e o histórico do dia
-  const [qRes, historyRes] = await Promise.all([
-    fetch(`${apiUrl}/quotations/${quotationId}`),
-    fetch(`${apiUrl}/quotations`) // Idealmente um endpoint filtrado por data
-  ]);
-
-  quotation = await qRes.json();
-  const historyData = await historyRes.json();
-  todayQuotations = historyData.data || [];
-} catch (e) {
-  console.error("Erro ao buscar dados da finalização");
-}
 ---
 
 <MainLayout title="Finalizar Cotação | Nicopel Cargo">
@@ -32,64 +15,7 @@ try {
       <p>O documento está pronto para envio ou impressão.</p>
     </div>
 
-    <div class="grid-layout">
-      <section class="result-card glass-card shadow-lg">
-        <div class="card-header">DETALHES DA COTAÇÃO #${quotationId}</div>
-        <div class="card-content">
-          <div class="info-row">
-            <span>Cliente:</span>
-            <strong>{quotation?.client?.razao_social}</strong>
-          </div>
-          <div class="info-row">
-            <span>Destino:</span>
-            <strong>{quotation?.client?.cidade} - {quotation?.client?.estado}</strong>
-          </div>
-          <hr />
-          <div class="shipping-box">
-            <div class="shipping-header">RESULTADO DO FRETE (FRENET)</div>
-            <div class="price-tag">
-              <small>Valor Total</small>
-              <div class="value">R$ {quotation?.valor_frete?.toFixed(2) || "0,00"}</div>
-            </div>
-            <p>Transportadora: <strong>{quotation?.transportadora_escolhida || 'A calcular'}</strong></p>
-            <p>Prazo Estimado: <strong>{quotation?.dias_para_entrega || '--'} dias úteis</strong></p>
-          </div>
-
-          <div class="actions-group">
-            <a href={`${apiUrl}/quotations/${quotationId}/pdf`} target="_blank" class="btn-download">
-              BAIXAR COTAÇÃO (PDF) 🚚
-            </a>
-            <button onclick="window.print()" class="btn-outline">IMPRIMIR TELA</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="history-card glass-card shadow-lg">
-        <div class="card-header">COTAÇÕES REALIZADAS HOJE</div>
-        <div class="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>Nº</th>
-                <th>Cliente</th>
-                <th>Valor</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {todayQuotations.slice(0, 8).map((q: any) => (
-                <tr>
-                  <td>#{q.id}</td>
-                  <td class="truncate">{q.client?.razao_social}</td>
-                  <td>R$ {q.valor_total_nota?.toFixed(2)}</td>
-                  <td><span class="status-pill">Gerado</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
+    <FinalizarResumo client:load quotationId={quotationId} />
   </div>
 </MainLayout>
 

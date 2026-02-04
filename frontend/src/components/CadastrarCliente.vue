@@ -7,6 +7,11 @@ declare global {
   }
 }
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('auth_token');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+};
+
 const client = ref({
   cnpj: '',
   razao_social: '',
@@ -33,7 +38,9 @@ const lookupCNPJ = async () => {
 
   isSearching.value = true;
   try {
-    const res = await fetch(`/api/clients/cnpj/${cnpjClean}`);
+    const res = await fetch(`/api/clients/cnpj/${cnpjClean}`, {
+      headers: getAuthHeaders()
+    });
     const result = await res.json();
 
     if (res.ok && result.data) {
@@ -94,7 +101,10 @@ const handleSave = async (e: Event) => {
     const res = await fetch('/api/clients', {
       method: 'POST',
       body: JSON.stringify(client.value),
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      }
     });
 
     const data = await res.json();
