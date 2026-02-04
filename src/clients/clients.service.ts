@@ -67,7 +67,7 @@ export class ClientsService {
           empresa_faturamento: existing?.empresa_faturamento || 'NICOPEL',
         }
       };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Erro ao consultar CNPJ ${cnpj}: ${error.message}`);
       return null; // Retorna null em vez de erro para o findAll tratar
     }
