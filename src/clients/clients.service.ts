@@ -38,6 +38,20 @@ export class ClientsService {
       // Verifica duplicidade no banco local antes de retornar
       const existing = await this.clientsRepository.findOne({ where: { cnpj: cnpjLimpo } });
 
+      // Persiste o enriquecimento se o cliente já existir mas faltar dados básicos
+      if (existing && (!existing.cep || !existing.cidade || !existing.estado)) {
+        existing.cep = existing.cep || data.cep;
+        existing.cidade = existing.cidade || data.municipio;
+        existing.estado = existing.estado || data.uf;
+
+        if (!existing.fantasia && data.nome_fantasia && typeof data.nome_fantasia !== 'object') {
+          existing.fantasia = String(data.nome_fantasia).trim();
+        }
+
+        await this.clientsRepository.save(existing);
+        this.logger.log(`Cliente ${cnpjLimpo} enriquecido e atualizado no banco.`);
+      }
+
       return {
         isAlreadyRegistered: !!existing,
         registeredId: existing?.id || null,
@@ -45,7 +59,7 @@ export class ClientsService {
         data: {
           razao_social: data.razao_social,
           fantasia: (data.nome_fantasia && typeof data.nome_fantasia !== 'object')
-            ? String(data.nome_fantasia).trim() : '',
+            ? String(data.nome_fantasia).trim() : (existing?.fantasia || ''),
           cnpj: data.cnpj,
           cep: data.cep,
           cidade: data.municipio,
@@ -54,6 +68,7 @@ export class ClientsService {
         }
       };
     } catch (error) {
+      this.logger.error(`Erro ao consultar CNPJ ${cnpj}: ${error.message}`);
       return null; // Retorna null em vez de erro para o findAll tratar
     }
   }
