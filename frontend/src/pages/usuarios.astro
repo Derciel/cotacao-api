@@ -163,7 +163,7 @@ import Layout from '../layouts/MainLayout.astro';
 
     async function loadUsers() {
       try {
-        const res = await window.safeFetch('/users');
+        const res = await window.safeFetch('/api/users');
 
         if (res.ok) {
           renderUsers(res.data);
@@ -356,7 +356,7 @@ import Layout from '../layouts/MainLayout.astro';
       });
 
       try {
-        const res = await window.safeFetch(isEdit ? `/users/${data.id}` : '/users', {
+        const res = await window.safeFetch(isEdit ? `/api/users/${data.id}` : '/api/users', {
           method: isEdit ? 'PATCH' : 'POST',
           headers: { 
             'Content-Type': 'application/json'
@@ -385,7 +385,13 @@ import Layout from '../layouts/MainLayout.astro';
     closeModalBtns.forEach(btn => btn.onclick = () => userModal.style.display = 'none');
     window.onclick = (e) => { if (e.target === userModal) userModal.style.display = 'none'; };
 
-    loadUsers();
+    // Aguardar o script de auth do Layout carregar e definir o safeFetch
+    document.addEventListener('DOMContentLoaded', () => {
+      // Pequeno delay para garantir que o script inline do MainLayout (que define safeFetch) seja processado
+      setTimeout(() => {
+        loadUsers();
+      }, 100);
+    });
   </script>
 
   <style is:global>
