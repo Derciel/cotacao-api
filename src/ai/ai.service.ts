@@ -59,7 +59,7 @@ export class AiService {
 
         try {
             const timeFrameDescription = 'dos últimos 7 dias';
-            const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+            const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
 
             const prompt = `Você é um consultor logístico especialista da Nicopel Cargo.
       Analise os dados das últimas 20 cotações (${timeFrameDescription}) e forneça 3 insights curtos (máximo 120 chars cada).
