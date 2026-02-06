@@ -115,6 +115,16 @@ import Layout from '../layouts/MainLayout.astro';
                   </div>
                 </div>
               </label>
+              <label class="permission-card restriction-card">
+                <input type="checkbox" name="permissions" value="quota_restricted"> 
+                <div class="perm-card-content">
+                  <div class="perm-icon"><i class="fas fa-user-lock"></i></div>
+                  <div class="perm-info">
+                    <span class="perm-name">Visão Restrita</span>
+                    <span class="perm-desc">Apenas suas cotações</span>
+                  </div>
+                </div>
+              </label>
             </div>
           </div>
         </div>
@@ -147,7 +157,8 @@ import Layout from '../layouts/MainLayout.astro';
       '/nova-cotacao': 'Cotação', 
       '/historico': 'Histórico', 
       '/relatorios': 'Analytics', 
-      '/usuarios': 'Usuários' 
+      '/usuarios': 'Usuários',
+      'quota_restricted': 'Restrito' 
     };
 
     async function loadUsers() {
@@ -233,8 +244,8 @@ import Layout from '../layouts/MainLayout.astro';
 
     window.handleViewUser = (user) => {
       const perms = (user.permissions || []).map(p => `
-        <div class="view-perm-card ux-square-mini">
-          <div class="perm-icon-small"><i class="${p === '/' ? 'fas fa-home' : p === '/nova-cotacao' ? 'fas fa-plus-circle' : p === '/historico' ? 'fas fa-history' : p === '/relatorios' ? 'fas fa-chart-line' : 'fas fa-users-cog'}"></i></div>
+        <div class="view-perm-card ux-square-mini ${p === 'quota_restricted' ? 'restriction-active' : ''}">
+          <div class="perm-icon-small"><i class="${p === '/' ? 'fas fa-home' : p === '/nova-cotacao' ? 'fas fa-plus-circle' : p === '/historico' ? 'fas fa-history' : p === '/relatorios' ? 'fas fa-chart-line' : p === 'quota_restricted' ? 'fas fa-user-lock' : 'fas fa-users-cog'}"></i></div>
           <span>${PERM_NAMES[p] || p}</span>
         </div>
       `).join('') || '<p class="tag-none">Sem permissões específicas atribuídas.</p>';
@@ -588,6 +599,11 @@ import Layout from '../layouts/MainLayout.astro';
     }
     .page-usuarios .perm-icon-small { width: 40px; height: 40px; background: #f0f7ff; color: #2563eb; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
     .page-usuarios .view-perm-card span { font-weight: 850; color: #1e293b; font-size: 0.95rem; }
+    
+    .page-usuarios .restriction-card:has(input:checked) { border-color: #f59e0b; background: #fffbeb; }
+    .page-usuarios .restriction-card:has(input:checked) .perm-icon { background: #f59e0b; color: white; }
+    .page-usuarios .restriction-active { border-color: #f59e0b !important; background: #fffbeb !important; }
+    .page-usuarios .restriction-active .perm-icon-small { background: #f59e0b; color: white; }
 
     /* States & Feedback */
     .page-usuarios .loading-state, .page-usuarios .error-state, .page-usuarios .empty-state { padding: 80px 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; gap: 15px; text-align: center; }

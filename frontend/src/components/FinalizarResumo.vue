@@ -47,6 +47,7 @@ const printPage = () => {
 onMounted(() => {
     fetchDetails();
 });
+// Build fix: v1.0.1
 </script>
 
 <template>

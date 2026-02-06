@@ -43,6 +43,8 @@ let searchTimeout: ReturnType<typeof setTimeout>;
 const origin = reactive<Client>({ razao_social: '', cnpj: '', cidade: '', estado: '', cep: '' });
 const dest = reactive<Client>({ razao_social: '', cnpj: '', cidade: '', estado: '', cep: '' });
 
+// Build fix: v1.0.1
+
 const items = ref([{ productId: 0, search: '', units: 1, qty: 1, height: 0, width: 0, length: 0, weight: 0, unitValue: 0, total: 0 }]);
 
 const totalValue = computed(() => items.value.reduce((acc, i) => acc + i.total, 0));

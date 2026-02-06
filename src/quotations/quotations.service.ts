@@ -128,7 +128,8 @@ export class QuotationsService {
 
   async findAll(user?: any): Promise<Quotation[]> {
     const where: any = {};
-    if (user && user.role !== UserRole.ADMIN) {
+    const shouldRestrict = user?.permissions?.includes('quota_restricted');
+    if (user && shouldRestrict) {
       where.userId = user.userId;
     }
 
@@ -282,7 +283,9 @@ export class QuotationsService {
     startDate.setDate(startDate.getDate() - days);
 
     const where: any = { created_at: MoreThanOrEqual(startDate) };
-    if (user && user.role !== UserRole.ADMIN) {
+    const shouldRestrict = user?.permissions?.includes('quota_restricted');
+
+    if (user && shouldRestrict) {
       where.userId = user.userId;
     }
 
@@ -353,7 +356,9 @@ export class QuotationsService {
     today.setHours(0, 0, 0, 0);
 
     const baseWhere: any = { created_at: MoreThanOrEqual(today) };
-    if (user && user.role !== UserRole.ADMIN) {
+    const shouldRestrict = user?.permissions?.includes('quota_restricted');
+
+    if (user && shouldRestrict) {
       baseWhere.userId = user.userId;
     }
 
@@ -362,7 +367,7 @@ export class QuotationsService {
     });
 
     const pendingWhere: any = { status: QuotationStatus.PENDENTE };
-    if (user && user.role !== UserRole.ADMIN) {
+    if (user && shouldRestrict) {
       pendingWhere.userId = user.userId;
     }
 
@@ -375,7 +380,7 @@ export class QuotationsService {
       status: QuotationStatus.APROVADO,
       created_at: MoreThanOrEqual(today)
     };
-    if (user && user.role !== UserRole.ADMIN) {
+    if (user && shouldRestrict) {
       approvedWhere.userId = user.userId;
     }
 
@@ -385,13 +390,13 @@ export class QuotationsService {
     const totalValue = approvedToday.reduce((acc, q) => acc + Number(q.valor_frete || 0), 0);
 
     const totalAllWhere: any = {};
-    if (user && user.role !== UserRole.ADMIN) {
+    if (user && shouldRestrict) {
       totalAllWhere.userId = user.userId;
     }
     const totalAll = await this.quotationRepository.count({ where: totalAllWhere });
 
     const approvedAllWhere: any = { status: QuotationStatus.APROVADO };
-    if (user && user.role !== UserRole.ADMIN) {
+    if (user && shouldRestrict) {
       approvedAllWhere.userId = user.userId;
     }
     const approvedAll = await this.quotationRepository.count({
@@ -409,7 +414,8 @@ export class QuotationsService {
 
   async getRecentQuotations(limit: number, user?: any): Promise<Quotation[]> {
     const where: any = {};
-    if (user && user.role !== UserRole.ADMIN) {
+    const shouldRestrict = user?.permissions?.includes('quota_restricted');
+    if (user && shouldRestrict) {
       where.userId = user.userId;
     }
 
