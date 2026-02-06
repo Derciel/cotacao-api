@@ -31,6 +31,8 @@ const fetchDetails = async () => {
 };
 
 const formatCurrency = (val: number) => {
+    return val?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00';
+};
 
 const pdfLink = computed(() => {
     if (!props.quotationId) return '#';
