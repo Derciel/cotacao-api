@@ -18,14 +18,18 @@ async function run() {
         const colDetail = await client.query(`
             SELECT table_schema, table_name, column_name, data_type 
             FROM information_schema.columns 
-            WHERE table_name = 'quotations' AND column_name IN ('nf', 'data_coleta')
+            WHERE table_name = 'quotations' AND column_name IN ('nf', 'data_coleta', 'user_id', 'userId')
         `);
         console.table(colDetail.rows);
 
+        console.log('\n--- USERS COUNT ---');
+        const userCount = await client.query('SELECT count(*) FROM users');
+        console.table(userCount.rows);
+
         console.log('\n--- TEST QUERY ---');
         try {
-            const res = await client.query('SELECT "nf", "data_coleta" FROM "quotations" LIMIT 1');
-            console.log('Query successful, columns found.');
+            const res = await client.query('SELECT count(*) FROM quotations');
+            console.log('Quotations count:', res.rows[0].count);
         } catch (e) {
             console.error('Query failed:', e.message);
         }
