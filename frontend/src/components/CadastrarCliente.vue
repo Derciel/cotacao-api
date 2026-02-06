@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { safeFetch } from '../utils/api-utils';
 
 declare global {
   interface Window {
@@ -7,10 +8,6 @@ declare global {
   }
 }
 
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('auth_token');
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
-};
 
 const client = ref({
   cnpj: '',
@@ -38,20 +35,16 @@ const lookupCNPJ = async () => {
 
   isSearching.value = true;
   try {
-    const res = await fetch(`/api/clients/cnpj/${cnpjClean}`, {
-      headers: getAuthHeaders()
-    });
-    const result = await res.json();
-
-    if (res.ok && result.data) {
-      const d = result.data;
+    const res = await safeFetch(`/api/clients/cnpj/${cnpjClean}`);
+    if (res.ok && res.data.data) {
+      const d = res.data.data;
       client.value.razao_social = d.razao_social || '';
       client.value.fantasia = d.fantasia || '';
       client.value.cep = d.cep || '';
       client.value.cidade = d.cidade || '';
       client.value.estado = d.estado || '';
       
-      if (result.isAlreadyRegistered) {
+      if (res.data.isAlreadyRegistered) {
         window.showToast('Este cliente já está cadastrado no sistema.', 'warning');
       } else {
         window.showToast('Dados da empresa localizados!', 'success');
@@ -98,23 +91,20 @@ const handleSave = async (e: Event) => {
 
   isSaving.value = true;
   try {
-    const res = await fetch('/api/clients', {
+    const res = await safeFetch('/api/clients', {
       method: 'POST',
       body: JSON.stringify(client.value),
       headers: { 
-        'Content-Type': 'application/json',
-        ...getAuthHeaders()
+        'Content-Type': 'application/json'
       }
     });
-
-    const data = await res.json();
 
     if (res.ok) {
       window.showToast('Cliente cadastrado com sucesso!', 'success');
       // Limpar formulário se desejar
       resetForm();
     } else {
-      window.showToast(data.message || 'Erro ao salvar cliente.', 'error');
+      window.showToast(res.data.message || 'Erro ao salvar cliente.', 'error');
     }
   } catch (e) {
     window.showToast('Erro na comunicação com o servidor.', 'error');

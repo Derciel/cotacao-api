@@ -57,20 +57,19 @@ import Layout from '../layouts/MainLayout.astro';
     loginBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Autenticando...';
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const res = await window.safeFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
 
-      const data = await response.json();
-
-      if (response.ok && data.access_token) {
+      if (res.ok && res.data.access_token) {
+        const data = res.data;
         localStorage.setItem('auth_token', data.access_token);
         localStorage.setItem('user_info', JSON.stringify({
-          username: data.user.username, // Assuming data.user contains username
-          role: data.user.role,         // Assuming data.user contains role
-          permissions: data.user.permissions || [] // Assuming data.user contains permissions
+          username: data.user.username,
+          role: data.user.role,
+          permissions: data.user.permissions || []
         }));
         
         window.showToast('Login realizado com sucesso!', 'success');
@@ -80,7 +79,7 @@ import Layout from '../layouts/MainLayout.astro';
           window.location.href = '/';
         }, 1000);
       } else {
-        window.showToast(data.message || 'Erro ao realizar login', 'error');
+        window.showToast(res.data.message || 'Erro ao realizar login', 'error');
         loginBtn.disabled = false;
         loginBtn.innerHTML = '<span>Entrar no Sistema</span> <i class="fas fa-arrow-right"></i>';
       }

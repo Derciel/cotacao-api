@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
+import { safeFetch } from '../utils/api-utils';
 
 const period = ref('30'); // 7, 15, 30
 const metrics = ref({
@@ -17,18 +18,12 @@ const isLoading = ref(true);
 const carrierMetricType = ref<'count' | 'value'>('count');
 const selectedDay = ref<any>(null);
 
-const getAuthHeaders = () => {
-    const token = localStorage.getItem('auth_token');
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
-};
-
 const fetchAiInsights = async () => {
     try {
-        const res = await fetch('/api/ai/insights', {
-            headers: getAuthHeaders()
-        });
-        const data = await res.json();
-        aiInsights.value = data.insights || [];
+        const res = await safeFetch('/api/ai/insights');
+        if (res.ok) {
+            aiInsights.value = res.data.insights || [];
+        }
     } catch (e) {
         console.error("Erro ao buscar AI insights", e);
     }
@@ -37,11 +32,10 @@ const fetchAiInsights = async () => {
 const fetchAnalytics = async () => {
     isLoading.value = true;
     try {
-        const res = await fetch(`/api/quotations/analytics?days=${period.value}`, {
-            headers: getAuthHeaders()
-        });
-        const data = await res.json();
-        metrics.value = data;
+        const res = await safeFetch(`/api/quotations/analytics?days=${period.value}`);
+        if (res.ok) {
+            metrics.value = res.data;
+        }
     } catch (e) {
         console.error("Erro ao carregar analytics", e);
     } finally {

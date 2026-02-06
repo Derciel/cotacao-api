@@ -152,13 +152,10 @@ import Layout from '../layouts/MainLayout.astro';
 
     async function loadUsers() {
       try {
-        const response = await fetch('/api/users', {
-           headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
-        });
-        const users = await response.json();
+        const res = await window.safeFetch('/api/users');
 
-        if (Array.isArray(users)) {
-          renderUsers(users);
+        if (res.ok) {
+          renderUsers(res.data);
         } else {
           usersContainer.innerHTML = '<div class="error-state">Erro ao carregar usuários.</div>';
         }
@@ -348,22 +345,20 @@ import Layout from '../layouts/MainLayout.astro';
       });
 
       try {
-        const response = await fetch(isEdit ? `/api/users/${data.id}` : '/api/users', {
+        const res = await window.safeFetch(isEdit ? `/api/users/${data.id}` : '/api/users', {
           method: isEdit ? 'PATCH' : 'POST',
           headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify(data)
         });
 
-        if (response.ok) {
+        if (res.ok) {
           window.showToast(`Usuário ${isEdit ? 'atualizado' : 'cadastrado'} com sucesso!`, 'success');
           userModal.style.display = 'none';
           loadUsers();
         } else {
-          const err = await response.json();
-          window.showToast(err.message || 'Erro ao salvar alterações', 'error');
+          window.showToast(res.data.message || 'Erro ao salvar alterações', 'error');
         }
       } catch (error) {
         window.showToast('Erro de conexão com o servidor', 'error');

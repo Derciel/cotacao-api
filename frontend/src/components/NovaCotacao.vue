@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue';
+import { safeFetch } from '../utils/api-utils';
 
 declare global {
   interface Window {
@@ -38,10 +39,6 @@ const selectedCarrier = ref<any>(null);
 const pdfLink = ref("");
 let searchTimeout: ReturnType<typeof setTimeout>;
 
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('auth_token');
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
-};
 
 // Dados da Cotação
 const origin = reactive<Client>({ razao_social: '', cnpj: '', cidade: '', estado: '', cep: '' });
@@ -65,11 +62,11 @@ const fetchClients = async () => {
   try {
     const term = modalSearch.value.trim();
     // Aumentado para 10 como pedido, mas permitindo busca vazia para o preview
-    const res = await fetch(`/api/clients?search=${encodeURIComponent(term)}&limit=10`, {
-      headers: getAuthHeaders()
-    });
-    const data = await res.json();
-    modalClients.value = data.data || (Array.isArray(data) ? data : []);
+    const res = await safeFetch(`/api/clients?search=${encodeURIComponent(term)}&limit=10`);
+    if (res.ok) {
+      const data = res.data;
+      modalClients.value = data.data || (Array.isArray(data) ? data : []);
+    }
   } catch (e) {
     console.error("Erro busca clientes", e);
     modalClients.value = [];
@@ -92,7 +89,7 @@ const selectClient = async (client: any) => {
   if (client.isExternal) {
     try {
       window.showToast("Registrando cliente da Brasil API...", "info");
-      const res = await fetch('/api/clients', {
+      const res = await safeFetch('/api/clients', {
         method: 'POST',
         body: JSON.stringify({
           razao_social: client.razao_social,
@@ -103,13 +100,11 @@ const selectClient = async (client: any) => {
           empresa_faturamento: originCompany.value
         }),
         headers: { 
-            'Content-Type': 'application/json',
-            ...getAuthHeaders()
+            'Content-Type': 'application/json'
         }
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || data.error || "Falha ao registrar cliente");
-      client.id = data.id;
+      if (!res.ok) throw new Error(res.data.message || res.data.error || "Falha ao registrar cliente");
+      client.id = res.data.id;
     } catch (e: any) {
       console.error("Erro ao registrar cliente externo:", e);
       return window.showToast("Erro ao registrar cliente externo: " + e.message, "error");
@@ -118,12 +113,9 @@ const selectClient = async (client: any) => {
   if (!client.isExternal && (!client.cep || !client.cidade || !client.estado) && client.cnpj) {
     try {
       window.showToast("Completando dados cadastrais...", "info");
-      const enrichRes = await fetch(`/api/clients/cnpj/${client.cnpj}`, {
-          headers: getAuthHeaders()
-      });
-      if (enrichRes.ok) {
-        const enrichData = await enrichRes.json();
-        const details = enrichData.data || enrichData;
+      const res = await safeFetch(`/api/clients/cnpj/${client.cnpj}`);
+      if (res.ok) {
+        const details = res.data.data || res.data;
         client.cep = client.cep || details.cep;
         client.cidade = client.cidade || details.cidade;
         client.estado = client.estado || details.estado;
@@ -147,13 +139,12 @@ const findProduct = async (idx: number) => {
   const query = items.value[idx].search;
   if (query.length < 3) return;
   try {
-    const res = await fetch(`/api/products-proxy?search=${encodeURIComponent(query)}`, {
-        headers: getAuthHeaders()
-    });
-    const data = await res.json();
-    const allProducts = data.data || data;
+    const res = await safeFetch(`/api/products-proxy?search=${encodeURIComponent(query)}`);
+    if (res.ok) {
+        const allProducts = res.data.data || res.data;
     const products = Array.isArray(allProducts) ? allProducts.filter(p => p.nome && p.nome.trim() !== "") : [];
     if (products?.[0]) fillProductData(idx, products[0]);
+    }
   } catch (e) { console.error("Erro produto", e); }
 };
 
@@ -167,12 +158,11 @@ const openProductSearch = (idx: number) => {
 const fetchProducts = async (term: string) => {
   isSearching.value = true;
   try {
-    const res = await fetch(`/api/products?search=${encodeURIComponent(term)}`, {
-        headers: getAuthHeaders()
-    });
-    const data = await res.json();
-    const rawList = data.data || (Array.isArray(data) ? data : []);
+    const res = await safeFetch(`/api/products?search=${encodeURIComponent(term)}`);
+    if (res.ok) {
+      const rawList = res.data.data || (Array.isArray(res.data) ? res.data : []);
     productList.value = rawList.filter((p: any) => p.nome && p.nome.trim() !== "");
+    }
   } catch (e) {
     console.error("Erro busca produtos", e);
     productList.value = [];
@@ -230,33 +220,32 @@ const calculateFreight = async () => {
         valorUnitario: i.unitValue
       }))
     };
-    const resQuo = await fetch('/api/quotations', {
+    const resQuo = await safeFetch('/api/quotations', {
       method: 'POST',
       body: JSON.stringify(quotationPayload),
       headers: { 
-          'Content-Type': 'application/json',
-          ...getAuthHeaders()
+          'Content-Type': 'application/json'
       }
     });
+
     if (!resQuo.ok) {
-        const err = await resQuo.json();
-        throw new Error(err.message || err.error || "Erro ao gerar cotação base");
+        throw new Error(resQuo.data.message || resQuo.data.error || "Erro ao gerar cotação base");
     }
-    const quoData = await resQuo.json();
+    const quoData = resQuo.data;
     lastQuotationId.value = quoData.id;
-    const resFreight = await fetch(`/api/quotations/${quoData.id}/calculate-freight`, {
+
+    const resFreight = await safeFetch(`/api/quotations/${quoData.id}/calculate-freight`, {
       method: 'POST',
       body: JSON.stringify({ quotationId: quoData.id }),
       headers: { 
-          'Content-Type': 'application/json',
-          ...getAuthHeaders()
+          'Content-Type': 'application/json'
       }
     });
+
     if (!resFreight.ok) {
-        const err = await resFreight.json();
-        throw new Error(err.error || "Erro no cálculo de frete da API");
+        throw new Error(resFreight.data.error || "Erro no cálculo de frete da API");
     }
-    const freightData = await resFreight.json();
+    const freightData = resFreight.data;
     freightResults.value = Array.isArray(freightData) ? freightData : (freightData.data || []);
     if (freightResults.value.length === 0) {
         window.showToast("Frenet não retornou opções de frete. Verifique o CEP e as dimensões.", "warning");
@@ -356,12 +345,11 @@ const confirmFinalization = async () => {
             tipoFrete: completionData.freightType,
             numeroPedidoManual: completionData.orderNumber
         };
-        const res = await fetch(`/api/quotations/${lastQuotationId.value}/finalize`, {
+        const res = await safeFetch(`/api/quotations/${lastQuotationId.value}/finalize`, {
             method: 'PATCH',
             body: JSON.stringify(payload),
             headers: { 
-                'Content-Type': 'application/json',
-                ...getAuthHeaders()
+                'Content-Type': 'application/json'
             }
         });
         if (!res.ok) throw new Error("Erro ao finalizar cotação");

@@ -59,7 +59,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { getAuthToken } from '../utils/api-utils';
+import { safeFetch } from '../utils/api-utils';
 
 const insights = ref([]);
 const carrierMetrics = ref([]);
@@ -79,14 +79,10 @@ const getWidth = (val) => {
 const fetchInsights = async () => {
     loading.value = true;
     try {
-        const token = getAuthToken();
-        const response = await fetch('/api/ai/insights', {
-            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-        });
-        const data = await response.json();
-        if (response.ok) {
-            insights.value = data.insights || [];
-            carrierMetrics.value = data.carrierMetrics || [];
+        const res = await safeFetch('/api/ai/insights');
+        if (res.ok) {
+            insights.value = res.data.insights || [];
+            carrierMetrics.value = res.data.carrierMetrics || [];
         }
     } catch (error) {
         console.error('Erro ao buscar insights:', error);

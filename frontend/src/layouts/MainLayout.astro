@@ -89,7 +89,49 @@ const { title, hideNavbar = false } = Astro.props;
   <div id="toast-container"></div>
 
   <script is:inline>
-    // Sistema de Notificação (Toast) sem Template Literals para evitar pânico do compilador Astro
+    // Configuração de URL Base e Busca Autenticada Global
+    window.PUBLIC_API_URL = 'https://cotacao.nicopel.com.br';
+    
+    window.safeFetch = async function(url, options) {
+      options = options || {};
+      const token = localStorage.getItem('auth_token');
+      const headers = new Headers(options.headers || {});
+
+      if (token) {
+        headers.set('Authorization', 'Bearer ' + token);
+      }
+
+      const finalOptions = Object.assign({}, options, { headers: headers });
+      const apiUrl = window.PUBLIC_API_URL + url;
+
+      try {
+        const response = await fetch(apiUrl, finalOptions);
+        
+        // Se 401 desloga automaticamente (exceção para login)
+        if (response.status === 401 && !url.includes('/auth/login')) {
+             localStorage.removeItem('auth_token');
+             localStorage.removeItem('user_info');
+             if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+             }
+             return { ok: false, status: 401, data: { message: 'Sessão expirada' } };
+        }
+        
+        const contentType = response.headers.get('content-type');
+        let data;
+        if (contentType && contentType.includes('application/json')) {
+          data = await response.json();
+        } else {
+          data = { message: await response.text() };
+        }
+        return { ok: response.ok, status: response.status, data: data };
+      } catch (error) {
+        console.error('Fetch error:', error);
+        return { ok: false, status: 500, data: { message: 'Erro de conexão' } };
+      }
+    };
+
+    // Sistema de Notificação (Toast)
     window.showToast = function(message, type, duration) {
       type = type || 'info';
       duration = duration || 5000;

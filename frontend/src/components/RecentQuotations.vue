@@ -49,6 +49,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { safeFetch } from '../utils/api-utils';
 
 const loading = ref(true);
 const recentQuotes = ref([]);
@@ -65,13 +66,9 @@ const formatCurrency = (value) => {
 
 const fetchRecent = async () => {
   try {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch('/api/quotations/dashboard/recent?limit=5', {
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-    });
-    const data = await response.json();
-    if (response.ok) {
-      recentQuotes.value = data;
+    const res = await safeFetch('/api/quotations/dashboard/recent?limit=5');
+    if (res.ok) {
+      recentQuotes.value = res.data;
     }
   } catch (error) {
     console.error('Erro ao buscar cotações recentes:', error);

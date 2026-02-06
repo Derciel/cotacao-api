@@ -13,7 +13,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
+import { safeFetch } from '../utils/api-utils';
 
 const loading = ref(true);
 const isAdmin = ref(false);
@@ -23,8 +24,6 @@ const stats = ref([
   { label: 'Aguardando', value: '0', icon: 'fas fa-clock', color: 'orange' },
   { label: 'Taxa de Conv.', value: '0%', icon: 'fas fa-chart-line', color: 'purple' }
 ]);
-
-import { computed } from 'vue';
 
 const filteredStats = computed(() => {
   if (isAdmin.value) return stats.value;
@@ -37,13 +36,10 @@ const formatCurrency = (value) => {
 
 const fetchStats = async () => {
   try {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch('/api/quotations/dashboard/stats', {
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-    });
-    const data = await response.json();
+    const res = await safeFetch('/api/quotations/dashboard/stats');
     
-    if (response.ok) {
+    if (res.ok) {
+      const data = res.data;
       stats.value[0].value = data.quotationsToday.toString();
       stats.value[1].value = formatCurrency(data.totalValue);
       stats.value[2].value = data.pendingCount.toString();

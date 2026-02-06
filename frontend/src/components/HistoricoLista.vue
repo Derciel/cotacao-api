@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
+import { safeFetch } from '../utils/api-utils';
 
 const quotations = ref<any[]>([]);
 const isLoading = ref(true);
@@ -21,19 +22,15 @@ const editFreightValue = ref(0);
 const editDeadline = ref("");
 const editFreightType = ref("CIF");
 
-const getAuthHeaders = () => {
-    const token = localStorage.getItem('auth_token');
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
-};
 
 const fetchQuotations = async () => {
     isLoading.value = true;
     try {
-        const res = await fetch('/api/quotations', {
-            headers: getAuthHeaders()
-        });
-        const data = await res.json();
-        quotations.value = Array.isArray(data) ? data : (data.data || []);
+        const res = await safeFetch('/api/quotations');
+        if (res.ok) {
+            const data = res.data;
+            quotations.value = Array.isArray(data) ? data : (data.data || []);
+        }
     } catch (e) {
         console.error("Erro ao listar cotações", e);
     } finally {
@@ -53,9 +50,8 @@ const confirmDelete = async () => {
     }
 
     try {
-        const res = await fetch(`/api/quotations/${quotationToDelete.value}`, {
-            method: 'DELETE',
-            headers: getAuthHeaders()
+        const res = await safeFetch(`/api/quotations/${quotationToDelete.value}`, {
+            method: 'DELETE'
         });
 
         if (res.ok) {
@@ -84,7 +80,7 @@ const openStatusModal = (item: any) => {
 const updateStatus = async () => {
     try {
         // Consolidado em uma única chamada para evitar erros de concorrência e simplificar
-        const resQuo = await fetch(`/api/quotations/${quotationToUpdate.value.id}`, {
+        const resQuo = await safeFetch(`/api/quotations/${quotationToUpdate.value.id}`, {
             method: 'PATCH',
             body: JSON.stringify({ 
                 status: selectedStatus.value,
@@ -95,8 +91,7 @@ const updateStatus = async () => {
                 tipo_frete: editFreightType.value
             }),
             headers: { 
-                'Content-Type': 'application/json',
-                ...getAuthHeaders()
+                'Content-Type': 'application/json'
             }
         });
 

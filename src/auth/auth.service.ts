@@ -47,13 +47,25 @@ export class AuthService {
 
     async login(user: any) {
         const payload = { username: user.username, sub: user.id, role: user.role };
+
+        // Garante que permissions seja um array, corrigindo possíveis erros de persistência simple-json
+        let permissions = user.permissions;
+        if (typeof permissions === 'string') {
+            try {
+                permissions = JSON.parse(permissions);
+            } catch (e) {
+                console.error('Erro ao fazer parse das permissões:', e);
+                permissions = [];
+            }
+        }
+
         return {
             access_token: this.jwtService.sign(payload),
             user: {
                 id: user.id,
                 username: user.username,
                 role: user.role,
-                permissions: user.permissions || []
+                permissions: Array.isArray(permissions) ? permissions : []
             }
         };
     }

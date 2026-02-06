@@ -23,7 +23,7 @@ export const safeFetch = async (url: string, options: RequestInit = {}) => {
     };
 
     try {
-        const response = await fetch(url, finalOptions);
+        const response = await fetch(getBackendUrl() + url, finalOptions);
         const contentType = response.headers.get('content-type');
 
         let data;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { getAuthToken } from '../utils/api-utils';
+import { safeFetch } from '../utils/api-utils';
 
 const props = defineProps<{
     quotationId: string | null;
@@ -14,18 +14,14 @@ const fetchDetails = async () => {
     if (!props.quotationId) return;
     isLoading.value = true;
     try {
-        const token = getAuthToken();
-        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-        
         const [qRes, historyRes] = await Promise.all([
-            fetch(`/api/quotations/${props.quotationId}`, { headers }),
-            fetch(`/api/quotations`, { headers })
+            safeFetch(`/api/quotations/${props.quotationId}`),
+            safeFetch(`/api/quotations`)
         ]);
 
-        if (qRes.ok) quotation.value = await qRes.json();
+        if (qRes.ok) quotation.value = qRes.data;
         if (historyRes.ok) {
-            const historyData = await historyRes.json();
-            todayQuotations.value = historyData.data || [];
+            todayQuotations.value = historyRes.data.data || historyRes.data || [];
         }
     } catch (e) {
         console.error("Erro ao buscar dados da finalização:", e);
@@ -36,6 +32,10 @@ const fetchDetails = async () => {
 
 const formatCurrency = (val: number) => {
     return val?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00';
+};
+
+const printPage = () => {
+    window.print();
 };
 
 onMounted(() => {
@@ -74,7 +74,7 @@ onMounted(() => {
                     <a :href="`/api/quotations/${quotationId}/pdf`" target="_blank" class="btn-download">
                         BAIXAR COTAÇÃO (PDF) 🚚
                     </a>
-                    <button @click="window.print()" class="btn-outline">IMPRIMIR TELA</button>
+                    <button @click="printPage" class="btn-outline">IMPRIMIR TELA</button>
                     <a href="/" class="btn-home"><i class="fas fa-home"></i> Voltar ao Início</a>
                 </div>
             </div>
