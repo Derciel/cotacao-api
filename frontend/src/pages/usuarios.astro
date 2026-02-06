@@ -71,7 +71,7 @@ import Layout from '../layouts/MainLayout.astro';
                   <div class="perm-icon"><i class="fas fa-home"></i></div>
                   <div class="perm-info">
                     <span class="perm-name">Dashboard</span>
-                    <span class="perm-desc">Visão geral</span>
+                    <span class="perm-desc">Visão Geral</span>
                   </div>
                 </div>
               </label>
@@ -111,7 +111,7 @@ import Layout from '../layouts/MainLayout.astro';
                   <div class="perm-icon"><i class="fas fa-users-cog"></i></div>
                   <div class="perm-info">
                     <span class="perm-name">Usuários</span>
-                    <span class="perm-desc">Acessos</span>
+                    <span class="perm-desc">Acesso Total</span>
                   </div>
                 </div>
               </label>
@@ -120,8 +120,8 @@ import Layout from '../layouts/MainLayout.astro';
                 <div class="perm-card-content">
                   <div class="perm-icon"><i class="fas fa-user-lock"></i></div>
                   <div class="perm-info">
-                    <span class="perm-name">Visão Restrita</span>
-                    <span class="perm-desc">Apenas suas cotações</span>
+                    <span class="perm-name">Restrição</span>
+                    <span class="perm-desc">Visão Restrita</span>
                   </div>
                 </div>
               </label>
@@ -547,24 +547,24 @@ import Layout from '../layouts/MainLayout.astro';
     .page-usuarios .hint-text { font-size: 0.75rem; color: #94a3b8; margin-top: -10px; margin-bottom: 10px; padding-left: 4px; }
 
     /* Permissions Cards */
-    .page-usuarios .permissions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
+    .page-usuarios .permissions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
     .page-usuarios .permission-card {
-      display: flex; align-items: center; gap: 12px; padding: 15px; 
+      display: flex; align-items: center; gap: 12px; padding: 18px; 
       background: white; border: 1.5px solid #e2e8f0; border-radius: 20px; 
       cursor: pointer; transition: 0.3s; position: relative;
     }
-    .page-usuarios .permission-card:hover { border-color: #2563eb; transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }
+    .page-usuarios .permission-card:hover { border-color: #004a99; transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 74, 153, 0.05); }
     .page-usuarios .permission-card input[type="checkbox"] { 
-      position: absolute; top: 15px; right: 15px; width: 22px; height: 22px; accent-color: #2563eb; margin: 0; z-index: 2;
+      position: absolute; top: 15px; right: 15px; width: 20px; height: 20px; accent-color: #004a99; margin: 0; z-index: 2;
     }
-    .page-usuarios .permission-card:has(input:checked) { border-color: #2563eb; background: #f0f7ff; }
-    .page-usuarios .permission-card:has(input:checked) .perm-icon { background: #2563eb; color: white; }
+    .page-usuarios .permission-card:has(input:checked) { border-color: #004a99; background: #f0f7ff; }
+    .page-usuarios .permission-card:has(input:checked) .perm-icon { background: #004a99; color: white; }
     
     .page-usuarios .perm-card-content { display: flex; align-items: center; gap: 15px; width: 100%; }
-    .page-usuarios .perm-icon { width: 40px; height: 40px; background: #eff6ff; color: #2563eb; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transition: 0.3s; }
-    .page-usuarios .perm-info { display: flex; flex-direction: column; line-height: 1.3; }
-    .page-usuarios .perm-name { font-weight: 850; color: #1e293b; font-size: 0.95rem; }
-    .page-usuarios .perm-desc { font-size: 0.7rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .page-usuarios .perm-icon { width: 44px; height: 44px; background: #eff6ff; color: #004a99; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; transition: 0.3s; }
+    .page-usuarios .perm-info { display: flex; flex-direction: column; line-height: 1.2; }
+    .page-usuarios .perm-name { font-weight: 850; color: #1e293b; font-size: 1rem; }
+    .page-usuarios .perm-desc { font-size: 0.7rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
 
     /* Profile View Overhaul */
     .page-usuarios .user-profile-view { animation: slideUp 0.4s ease; display: flex; flex-direction: column; gap: 20px; }
