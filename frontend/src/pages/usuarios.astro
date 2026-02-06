@@ -163,7 +163,7 @@ import Layout from '../layouts/MainLayout.astro';
 
     async function loadUsers() {
       try {
-        const res = await window.safeFetch('/api/users');
+        const res = await window.safeFetch('/users');
 
         if (res.ok) {
           renderUsers(res.data);
@@ -356,7 +356,7 @@ import Layout from '../layouts/MainLayout.astro';
       });
 
       try {
-        const res = await window.safeFetch(isEdit ? `/api/users/${data.id}` : '/api/users', {
+        const res = await window.safeFetch(isEdit ? `/users/${data.id}` : '/users', {
           method: isEdit ? 'PATCH' : 'POST',
           headers: { 
             'Content-Type': 'application/json'
