@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { safeFetch } from '../utils/api-utils';
+import { safeFetch, downloadAuthenticated } from '../utils/api-utils';
 
 const quotations = ref<any[]>([]);
 const isLoading = ref(true);
@@ -126,8 +126,10 @@ const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('pt-BR');
 };
 
-const getPdfUrl = (id: number) => `/api/quotations/${id}/pdf`;
-const viewPdf = (id: number) => window.open(getPdfUrl(id), '_blank');
+const downloadPdf = async (id: number) => {
+    const success = await downloadAuthenticated(`/api/quotations/${id}/pdf`, `orcamento-${id}.pdf`);
+    if (!success) window.showToast("Erro ao baixar PDF", "error");
+};
 
 onMounted(fetchQuotations);
 </script>
@@ -188,7 +190,7 @@ onMounted(fetchQuotations);
                             </td>
                             <td class="actions-col">
                                 <div class="btn-group justify-center">
-                                    <button class="btn-icon view" title="Ver PDF" @click="viewPdf(item.id)">
+                                    <button class="btn-icon view" title="Ver PDF" @click="downloadPdf(item.id)">
                                         <i class="fas fa-file-pdf"></i>
                                     </button>
                                     <button class="btn-icon delete" title="Remover" @click="openDeleteModal(item.id)">

@@ -48,3 +48,42 @@ export const safeFetch = async (url: string, options: RequestInit = {}) => {
         };
     }
 };
+
+export const downloadAuthenticated = async (url: string, filename?: string) => {
+    const token = getAuthToken();
+    const headers = new Headers();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+
+    try {
+        const res = await fetch(getBackendUrl() + url, { headers });
+        if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(errorText || 'Erro ao baixar arquivo');
+        }
+
+        const blob = await res.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+
+        if (!filename) {
+            const disposition = res.headers.get('content-disposition');
+            if (disposition && disposition.includes('filename=')) {
+                filename = disposition.split('filename=')[1].replace(/['"]/g, '');
+            } else {
+                filename = 'download.pdf';
+            }
+        }
+
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+        return true;
+    } catch (e: any) {
+        console.error("Erro no download:", e);
+        if (window.showToast) window.showToast("Erro ao baixar PDF: " + e.message, "error");
+        return false;
+    }
+};

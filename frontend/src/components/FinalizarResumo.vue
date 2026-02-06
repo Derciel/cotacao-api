@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { safeFetch } from '../utils/api-utils';
+import { safeFetch, downloadAuthenticated } from '../utils/api-utils';
 
 const props = defineProps<{
     quotationId: string | null;
@@ -31,7 +31,13 @@ const fetchDetails = async () => {
 };
 
 const formatCurrency = (val: number) => {
-    return val?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00';
+
+const downloadPdf = async () => {
+    if (!props.quotationId) return;
+    const success = await downloadAuthenticated(`/api/quotations/${props.quotationId}/pdf`, `orcamento-${props.quotationId}.pdf`);
+    if (!success) {
+        // Fallback or error handling if needed, though downloadAuthenticated already toasts
+    }
 };
 
 const printPage = () => {
@@ -71,9 +77,9 @@ onMounted(() => {
                 </div>
 
                 <div class="actions-group">
-                    <a :href="`/api/quotations/${quotationId}/pdf`" target="_blank" class="btn-download">
+                    <button @click="downloadPdf" class="btn-download">
                         BAIXAR COTAÇÃO (PDF) 🚚
-                    </a>
+                    </button>
                     <button @click="printPage" class="btn-outline">IMPRIMIR TELA</button>
                     <a href="/" class="btn-home"><i class="fas fa-home"></i> Voltar ao Início</a>
                 </div>
