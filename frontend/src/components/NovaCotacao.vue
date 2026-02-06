@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue';
-import { ref, reactive, computed } from 'vue';
 import { safeFetch, getAuthToken } from '../utils/api-utils';
 
 declare global {
