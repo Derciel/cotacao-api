@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { safeFetch, downloadAuthenticated } from '../utils/api-utils';
+import { ref, onMounted, computed } from 'vue';
+import { safeFetch, getAuthToken } from '../utils/api-utils';
 
 const props = defineProps<{
     quotationId: string | null;
@@ -32,13 +32,11 @@ const fetchDetails = async () => {
 
 const formatCurrency = (val: number) => {
 
-const downloadPdf = async () => {
-    if (!props.quotationId) return;
-    const success = await downloadAuthenticated(`/api/quotations/${props.quotationId}/pdf`, `orcamento-${props.quotationId}.pdf`);
-    if (!success) {
-        // Fallback or error handling if needed, though downloadAuthenticated already toasts
-    }
-};
+const pdfLink = computed(() => {
+    if (!props.quotationId) return '#';
+    const token = getAuthToken();
+    return `/api/quotations/${props.quotationId}/pdf?token=${token}`;
+});
 
 const printPage = () => {
     window.print();
@@ -77,9 +75,9 @@ onMounted(() => {
                 </div>
 
                 <div class="actions-group">
-                    <button @click="downloadPdf" class="btn-download">
+                    <a :href="pdfLink" target="_blank" class="btn-download">
                         BAIXAR COTAÇÃO (PDF) 🚚
-                    </button>
+                    </a>
                     <button @click="printPage" class="btn-outline">IMPRIMIR TELA</button>
                     <a href="/" class="btn-home"><i class="fas fa-home"></i> Voltar ao Início</a>
                 </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue';
-import { safeFetch, downloadAuthenticated } from '../utils/api-utils';
+import { ref, reactive, computed } from 'vue';
+import { safeFetch, getAuthToken } from '../utils/api-utils';
 
 declare global {
   interface Window {
@@ -36,7 +37,6 @@ const lastQuotationId = ref<number | null>(null);
 const isFinishing = ref(false);
 const isFinished = ref(false);
 const selectedCarrier = ref<any>(null);
-const pdfLink = ref("");
 let searchTimeout: ReturnType<typeof setTimeout>;
 
 
@@ -353,7 +353,6 @@ const confirmFinalization = async () => {
             }
         });
         if (!res.ok) throw new Error("Erro ao finalizar cotação");
-        pdfLink.value = `/api/quotations/${lastQuotationId.value}/pdf`;
         setTimeout(() => {
             isFinishing.value = false;
             isFinished.value = true;
@@ -364,11 +363,11 @@ const confirmFinalization = async () => {
     }
 };
 
-const downloadPdf = async () => {
-    if (!lastQuotationId.value) return;
-    const success = await downloadAuthenticated(`/api/quotations/${lastQuotationId.value}/pdf`, `orcamento-${lastQuotationId.value}.pdf`);
-    if (!success) window.showToast("Erro ao baixar PDF", "error");
-};
+const pdfLink = computed(() => {
+    if (!lastQuotationId.value) return '#';
+    const token = getAuthToken();
+    return `/api/quotations/${lastQuotationId.value}/pdf?token=${token}`;
+});
 
 const resetFlow = () => {
     isFinished.value = false;
@@ -619,9 +618,9 @@ const formatCurrency = (val: number) => val?.toLocaleString('pt-BR', { style: 'c
                 <h2>Cotação Concluída!</h2>
                 <p>A transportadora <strong>{{ selectedCarrier?.carrier }}</strong> foi selecionada.</p>
                 <div class="action-buttons-final">
-                    <button @click="downloadPdf" class="btn-primary">
+                    <a :href="pdfLink" target="_blank" class="btn-primary">
                         <i class="fas fa-file-pdf"></i> Visualizar PDF
-                    </button>
+                    </a>
                     <button @click="resetFlow" class="btn-secondary">Nova Cotação</button>
                 </div>
             </div>
