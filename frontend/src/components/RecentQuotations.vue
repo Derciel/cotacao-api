@@ -22,6 +22,7 @@
           <tr>
             <th width="80">FRENET</th>
             <th>Cliente</th>
+            <th>Usuário</th>
             <th>Transportadora</th>
             <th>Data</th>
             <th class="text-right">Valor Total</th>
@@ -32,6 +33,9 @@
           <tr v-for="quote in recentQuotes" :key="quote.id" class="table-row">
             <td class="id-cell">#{{ quote.numero_pedido_manual || quote.id }}</td>
             <td class="client-cell">{{ quote.client?.fantasia || quote.client?.razao_social || 'Cliente não identificado' }}</td>
+            <td class="user-cell">
+              <span class="user-name-tag">{{ quote.user?.username || '---' }}</span>
+            </td>
             <td class="carrier-cell">{{ quote.transportadora_escolhida || '---' }}</td>
             <td class="date-cell">{{ formatDate(quote.created_at || quote.data_cotacao) }}</td>
             <td class="value-cell text-right">{{ formatCurrency(quote.valor_total_nota || quote.valor_total_produtos) }}</td>
@@ -205,6 +209,15 @@ onMounted(() => {
 
   .text-right { text-align: right; }
   .text-center { text-align: center; }
+
+  .user-name-tag {
+    font-size: 0.75rem;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
 
   .status-badge {
     padding: 6px 12px;

@@ -135,7 +135,7 @@ export class QuotationsService {
 
     return this.quotationRepository.find({
       where,
-      relations: ['client'],
+      relations: ['client', 'user'],
       order: { id: 'DESC' },
     });
   }
@@ -421,7 +421,7 @@ export class QuotationsService {
 
     return this.quotationRepository.find({
       where,
-      relations: ['client'],
+      relations: ['client', 'user'],
       order: { created_at: 'DESC' },
       take: limit,
     });

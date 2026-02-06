@@ -162,6 +162,7 @@ onMounted(fetchQuotations);
                         <tr>
                             <th>FRENET</th>
                             <th>Cliente</th>
+                            <th>Usuário</th>
                             <th>Data</th>
                             <th>Transportadora</th>
                             <th>Valor Total</th>
@@ -174,6 +175,9 @@ onMounted(fetchQuotations);
                             <td class="id-col">#{{ item.numero_pedido_manual || item.id }}</td>
                             <td class="client-col">
                                 <strong>{{ item.client?.razao_social || 'Desconhecido' }}</strong>
+                            </td>
+                            <td class="user-col">
+                                <span class="user-badge">{{ item.user?.username || 'Sistema' }}</span>
                             </td>
                             <td class="date-col">{{ formatDate(item.created_at) }}</td>
                             <td class="transp-col">
@@ -304,6 +308,15 @@ onMounted(fetchQuotations);
 .client-col strong { color: #1e293b; font-weight: 700; }
 .date-col { color: #64748b; font-size: 0.85rem; }
 .value-col { font-weight: 800; color: #1e293b; }
+
+.user-badge {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
 
 .transp-badge { background: #eef6ff; color: #004a99; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; }
 .transp-badge.empty { background: #f1f5f9; color: #94a3b8; }
