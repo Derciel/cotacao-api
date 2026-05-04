@@ -31,16 +31,19 @@ export class AuditService {
       throw new Error('Cotação não encontrada ou sem número de NF associado.');
     }
 
-    // Busca dados no SIEG (Simulação do retorno por enquanto, integrando com o SiegService)
-    // Na prática, o SiegService buscaria o CT-e que referencia essa NF.
+    // Busca dados reais no SIEG
     const siegData = await this.siegService.findCteByNf(quotation.nf);
     
-    // Simulação de dados recebidos para demonstração do fluxo
-    const actualFreight = siegData?.valor_frete || quotation.valor_frete * (1 + (Math.random() * 0.1 - 0.05)); // +/- 5%
-    const actualWeight = siegData?.peso || 100; // Exemplo
-    const actualVolumes = siegData?.volumes || 1;
+    if (!siegData) {
+      this.logger.warn(`Conferência abortada: Nenhum CT-e encontrado no SIEG para a NF ${quotation.nf}`);
+      throw new Error('Não foi possível localizar o CT-e correspondente na SIEG para esta nota fiscal.');
+    }
 
-    const diff = Number(actualFreight) - Number(quotation.valor_frete);
+    const actualFreight = Number(siegData.valor_frete);
+    const actualWeight = Number(siegData.peso);
+    const actualVolumes = Number(siegData.volumes);
+
+    const diff = actualFreight - Number(quotation.valor_frete);
     
     let status = AuditStatus.OK;
     if (diff > this.TOLERANCIA_CENTAVOS) {

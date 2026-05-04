@@ -8,6 +8,7 @@ export class SiegService {
   private readonly logger = new Logger(SiegService.name);
   private readonly apiKey: string;
   private readonly email: string;
+  private readonly cnpjNicopel = '09012538000190';
   private readonly baseUrl = 'https://api.sieg.com/aws/service.svc/v2';
 
   constructor(
@@ -26,31 +27,73 @@ export class SiegService {
    */
   async findCteByNf(nfNumber: string): Promise<any> {
     try {
-      this.logger.log(`Buscando CT-e na SIEG para a NF: ${nfNumber}`);
+      this.logger.log(`Iniciando busca real na SIEG para NF: ${nfNumber}`);
       
-      // No SIEG, a busca geralmente é feita por período ou filtros.
-      // Vamos tentar buscar documentos recentes e filtrar pelo número da NF no XML ou metadados.
-      // Nota: A API da SIEG tem endpoints específicos para listar documentos (json).
-      
+      // 1. Buscar a listagem de CT-es que podem conter essa NF
+      // Usamos getdocs para listar os documentos em formato JSON (mais leve que XML para busca)
       const payload = {
         apikey: this.apiKey,
         email: this.email,
         type: 'cte',
-        // Filtros podem ser adicionados aqui dependendo do endpoint exato
+        cnpjtomador: this.cnpjNicopel
       };
 
-      // Exemplo de chamada para obter listagem de CT-es recentes
-      // Para simplificar agora, vamos simular a resposta ou usar um endpoint de busca se documentado.
-      // Na prática, precisaríamos do CNPJ da empresa também.
-      
       const response = await firstValueFrom(
-        this.httpService.post(`${this.baseUrl}/getxml`, payload)
+        this.httpService.post(`${this.baseUrl}/getdocs`, payload)
       );
 
-      return response.data;
+      const docs = response.data;
+      if (!docs || !Array.isArray(docs)) {
+        this.logger.warn(`Nenhum documento retornado pela SIEG para NF: ${nfNumber}`);
+        return null;
+      }
+
+      // 2. Procurar nos documentos JSON algum que faça referência à NF
+      // Na API v2, a resposta JSON contém campos básicos. Precisamos do XML para ver a NF vinculada.
+      // Por performance, vamos pegar os 3 últimos CT-es e verificar o XML.
+      const lastDocs = docs.slice(0, 5);
+      
+      for (const doc of lastDocs) {
+          const xml = await this.getXml(doc.XmlKey, 'cte');
+          if (xml && xml.includes(nfNumber)) {
+              this.logger.log(`CT-e encontrado! Chave: ${doc.XmlKey}`);
+              return this.extractDataFromXml(xml, doc.XmlKey);
+          }
+      }
+
+      return null;
     } catch (error: any) {
       this.logger.error(`Erro ao buscar dados na SIEG: ${error.message}`);
       return null;
+    }
+  }
+
+  /**
+   * Extrai dados de valor, peso e volume do XML do CT-e
+   */
+  private extractDataFromXml(xml: string, key: string) {
+    try {
+        // Valor total da prestação <vPrest><vTPrest>XXX.XX</vTPrest></vPrest>
+        const vTPrestMatch = xml.match(/<vTPrest>(.*?)<\/vTPrest>/);
+        const valorFrete = vTPrestMatch ? parseFloat(vTPrestMatch[1]) : 0;
+
+        // Peso bruto <qCarga>XXX.XXXX</qCarga> (dentro de infQ)
+        const qCargaMatch = xml.match(/<tpMed>PESO BRUTO<\/tpMed>.*?<qCarga>(.*?)<\/qCarga>/s) || xml.match(/<qCarga>(.*?)<\/qCarga>/);
+        const peso = qCargaMatch ? parseFloat(qCargaMatch[1]) : 0;
+
+        // Volumes <qVol>XXX</qVol>
+        const qVolMatch = xml.match(/<qVol>(.*?)<\/qVol>/);
+        const volumes = qVolMatch ? parseInt(qVolMatch[1]) : 1;
+
+        return {
+            numero_cte: key, // Usando a chave como número identificador
+            valor_frete: valorFrete,
+            peso: peso,
+            volumes: volumes
+        };
+    } catch (e) {
+        this.logger.error('Erro ao processar XML do CT-e');
+        return null;
     }
   }
 
