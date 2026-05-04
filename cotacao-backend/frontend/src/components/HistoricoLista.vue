@@ -135,6 +135,20 @@ const updateStatus = async () => {
     }
 };
 
+const auditQuote = async (id: number) => {
+    try {
+        const res = await safeFetch(`/api/audit/${id}`, { method: 'POST' });
+        if (res.ok) {
+            window.showToast('Auditoria realizada com sucesso!', 'success');
+            // Opcional: Atualizar a lista ou ir para a página de conferência
+        } else {
+            window.showToast(res.data?.message || 'Erro ao realizar auditoria', 'error');
+        }
+    } catch (error) {
+        window.showToast('Erro de conexão com o servidor', 'error');
+    }
+};
+
 const filteredQuotations = computed(() => {
     if (!searchTerm.value) return quotations.value;
     const term = searchTerm.value.toLowerCase();
@@ -221,6 +235,7 @@ onMounted(() => {
                             <th>Vl. Frete</th>
                             <th>Valor Total</th>
                             <th>Status</th>
+                            <th class="text-center">Audit</th>
                             <th class="actions-th text-center">Ações</th>
                         </tr>
                     </thead>
@@ -250,6 +265,12 @@ onMounted(() => {
                                     {{ item.status || 'PENDENTE' }}
                                     <i v-if="isAdmin" class="fas fa-edit ms-1"></i>
                                 </span>
+                            </td>
+                            <td class="text-center">
+                                <button v-if="item.nf" @click="auditQuote(item.id)" class="btn-audit-mini" title="Realizar Auditoria SIEG">
+                                    <i class="fas fa-search-dollar"></i>
+                                </button>
+                                <span v-else class="no-nf">-</span>
                             </td>
                             <td class="actions-col">
                                 <div class="btn-group justify-center">
@@ -542,6 +563,27 @@ select.pill-input-small {
     padding-right: 30px;
 }
 
+
+.btn-audit-mini {
+    background: var(--primary);
+    color: white;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.btn-audit-mini:hover { 
+    transform: scale(1.1); 
+    box-shadow: 0 4px 12px rgba(0, 74, 153, 0.3);
+    background: var(--primary-dark);
+}
+.no-nf { color: var(--text-muted); font-size: 0.8rem; opacity: 0.5; }
+.text-right { text-align: right; }
 
 @media (max-width: 1024px) {
     .page-header { flex-direction: column; align-items: flex-start; gap: 20px; }
