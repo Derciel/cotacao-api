@@ -126,4 +126,8 @@ export class AuditService {
 
     return await this.auditRepository.save(audit);
   }
+
+  async testSieg() {
+    return this.siegService.testConnection();
+  }
 }

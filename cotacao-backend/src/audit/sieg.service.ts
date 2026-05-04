@@ -15,7 +15,7 @@ export class SiegService {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
   ) {
-    this.apiKey = this.configService.get<string>('SIEG_API_KEY') || '';
+    this.apiKey = this.configService.get<string>('SIEG_API_KEY') || 'vFPmjhnVBtimeq19FX6yXosGF8PznplfoA9yGbj2DIs';
     // Usaremos o email do admin ou um fixo configurado. 
     // Como a chave foi passada pelo user, o email associado à conta dele no SIEG é necessário.
     // Vou assumir um padrão ou buscar do config se disponível.
@@ -152,5 +152,36 @@ export class SiegService {
     } catch (error) {
       return null;
     }
+  }
+
+  /**
+   * Testa a conexão com a SIEG e retorna o status
+   */
+  async testConnection(): Promise<any> {
+      try {
+          const payload = {
+            apikey: this.apiKey,
+            email: this.email,
+            type: 'cte'
+          };
+
+          const response = await firstValueFrom(
+            this.httpService.post(`${this.baseUrl}/getdocs`, payload)
+          );
+
+          return {
+              success: true,
+              email: this.email,
+              docsCount: Array.isArray(response.data) ? response.data.length : 0,
+              message: 'Conexão com SIEG estabelecida com sucesso!'
+          };
+      } catch (error) {
+          this.logger.error(`Erro no teste de conexão SIEG: ${error.message}`);
+          return {
+              success: false,
+              message: `Erro ao conectar com SIEG: ${error.message}`,
+              status: error.response?.status
+          };
+      }
   }
 }

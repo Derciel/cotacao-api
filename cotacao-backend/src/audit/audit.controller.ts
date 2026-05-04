@@ -37,4 +37,10 @@ export class AuditController {
     const endDate = end ? new Date(end) : new Date();
     return this.auditService.getSummaryByCarrier(startDate, endDate);
   }
+
+  @Get('test-connection')
+  @ApiOperation({ summary: 'Testa a conexão com a API da SIEG' })
+  async testSieg() {
+    return this.auditService.testSieg();
+  }
 }
