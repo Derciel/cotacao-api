@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { Audit, AuditStatus } from './entities/audit.entity.js';
@@ -27,8 +27,12 @@ export class AuditService {
       relations: ['items'],
     });
 
-    if (!quotation || !quotation.nf) {
-      throw new Error('Cotação não encontrada ou sem número de NF associado.');
+    if (!quotation) {
+      throw new NotFoundException('Cotação não encontrada.');
+    }
+
+    if (!quotation.nf) {
+      throw new BadRequestException('Esta cotação não possui número de NF associado para auditoria.');
     }
 
     // Busca dados reais no SIEG
@@ -36,7 +40,7 @@ export class AuditService {
     
     if (!siegData) {
       this.logger.warn(`Conferência abortada: Nenhum CT-e encontrado no SIEG para a NF ${quotation.nf}`);
-      throw new Error('Não foi possível localizar o CT-e correspondente na SIEG para esta nota fiscal.');
+      throw new NotFoundException(`Não foi possível localizar o CT-e correspondente na SIEG para a NF ${quotation.nf}. Verifique se o documento já foi sincronizado no portal SIEG.`);
     }
 
     const actualFreight = Number(siegData.valor_frete);
@@ -114,7 +118,7 @@ export class AuditService {
    */
   async checkManual(auditId: number, userId: number) {
     const audit = await this.auditRepository.findOne({ where: { id: auditId } });
-    if (!audit) throw new Error('Auditoria não encontrada');
+    if (!audit) throw new NotFoundException('Auditoria não encontrada');
 
     audit.status = AuditStatus.CONFERIDO;
     audit.data_conferencia = new Date();

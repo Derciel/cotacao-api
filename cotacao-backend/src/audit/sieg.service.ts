@@ -29,34 +29,53 @@ export class SiegService {
     try {
       this.logger.log(`Iniciando busca real na SIEG para NF: ${nfNumber}`);
       
-      // 1. Buscar a listagem de CT-es que podem conter essa NF
-      // Usamos getdocs para listar os documentos em formato JSON (mais leve que XML para busca)
-      const payload = {
-        apikey: this.apiKey,
-        email: this.email,
-        type: 'cte',
-        cnpjtomador: this.cnpjNicopel
-      };
+      // 1. Definir os filtros de busca
+      // Tentaremos buscar documentos onde a Nicopel é tomadora, remetente ou destinatária
+      const searchRoles = ['cnpjtomador', 'cnpjremetente', 'cnpjdestinatario'];
+      let docs: any[] = [];
 
-      const response = await firstValueFrom(
-        this.httpService.post(`${this.baseUrl}/getdocs`, payload)
-      );
+      for (const role of searchRoles) {
+          const payload: any = {
+            apikey: this.apiKey,
+            email: this.email,
+            type: 'cte'
+          };
+          payload[role] = this.cnpjNicopel;
 
-      const docs = response.data;
-      if (!docs || !Array.isArray(docs)) {
-        this.logger.warn(`Nenhum documento retornado pela SIEG para NF: ${nfNumber}`);
+          const response = await firstValueFrom(
+            this.httpService.post(`${this.baseUrl}/getdocs`, payload)
+          );
+
+          if (response.data && Array.isArray(response.data)) {
+              docs = [...docs, ...response.data];
+          }
+      }
+
+      if (docs.length === 0) {
+        this.logger.warn(`Nenhum documento retornado pela SIEG em nenhum papel fiscal (Tom/Rem/Des).`);
         return null;
       }
 
-      // 2. Procurar nos documentos JSON algum que faça referência à NF
-      // Na API v2, a resposta JSON contém campos básicos. Precisamos do XML para ver a NF vinculada.
-      // Por performance, vamos pegar os 3 últimos CT-es e verificar o XML.
-      const lastDocs = docs.slice(0, 5);
+      // 2. Filtrar e extrair o XML para verificar a NF
+      // Removendo duplicatas (pela XmlKey) e pegando os mais recentes
+      const uniqueDocs = Array.from(new Map(docs.map(item => [item.XmlKey, item])).values())
+                              .sort((a: any, b: any) => b.Date.localeCompare(a.Date))
+                              .slice(0, 15);
       
-      for (const doc of lastDocs) {
+      for (const doc of uniqueDocs) {
           const xml = await this.getXml(doc.XmlKey, 'cte');
-          if (xml && xml.includes(nfNumber)) {
-              this.logger.log(`CT-e encontrado! Chave: ${doc.XmlKey}`);
+          
+          // Verifica se o XML contém a NF (seja o número ou a chave completa)
+          // Se for chave (44 dígitos), a busca é exata. Se for número, pode haver falso-positivo, 
+          // então validamos se está entre tags <nNF> ou <infNFe>.
+          const isMatch = xml && (
+              xml.includes(`<nNF>${nfNumber}</nNF>`) || 
+              xml.includes(nfNumber) || 
+              (nfNumber.length === 44 && xml.includes(nfNumber))
+          );
+
+          if (isMatch) {
+              this.logger.log(`CT-e encontrado com sucesso! Chave: ${doc.XmlKey}`);
               return this.extractDataFromXml(xml, doc.XmlKey);
           }
       }
