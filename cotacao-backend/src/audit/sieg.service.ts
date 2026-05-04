@@ -73,14 +73,21 @@ export class SiegService {
       
       for (const doc of uniqueDocs) {
           const xml = await this.getXml(doc.XmlKey, 'cte');
+          if (!xml) continue;
+
+          // Limpamos zeros à esquerda do número da NF para garantir o match (ex: 000067704 -> 67704)
+          const cleanNfNumber = nfNumber.replace(/^0+/, '');
           
-          // Verifica se o XML contém a NF (seja o número ou a chave completa)
-          // Se for chave (44 dígitos), a busca é exata. Se for número, pode haver falso-positivo, 
-          // então validamos se está entre tags <nNF> ou <infNFe>.
-          const isMatch = xml && (
-              xml.includes(`<nNF>${nfNumber}</nNF>`) || 
-              xml.includes(nfNumber) || 
-              (nfNumber.length === 44 && xml.includes(nfNumber))
+          // Verifica se o XML contém a NF em tags comuns de documentos originários
+          // <nDoc> é comum em CT-es para referenciar o número da NF-e sem a chave
+          // <nNF> é a tag padrão de número de nota
+          const isMatch = (
+              xml.includes(`<nDoc>${nfNumber}</nDoc>`) || 
+              xml.includes(`<nDoc>${cleanNfNumber}</nDoc>`) || 
+              xml.includes(`<nNF>${nfNumber}</nNF>`) ||
+              xml.includes(`<nNF>${cleanNfNumber}</nNF>`) ||
+              (nfNumber.length >= 7 && xml.includes(nfNumber)) || // Busca genérica se for um número longo
+              (nfNumber.length === 44 && xml.includes(nfNumber))  // Busca exata por chave de acesso
           );
 
           if (isMatch) {
