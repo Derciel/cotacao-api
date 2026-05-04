@@ -4,3 +4,4 @@ cotacao-backend/scripts/
 dist/
 build/
 *.log
+*.xlsx
