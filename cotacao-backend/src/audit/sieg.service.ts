@@ -2,6 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
+import * as path from 'path';
+import * as fs from 'fs';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const XLSX = require('xlsx');
 
 @Injectable()
 export class SiegService {
@@ -22,7 +27,7 @@ export class SiegService {
   /**
    * Busca um CT-e que referencia uma NF-e específica
    */
-  async findCteByNf(nfNumber: string): Promise<any> {
+  async findCteByNf(nfNumber: string, context?: any): Promise<any> {
     try {
       this.logger.log(`Iniciando busca real na SIEG para NF: ${nfNumber}`);
       
@@ -98,7 +103,64 @@ export class SiegService {
 
       return null;
     } catch (error: any) {
-      this.logger.error(`Erro ao buscar dados na SIEG: ${error.message}`);
+      this.logger.error(`Erro ao buscar dados na SIEG (API): ${error.message}`);
+      
+      // Fallback para Excel conforme solicitado pelo usuário
+      this.logger.log('Iniciando fallback para busca em planilhas Excel...');
+      return this.findCteByExcel(nfNumber, context);
+    }
+  }
+
+  /**
+   * Busca dados em planilhas Excel na raiz do projeto
+   */
+  async findCteByExcel(nfNumber: string, context?: any): Promise<any> {
+    try {
+      const rootPath = path.resolve('..');
+      const files = fs.readdirSync(rootPath).filter(f => f.endsWith('.xlsx'));
+      
+      this.logger.log(`Varrendo ${files.length} arquivos Excel em ${rootPath}`);
+
+      for (const fileName of files) {
+        const filePath = path.join(rootPath, fileName);
+        const workbook = XLSX.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        for (const row of data) {
+          // 1. Match Principal por NF
+          const matchNf = String(row.Numero).includes(nfNumber.replace(/^0+/, '')) || 
+                         String(row.Chave).includes(nfNumber);
+
+          // 2. Se não houver NF ou se quisermos validar mais (conforme pedido pelo user)
+          let matchContext = false;
+          if (context) {
+            const matchCnpj = [row.CnpjEmit, row.CnpjDest, row.CnpjRem, row.CnpjTom].includes(context.cnpj?.replace(/\D/g, ''));
+            const matchRazao = [row.RzEmit, row.RzDest].some(r => r?.toUpperCase().includes(context.razaoSocial?.toUpperCase()));
+            const matchValor = Math.abs((row.Valor || 0) - (context.valor || 0)) < 10.00; // Tolerância de 10 reais para "aproximado"
+
+            // Se bater CNPJ e Valor, ou Razão e Valor, consideramos match
+            if ((matchCnpj && matchValor) || (matchRazao && matchValor)) {
+                matchContext = true;
+            }
+          }
+
+          if (matchNf || matchContext) {
+            this.logger.log(`Match encontrado no Excel (${fileName}) para NF ${nfNumber} / Contexto: ${matchContext}`);
+            return {
+              numero_cte: row.Chave || row.Numero,
+              valor_frete: row.Valor || 0,
+              peso: 0,
+              volumes: 1
+            };
+          }
+        }
+      }
+
+      return null;
+    } catch (error: any) {
+      this.logger.error(`Erro ao ler arquivos Excel: ${error.message}`);
       return null;
     }
   }

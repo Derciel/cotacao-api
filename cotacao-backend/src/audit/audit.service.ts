@@ -35,12 +35,17 @@ export class AuditService {
       throw new BadRequestException('Esta cotação não possui número de NF associado para auditoria.');
     }
 
-    // Busca dados reais no SIEG
-    const siegData = await this.siegService.findCteByNf(quotation.nf);
-    
+    // Busca dados reais no SIEG (API ou Excel Fallback)
+    const siegData = await this.siegService.findCteByNf(quotation.nf, {
+      cnpj: quotation.client?.cnpj,
+      razaoSocial: quotation.client?.razao_social,
+      valor: quotation.valor_frete,
+      data: quotation.created_at
+    });
+
     if (!siegData) {
-      this.logger.warn(`Conferência abortada: Nenhum CT-e encontrado no SIEG para a NF ${quotation.nf}`);
-      throw new NotFoundException(`Não foi possível localizar o CT-e correspondente na SIEG para a NF ${quotation.nf}. Verifique se o documento já foi sincronizado no portal SIEG.`);
+      this.logger.warn(`Conferência abortada: Nenhum CT-e encontrado no SIEG ou Excel para a NF ${quotation.nf}`);
+      throw new NotFoundException(`Não foi possível localizar o CT-e correspondente (API/Excel) para a NF ${quotation.nf}. Verifique se o documento está nas planilhas enviadas.`);
     }
 
     const actualFreight = Number(siegData.valor_frete);
