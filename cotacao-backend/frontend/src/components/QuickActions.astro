@@ -1,0 +1,159 @@
+---
+// src/components/QuickActions.astro
+const actions = [
+  { label: 'Nova Cotação', icon: 'fas fa-calculator', href: '/nova-cotacao', color: 'blue' },
+  { label: 'Cadastrar Cliente', icon: 'fas fa-user-plus', href: '/cadastrar-cliente', color: 'green' },
+  { label: 'Histórico', icon: 'fas fa-history', href: '/historico', color: 'purple' },
+  { label: 'Relatórios', icon: 'fas fa-chart-pie', href: '/relatorios', color: 'orange' },
+  { label: 'Cadastrar Item', icon: 'fas fa-box-open', href: '/cadastrar-item', color: 'purple' },
+  { label: 'Ver Itens', icon: 'fas fa-boxes', href: '/produtos', color: 'purple' },
+  { label: 'Rastreio', icon: 'fas fa-truck-loading', href: '/rastreio', color: 'blue' },
+  { label: 'Conferência', icon: 'fas fa-file-invoice-dollar', href: '/conferencia-frete', color: 'green' }
+];
+
+---
+
+<div class="actions-card glass-premium" id="quick-actions-card">
+  <div class="card-header">
+    <i class="fas fa-bolt icon-yellow"></i>
+    <h3>Ações Rápidas</h3>
+  </div>
+  
+  <div class="actions-grid">
+    {actions.map(action => (
+      <a href={action.href} class={`action-btn btn-${action.color}`} data-href={action.href}>
+        <div class="icon-circle">
+          <i class={action.icon}></i>
+        </div>
+        <span>{action.label}</span>
+      </a>
+    ))}
+  </div>
+</div>
+
+<script is:inline>
+  (function() {
+    const userInfo = localStorage.getItem('user_info');
+    if (!userInfo) return;
+    
+    const user = JSON.parse(userInfo);
+    if (user.role === 'ADMIN') return; // Admin sees everything
+
+    const actions = document.querySelectorAll('#quick-actions-card .action-btn');
+    actions.forEach(btn => {
+      const href = btn.getAttribute('data-href');
+      const hasPermission = user.permissions && user.permissions.includes(href);
+      if (!hasPermission) {
+        btn.style.display = 'none';
+      }
+    });
+
+    // If no actions left, hide the whole card
+    const visibleActions = document.querySelectorAll('#quick-actions-card .action-btn[style*="display: none"]');
+    if (visibleActions.length === actions.length) {
+      document.getElementById('quick-actions-card').style.display = 'none';
+    }
+  })();
+</script>
+
+<style>
+  .actions-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    padding: 24px;
+    box-shadow: var(--shadow-card);
+    height: 100%;
+    transition: background 0.3s ease, border 0.3s ease;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 30px;
+  }
+
+  .card-header i {
+    font-size: 1.1rem;
+    color: #f59e0b;
+  }
+
+  .card-header h3 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  .actions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 10px;
+    border-radius: 16px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid transparent;
+    text-align: center;
+    gap: 10px;
+    text-decoration: none;
+  }
+
+  .action-btn:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 20px -5px rgba(0,0,0,0.08);
+  }
+
+  .icon-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    background: var(--bg-surface);
+    transition: all 0.2s;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  }
+
+  .action-btn span {
+    font-weight: 700;
+    font-size: 0.85rem;
+    line-height: 1.2;
+  }
+
+  /* Cores dos Botões com variações suaves adaptadas para Dark Mode */
+  .btn-blue { background: rgba(37, 99, 235, 0.1); color: #3b82f6; }
+  .btn-blue .icon-circle { color: #3b82f6; }
+  .btn-blue:hover { border-color: #3b82f6; background: rgba(37, 99, 235, 0.15); }
+
+  .btn-green { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+  .btn-green .icon-circle { color: #10b981; }
+  .btn-green:hover { border-color: #10b981; background: rgba(16, 185, 129, 0.15); }
+
+  .btn-purple { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+  .btn-purple .icon-circle { color: #8b5cf6; }
+  .btn-purple:hover { border-color: #8b5cf6; background: rgba(139, 92, 246, 0.15); }
+
+  .btn-orange { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+  .btn-orange .icon-circle { color: #f59e0b; }
+  .btn-orange:hover { border-color: #f59e0b; background: rgba(245, 158, 11, 0.15); }
+
+  [data-theme='dark'] .btn-blue { color: #60a5fa; }
+  [data-theme='dark'] .btn-green { color: #34d399; }
+  [data-theme='dark'] .btn-purple { color: #a78bfa; }
+  [data-theme='dark'] .btn-orange { color: #fbbf24; }
+
+  @media (max-width: 1024px) {
+    .actions-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>

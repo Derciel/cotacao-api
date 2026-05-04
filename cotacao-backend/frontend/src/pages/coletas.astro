@@ -1,0 +1,74 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import ColetaLista from '../components/ColetaLista.vue';
+import NovaColeta from '../components/NovaColeta.vue';
+---
+
+<MainLayout title="Coletas | Nicopel Cargo">
+  <div class="page-header animate-fade-in">
+    <div>
+      <h1>Gerenciamento de Coletas</h1>
+      <p>Acompanhe e solicite coletas junto às transportadoras.</p>
+    </div>
+    <NovaColeta client:load />
+  </div>
+
+  <div class="stats-grid mt-30">
+    <div class="stats-card glass-premium animate-slide-up" style="animation-delay: 0.1s">
+        <div class="s-icon purple"><i class="fas fa-clock"></i></div>
+        <div class="s-info">
+            <small>Agendadas</small>
+            <strong>1</strong>
+        </div>
+    </div>
+    <div class="stats-card glass-premium animate-slide-up" style="animation-delay: 0.2s">
+        <div class="s-icon green"><i class="fas fa-check-double"></i></div>
+        <div class="s-info">
+            <small>Concluídas (Hoje)</small>
+            <strong>12</strong>
+        </div>
+    </div>
+    <div class="stats-card glass-premium animate-slide-up" style="animation-delay: 0.3s">
+        <div class="s-icon blue"><i class="fas fa-boxes"></i></div>
+        <div class="s-info">
+            <small>Volumes totais</small>
+            <strong>48</strong>
+        </div>
+    </div>
+  </div>
+
+  <div class="mt-40">
+    <ColetaLista client:load />
+  </div>
+</MainLayout>
+
+<style>
+  .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+  .page-header h1 { font-size: 2.5rem; font-weight: 850; color: var(--primary); margin: 0; letter-spacing: -1px; }
+  .page-header p { color: var(--text-muted); font-size: 1.1rem; margin-top: 5px; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px; }
+  .stats-card { background: var(--bg-surface); padding: 25px; border-radius: 24px; border: 1px solid var(--border); display: flex; align-items: center; gap: 20px; box-shadow: var(--shadow-card); }
+  
+  .s-icon { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+  .s-icon.purple { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
+  .s-icon.green { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+  .s-icon.blue { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+
+  .s-info small { display: block; color: var(--text-muted); font-weight: 700; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px; }
+  .s-info strong { font-size: 1.8rem; font-weight: 900; color: var(--text-main); }
+
+  .mt-30 { margin-top: 30px; }
+  .mt-40 { margin-top: 40px; }
+
+  .animate-fade-in { animation: fadeIn 0.8s ease-out; }
+  .animate-slide-up { animation: slideUp 0.6s ease-out backwards; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  .glass-premium { 
+    background: var(--glass-bg); 
+    backdrop-filter: blur(15px); 
+  }
+</style>

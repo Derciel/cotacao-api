@@ -1,0 +1,16 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import HistoricoLista from '../components/HistoricoLista.vue';
+---
+
+<MainLayout title="Histórico de Cotações | Nicopel Cargo">
+  <div class="page-container">
+    <HistoricoLista client:load />
+  </div>
+</MainLayout>
+
+<style>
+  .page-container {
+    padding: 0;
+  }
+</style>

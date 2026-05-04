@@ -1,0 +1,639 @@
+---
+// e:/projetos em andamento/projeto-cotacao-2025/cotacao-backend/frontend/src/pages/rastreio.astro
+import MainLayout from '../layouts/MainLayout.astro';
+import BrazilMap from '../components/BrazilMap.vue';
+
+
+const carriers = [
+  { 
+    name: 'VIP TRANSPORTADORA', 
+    logo: 'https://i.ibb.co/hsvJymp/Vip-Logo03-1.png', 
+    url: 'tel:4333560099', 
+    label: 'Ligar: 43 3356-0099',
+    color: '#1e40af',
+    type: 'phone'
+  },
+  { 
+    name: 'RTE RODONAVES', 
+    logo: 'https://i.ibb.co/nnvt26n/logo-header-1.png', 
+    url: 'https://rodonaves.com.br/rastreio-de-mercadoria?protocolo=&rastreiemercadoria=1&gad_source=1', 
+    color: '#00713d',
+    type: 'external'
+  },
+  { 
+    name: 'ALFA TRANSPORTES', 
+    logo: 'https://i.ibb.co/PFwh475/alfa.png', 
+    url: 'https://alfatransportes.com.br/', 
+    color: '#004a99',
+    type: 'external'
+  },
+  { 
+    name: 'COOPEX', 
+    logo: 'https://i.ibb.co/YbYTcHq/coopex.png', 
+    url: 'https://ssw.inf.br/2/rastreamento', 
+    color: '#e30613',
+    type: 'external'
+  },
+  { 
+    name: 'TEX CARGO', 
+    logo: 'https://i.ibb.co/cLsYLPh/logo-white-tex.png', 
+    url: 'https://ssw.inf.br/2/rastreamento', 
+    color: '#1b0088',
+    type: 'external'
+  },
+  { 
+    name: 'ENVIA RÁPIDO', 
+    logo: 'https://i.ibb.co/FJCV12Y/envia-rapido.png', 
+    url: 'https://ssw.inf.br/2/rastreamento', 
+    color: '#ff6200',
+    type: 'external'
+  },
+  { 
+    name: 'SUDOESTE', 
+    logo: 'https://i.ibb.co/LXWDvvB9/logo-sudoeste-transportes.png',
+    url: 'https://ssw.inf.br/2/rastreamento', 
+    color: '#4f46e5',
+    type: 'external'
+  }
+];
+
+
+---
+
+<MainLayout title="Rastreio de Cargas | Nicopel Cargo">
+  <div class="tracking-container">
+    <div class="header-section animate-fade-in">
+      <h1>Rastreio de Cargas</h1>
+      <p>Acesse rapidamente o rastreamento das suas transportadoras.</p>
+      
+      <div class="instruction-banner glass-premium">
+        <i class="fas fa-info-circle"></i>
+        <span>PARA RASTREAR, INSERIR CNPJ DO DESTINATÁRIO OU REMETENTE E Nº DE NF</span>
+      </div>
+    </div>
+
+    <div class="tracking-search-section glass-premium animate-fade-in" id="search-section">
+      <div class="search-header">
+        <i class="fas fa-search-location"></i>
+        <h2>Consulta em Tempo Real (RTE Rodonaves)</h2>
+      </div>
+      <div class="search-form">
+        <!-- Removido Select SSW conforme solicitado -->
+        <input type="hidden" id="track-carrier" value="RODONAVES" />
+        
+        <div class="input-group">
+          <label>Nº da Nota Fiscal</label>
+          <input type="text" id="track-nf" placeholder="Ex: 123456" />
+        </div>
+        <div class="input-group">
+          <label>CNPJ do Remetente/Destinatário</label>
+          <input type="text" id="track-cnpj" placeholder="00.000.000/0000-00" />
+        </div>
+        <button id="btn-track-now" class="btn-primary">
+          <i class="fas fa-sync-alt"></i> Consultar Agora
+        </button>
+      </div>
+
+      <div id="tracking-result" class="tracking-result" style="display: none;">
+        <!-- Loading -->
+        <div class="loading-tracking" style="display: none;">
+          <div class="spinner"></div>
+          <span id="loading-text">Consultando API...</span>
+        </div>
+        
+        <!-- Timeline -->
+        <div class="tracking-timeline" id="tracking-timeline"></div>
+      </div>
+    </div>
+
+    <div class="carriers-grid">
+      {carriers.map(carrier => (
+        <a 
+          href={carrier.url} 
+          target={carrier.type === 'external' ? '_blank' : '_self'} 
+          class="carrier-card glass-premium animate-slide-up"
+          data-type={carrier.type}
+          data-name={carrier.name}
+          data-url={carrier.url}
+        >
+          <div class="logo-wrapper">
+            <img src={carrier.logo} alt={carrier.name} onerror="this.src='/logo-npcargo.jpg'; this.style.opacity='0.5';" />
+          </div>
+          <div class="carrier-info">
+            <h3>{carrier.name}</h3>
+            <span class="btn-track" style={`background-color: ${carrier.color}`}>
+              {carrier.type === 'internal' ? 'Consulta Aqui' : (carrier.label || 'Rastrear')} 
+              <i class={carrier.type === 'phone' ? 'fas fa-phone' : (carrier.type === 'internal' ? 'fas fa-search' : 'fas fa-external-link-alt')}></i>
+            </span>
+          </div>
+        </a>
+      ))}
+    </div>
+
+    <!-- Seção de Mapa e Prazos -->
+    <div class="lead-times-section glass-premium animate-fade-in">
+      <div class="section-header">
+        <i class="fas fa-map-marked-alt"></i>
+        <h2>Mapa de Prazos de Entrega</h2>
+      </div>
+      
+      <div class="lead-times-content">
+        <div class="map-wrapper">
+          <BrazilMap client:load />
+        </div>
+
+        <div class="prazos-table-wrapper">
+          <table class="prazos-table">
+            <thead>
+              <tr>
+                <th>Região / Estado</th>
+                <th>Prazo Estimado</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="state-badge">PR</span> Paraná</td>
+                <td><strong>1 - 4 Dias</strong></td>
+              </tr>
+              <tr>
+                <td><span class="state-badge">SP</span> São Paulo</td>
+                <td><strong>2 - 5 Dias</strong></td>
+              </tr>
+              <tr>
+                <td><span class="state-badge">SC</span> Santa Catarina</td>
+                <td><strong>2 - 5 Dias</strong></td>
+              </tr>
+              <tr>
+                <td><span class="state-badge">RS</span> Rio Grande do Sul</td>
+                <td><strong>2 - 5 Dias</strong></td>
+              </tr>
+              <tr>
+                <td><span class="state-badge">ES</span> Espírito Santo</td>
+                <td><strong>2 - 7 Dias</strong></td>
+              </tr>
+              <tr>
+                <td><span class="state-badge">MS</span> Mato Grosso do Sul</td>
+                <td><strong>5 - 7 Dias</strong></td>
+              </tr>
+              <tr>
+                <td><span class="state-badge">MG</span> Minas Gerais</td>
+                <td><strong>5 - 7 Dias</strong></td>
+              </tr>
+              <tr>
+                <td><span class="state-badge">RJ</span> Rio de Janeiro</td>
+                <td><strong>5 - 8 Dias</strong></td>
+              </tr>
+              <tr>
+                <td><span class="state-badge">TO</span> Tocantins</td>
+                <td><strong>5 - 8 Dias</strong></td>
+              </tr>
+              <tr>
+                <td><span class="state-badge">MT</span> Mato Grosso</td>
+                <td><strong>5 - 6 Dias</strong></td>
+              </tr>
+              <tr>
+                <td><span class="state-badge">GO</span> Goiás / DF</td>
+                <td><strong>6 Dias</strong></td>
+              </tr>
+              <tr class="highlight-row">
+                <td><i class="fas fa-star text-yellow"></i> Demais Áreas Marcadas</td>
+                <td><strong>7 - 15 Dias Úteis</strong></td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="table-note">* Prazos em dias úteis após o faturamento.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script is:inline>
+      else if (v.length > 8) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{1,4}).*/, "$1.$2.$3/$4");
+      else if (v.length > 5) v = v.replace(/^(\d{2})(\d{3})(\d{1,3}).*/, "$1.$2.$3");
+      else if (v.length > 2) v = v.replace(/^(\d{2})(\d{1,3}).*/, "$1.$2");
+      e.target.value = v;
+    });
+
+    // Lógica para clique nos cards de transportadora
+    document.querySelectorAll('.carrier-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        const type = card.getAttribute('data-type');
+        const url = card.getAttribute('data-url');
+        const nf = document.getElementById('track-nf').value;
+        const cnpj = document.getElementById('track-cnpj').value;
+        const cleanCnpj = cnpj.replace(/\D/g, '');
+
+        if (type === 'internal') {
+          // Rodonaves - Evita o link # e foca no input
+          e.preventDefault();
+          document.getElementById('track-nf').focus();
+          if (nf && cnpj) {
+            document.getElementById('btn-track-now').click();
+          }
+        } else if (type === 'external' && url && url.includes('ssw.inf.br')) {
+          // SSW - Link inteligente se dados preenchidos
+          if (nf && cnpj) {
+            e.preventDefault();
+            window.open(`https://ssw.inf.br/2/rastreamento?NR=${nf}&cnpj=${cleanCnpj}`, '_blank');
+          }
+          // Caso contrário, segue o link padrão do href
+        }
+      });
+    });
+  </script>
+</MainLayout>
+
+<style>
+  .tracking-container {
+    padding: 20px 0;
+  }
+
+  /* Nova Seção de Busca de Rastreio */
+  .tracking-search-section {
+    margin-bottom: 40px;
+    padding: 30px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--glass-bg);
+  }
+
+  .search-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 25px;
+  }
+
+  .search-header i { font-size: 1.5rem; color: var(--primary); }
+  .search-header h2 { font-size: 1.4rem; font-weight: 800; margin: 0; }
+
+  .search-form {
+    display: flex;
+    gap: 20px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-width: 250px;
+  }
+
+  .input-group label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  .input-group input {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 15px;
+    color: var(--text-main);
+    font-size: 1rem;
+    transition: 0.3s;
+  }
+
+  .input-group input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.3s;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-2px); }
+
+  /* Resultado de Rastreio */
+  .tracking-result {
+    margin-top: 30px;
+    padding-top: 30px;
+    border-top: 1px solid var(--border);
+  }
+
+  .loading-tracking {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    padding: 40px;
+    color: var(--text-muted);
+  }
+
+  .spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid rgba(255,255,255,0.1);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .tracking-timeline {
+    max-width: 600px;
+    margin: 0 auto;
+    position: relative;
+    padding-left: 30px;
+  }
+
+  .tracking-timeline::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 5px;
+    bottom: 5px;
+    width: 2px;
+    background: var(--border);
+  }
+
+  .timeline-event {
+    position: relative;
+    margin-bottom: 30px;
+  }
+
+  .event-dot {
+    position: absolute;
+    left: -30px;
+    top: 5px;
+    width: 10px;
+    height: 10px;
+    background: var(--primary);
+    border-radius: 50%;
+    box-shadow: 0 0 0 4px var(--bg-surface);
+  }
+
+  .event-content {
+    background: var(--bg-input);
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+
+  .event-date { font-size: 0.75rem; font-weight: 700; color: var(--primary); }
+  .event-desc { font-weight: 600; margin: 5px 0; font-size: 0.95rem; }
+  .event-location { font-size: 0.8rem; color: var(--text-muted); }
+
+  .no-data, .error-data { text-align: center; padding: 20px; color: var(--text-muted); font-style: italic; }
+
+  /* Estilos da Nova Seção de Prazos */
+  .lead-times-section {
+    margin-top: 60px;
+    padding: 40px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+    transition: background 0.3s ease, border 0.3s ease;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 30px;
+  }
+
+  .section-header i {
+    font-size: 1.8rem;
+    color: var(--primary);
+  }
+
+  .section-header h2 {
+    font-size: 1.8rem;
+    font-weight: 850;
+    color: var(--text-main);
+    margin: 0;
+    letter-spacing: -0.5px;
+  }
+
+  .lead-times-content {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 40px;
+    align-items: start;
+  }
+
+  .map-container {
+    background: var(--bg-surface);
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: var(--shadow-card);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .lead-map {
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    transition: transform 0.5s ease;
+  }
+
+  .lead-map:hover {
+    transform: scale(1.02);
+  }
+
+  .map-placeholder-info {
+    padding: 40px;
+    text-align: center;
+    color: var(--text-muted);
+    background: var(--bg-input);
+    border-radius: 10px;
+  }
+
+  .prazos-table-wrapper {
+    background: var(--bg-surface);
+    padding: 20px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+
+  .prazos-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+  }
+
+  .prazos-table th {
+    text-align: left;
+    padding: 12px 15px;
+    border-bottom: 2px solid var(--border);
+    color: var(--text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+  }
+
+  .prazos-table td {
+    padding: 14px 15px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-main);
+  }
+
+  .state-badge {
+    background: var(--primary);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    margin-right: 8px;
+    display: inline-block;
+    min-width: 25px;
+    text-align: center;
+  }
+
+  .highlight-row {
+    background: rgba(37, 99, 235, 0.05);
+    font-weight: 600;
+  }
+
+  .text-yellow { color: #f59e0b; }
+
+  .table-note {
+    margin-top: 15px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
+  }
+
+  @media (max-width: 1024px) {
+    .lead-times-content {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .header-section {
+    margin-bottom: 40px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+  }
+
+  @media (max-width: 768px) {
+    .header-section h1 { font-size: 1.8rem; }
+    .header-section p { font-size: 0.95rem; }
+  }
+
+
+  .carriers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 25px;
+  }
+
+  .carrier-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px;
+    text-align: center;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .carrier-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+    border-color: var(--primary);
+  }
+
+  .logo-wrapper {
+    width: 100%;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    background: #111827; /* Fundo escuro fixo para destacar logos brancas em PNG */
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+  }
+
+  .logo-wrapper img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  .carrier-info h3 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .btn-track {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 24px;
+    border-radius: 99px;
+    color: white;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: 0.3s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+
+  .btn-track:hover {
+    filter: brightness(1.2);
+    transform: scale(1.05);
+  }
+
+  /* Glassmorphism utility if not provided globally */
+  .glass-premium {
+    background: var(--glass-bg);
+    backdrop-filter: blur(15px);
+    border-radius: 24px;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.8s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.6s ease-out backwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Staggered animation for cards */
+  .carriers-grid a:nth-child(1) { animation-delay: 0.1s; }
+  .carriers-grid a:nth-child(2) { animation-delay: 0.15s; }
+  .carriers-grid a:nth-child(3) { animation-delay: 0.2s; }
+  .carriers-grid a:nth-child(4) { animation-delay: 0.25s; }
+  .carriers-grid a:nth-child(5) { animation-delay: 0.3s; }
+</style>

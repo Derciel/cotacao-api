@@ -1,0 +1,43 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import CadastrarProduto from '../components/CadastrarProduto.vue';
+---
+
+<MainLayout title="Cadastrar Novo Item | NP Cargo">
+  <div class="page-header">
+    <div class="container">
+      <h1>Gestão de Inventário</h1>
+      <p>Adicione novos itens para facilitar a criação de cotações.</p>
+    </div>
+  </div>
+
+  <CadastrarProduto client:load />
+</MainLayout>
+
+<style>
+  .page-header {
+    background: white;
+    padding: 40px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  h1 {
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--text-main);
+    margin-bottom: 10px;
+    letter-spacing: -1px;
+  }
+
+  p {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+  }
+</style>

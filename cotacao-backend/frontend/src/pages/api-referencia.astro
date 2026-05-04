@@ -1,0 +1,321 @@
+---
+// e:/projetos em andamento/projeto-cotacao-2025/cotacao-backend/frontend/src/pages/api-referencia.astro
+import MainLayout from '../layouts/MainLayout.astro';
+---
+
+<MainLayout title="API Reference | NP Cargo" hideNavbar={true}>
+  <div class="api-ref-shell">
+    <header class="api-header">
+      <div class="header-left">
+        <a href="/" class="back-link">
+          <i class="fas fa-arrow-left"></i>
+          <span>Painel</span>
+        </a>
+        <div class="divider"></div>
+        <div class="api-logo">
+          <i class="fas fa-code"></i>
+          <span>NP Cargo <strong>API</strong></span>
+        </div>
+      </div>
+      <div class="header-right">
+         <a href="https://cotacao.nicopel.com.br/api-docs" target="_blank" class="swagger-badge">SWAGGER DOCS</a>
+      </div>
+    </header>
+
+    <div class="api-wrapper">
+      <aside class="api-sidebar">
+        <nav class="sidebar-content">
+          <div class="nav-group">
+            <h3>AUTENTICAÇÃO</h3>
+            <button class="nav-item active" data-id="auth-login">
+              <span class="m-badge post">POST</span> Login
+            </button>
+          </div>
+          <div class="nav-group">
+            <h3>CLIENTES</h3>
+            <button class="nav-item" data-id="clients-list">
+              <span class="m-badge get">GET</span> Listar
+            </button>
+            <button class="nav-item" data-id="clients-cnpj">
+              <span class="m-badge get">GET</span> CNPJ
+            </button>
+          </div>
+          <div class="nav-group">
+            <h3>COTAÇÕES</h3>
+            <button class="nav-item" data-id="quotes-calc">
+              <span class="m-badge post">POST</span> Calcular
+            </button>
+            <button class="nav-item" data-id="quotes-create">
+              <span class="m-badge post">POST</span> Criar
+            </button>
+          </div>
+          <div class="nav-group">
+            <h3>RASTREIO</h3>
+            <button class="nav-item" data-id="tracking">
+              <span class="m-badge get">GET</span> Status
+            </button>
+          </div>
+        </nav>
+      </aside>
+
+      <main class="api-main">
+        <div class="content-scroll">
+          <div class="endpoint-doc" id="main-doc">
+            <h1 id="ep-title">Referência da API</h1>
+            <p id="ep-description" class="lead-text">Selecione um recurso na lateral para ver a documentação detalhada.</p>
+
+            <div class="url-box" id="url-container" style="display:none;">
+              <span class="method-label" id="url-method">POST</span>
+              <code id="url-path">/v1/endpoint</code>
+            </div>
+
+            <div class="params-section" id="params-container" style="display:none;">
+              <h2>Parâmetros do Body / Query</h2>
+              <div id="params-list" class="params-grid"></div>
+            </div>
+
+            <div class="responses-section" id="resp-container" style="display:none;">
+              <h2>Resposta</h2>
+              <div id="resp-list" class="resp-grid"></div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <aside class="api-playground">
+        <div class="playground-sticky">
+          <div class="code-card">
+            <div class="card-header">EXEMPLO DE REQUISIÇÃO (cURL)</div>
+            <pre><code id="code-curl">--</code></pre>
+          </div>
+          <div class="code-card alt">
+            <div class="card-header">EXEMPLO DE RESPOSTA (JSON)</div>
+            <pre><code id="code-json">--</code></pre>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</MainLayout>
+
+<script is:inline>
+  const data = {
+    'auth-login': {
+      title: 'Autenticação de Usuário',
+      desc: 'Obtenha um token JWT para realizar requisições autenticadas.',
+      method: 'POST', path: '/auth/login',
+      params: [
+        { n: 'username', t: 'string', d: 'Seu login de acesso.' },
+        { n: 'password', t: 'string', d: 'Sua senha funcional.' }
+      ],
+      resp: [{ s: '201', d: 'Token gerado com sucesso.' }],
+      curl: 'curl -X POST https://cotacao.nicopel.com.br/api/auth/login \\\n  -H "Content-Type: application/json" \\\n  -d \'{"username": "USUARIO", "password": "..."}\'',
+      json: '{\n  "access_token": "eyJhbGciOi...",\n  "user": {\n    "role": "ADMIN"\n  }\n}'
+    },
+    'clients-list': {
+      title: 'Listar Clientes',
+      desc: 'Retorna a lista de clientes vinculados ao seu ID de revenda.',
+      method: 'GET', path: '/clients',
+      params: [{ n: 'search', t: 'string', d: 'Filtro opcional por nome ou cnpj.' }],
+      resp: [{ s: '200', d: 'Lista de objetos JSON.' }],
+      curl: 'curl -H "Authorization: Bearer <TOKEN>" https://cotacao.nicopel.com.br/api/clients',
+      json: '[\n  { "id": 1, "razao_social": "NICOPEL" }\n]'
+    },
+    'tracking': {
+      title: 'Status de Rastreio',
+      desc: 'Consulte o status da entrega informando a Nota Fiscal e o CNPJ do destinatário.',
+      method: 'GET', path: '/freight/tracking/:nf/:cnpj',
+      params: [
+        { n: 'nf', t: 'string', d: 'Número da Nota Fiscal.' },
+        { n: 'cnpj', t: 'string', d: 'CNPJ apenas números.' }
+      ],
+      resp: [{ s: '200', d: 'Objeto com status e histórico.' }],
+      curl: 'curl https://cotacao.nicopel.com.br/api/freight/tracking/123/10815...',
+      json: '{\n  "status": "EM TRANSITO",\n  "ocorrencias": []\n}'
+    },
+    'quotes-calc': {
+        title: 'Calcular Frete',
+        desc: 'Simula o cálculo de frete com base nos itens e destino.',
+        method: 'POST', path: '/quotations/:id/calculate-freight',
+        params: [{ n: 'id', t: 'number', d: 'ID da cotação salva.' }],
+        resp: [{ s: '200', d: 'Lista de opções de frete.' }],
+        curl: 'curl -X POST https://cotacao.nicopel.com.br/api/quotations/45/calculate-freight',
+        json: '{\n  "opcoes": [\n    { "transportadora": "RODONAVES", "valor": 150.00 }\n  ]\n}'
+    }
+  };
+
+  function setEP(id) {
+    const ep = data[id];
+    if(!ep) return;
+
+    document.getElementById('ep-title').innerText = ep.title;
+    document.getElementById('ep-description').innerText = ep.desc;
+    
+    document.getElementById('url-container').style.display = 'flex';
+    document.getElementById('url-method').innerText = ep.method;
+    document.getElementById('url-method').className = 'method-label ' + ep.method.toLowerCase();
+    document.getElementById('url-path').innerText = ep.path;
+
+    // Params
+    const pCont = document.getElementById('params-container');
+    const pList = document.getElementById('params-list');
+    pList.innerHTML = ep.params.map(p => `
+      <div class="p-row">
+        <span class="p-name">${p.n}</span>
+        <span class="p-type">${p.t}</span>
+        <span class="p-desc">${p.d}</span>
+      </div>
+    `).join('');
+    pCont.style.display = ep.params.length ? 'block' : 'none';
+
+    // Responses
+    document.getElementById('resp-container').style.display = 'block';
+    document.getElementById('resp-list').innerHTML = ep.resp.map(r => `
+      <div class="r-row">
+        <span class="r-status">${r.s}</span>
+        <span class="r-desc">${r.d}</span>
+      </div>
+    `).join('');
+
+    // Code
+    document.getElementById('code-curl').innerText = ep.curl;
+    document.getElementById('code-json').innerText = ep.json;
+  }
+
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      setEP(btn.dataset.id);
+    };
+  });
+
+  // Init default
+  setEP('auth-login');
+</script>
+
+<style>
+  :root {
+    --bg-dark: #0f172a;
+    --bg-sidebar: #020617;
+    --bg-code: #010409;
+    --border: #1e293b;
+    --primary: #3b82f6;
+    --get: #22d3ee;
+    --post: #4ade80;
+    --text: #f1f5f9;
+    --text-dim: #94a3b8;
+  }
+
+  .api-ref-shell {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-dark);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+    margin: -40px 0; /* Compensation for MainLayout */
+  }
+
+  .api-header {
+    height: 60px;
+    background: var(--bg-sidebar);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 50;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 20px; }
+  .api-logo { font-weight: 800; display: flex; align-items: center; gap: 8px; font-size: 1.1rem; }
+  .api-logo i { color: var(--primary); }
+  .back-link { color: var(--text-dim); font-size: 0.9rem; transition: 0.2s; }
+  .back-link:hover { color: var(--text); }
+  .divider { width: 1px; height: 24px; background: var(--border); }
+
+  .swagger-badge {
+    background: #4ade80; color: #000; font-weight: 800; font-size: 0.7rem;
+    padding: 4px 10px; border-radius: 4px;
+  }
+
+  .api-wrapper {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* Sidebar */
+  .api-sidebar {
+    width: 250px;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    padding: 20px 10px;
+    overflow-y: auto;
+  }
+
+  .nav-group h3 {
+    font-size: 0.7rem; color: var(--text-dim); letter-spacing: 1px;
+    margin: 25px 12px 10px; font-weight: 700;
+  }
+
+  .nav-item {
+    width: 100%; display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; background: none; border: none;
+    color: var(--text-dim); text-align: left; cursor: pointer;
+    font-size: 0.85rem; font-weight: 500; border-radius: 6px; transition: 0.2s;
+  }
+
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+  .nav-item.active { background: rgba(59, 130, 246, 0.15); color: var(--primary); }
+
+  .m-badge { font-size: 0.6rem; font-weight: 900; background: #333; padding: 2px 5px; border-radius: 3px; min-width: 42px; text-align: center; }
+  .m-badge.get { background: rgba(34, 211, 238, 0.2); color: var(--get); }
+  .m-badge.post { background: rgba(74, 222, 128, 0.2); color: var(--post); }
+
+  /* Main */
+  .api-main { flex: 1; background: var(--bg-dark); overflow-y: auto; display: flex; flex-direction: column; }
+  .content-scroll { max-width: 800px; margin: 0 auto; padding: 50px 40px; }
+
+  h1 { font-size: 2.5rem; font-weight: 800; margin-bottom: 20px; letter-spacing: -1px; }
+  .lead-text { font-size: 1.1rem; color: var(--text-dim); line-height: 1.6; margin-bottom: 40px; }
+
+  .url-box {
+    background: var(--bg-code); padding: 15px 20px; border: 1px solid var(--border);
+    border-radius: 10px; display: flex; align-items: center; gap: 15px; margin-bottom: 50px;
+  }
+
+  .method-label { font-weight: 900; font-size: 0.9rem; }
+  .method-label.get { color: var(--get); }
+  .method-label.post { color: var(--post); }
+  #url-path { font-family: monospace; font-size: 1.1rem; color: #fff; }
+
+  .params-section h2, .responses-section h2 { font-size: 1.4rem; font-weight: 700; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+
+  .p-row, .r-row { display: grid; grid-template-columns: 140px 100px 1fr; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .p-name { color: #f97316; font-family: monospace; font-weight: 700; }
+  .p-type { color: var(--text-dim); font-size: 0.8rem; font-style: italic; }
+  .p-desc { font-size: 0.9rem; color: var(--text-dim); }
+
+  .r-status { color: var(--post); font-weight: 800; }
+
+  /* Playground */
+  .api-playground {
+    width: 450px; background: var(--bg-sidebar); border-left: 1px solid var(--border);
+    padding: 24px; overflow-y: auto;
+  }
+
+  .playground-sticky { position: sticky; top: 0; }
+  .code-card { background: var(--bg-code); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 24px; overflow: hidden; }
+  .card-header { background: rgba(255,255,255,0.05); padding: 8px 15px; font-size: 0.65rem; font-weight: 800; color: var(--text-dim); border-bottom: 1px solid var(--border); }
+  pre { padding: 20px; margin: 0; overflow-x: auto; }
+  code { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; line-height: 1.6; }
+  #code-curl { color: var(--get); }
+  #code-json { color: #facc15; }
+
+  @media (max-width: 1200px) {
+    .api-playground { display: none; }
+  }
+</style>

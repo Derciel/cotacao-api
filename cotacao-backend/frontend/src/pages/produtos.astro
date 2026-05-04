@@ -1,0 +1,86 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import ListaProdutos from '../components/ListaProdutos.vue';
+---
+
+<MainLayout title="Itens Cadastrados | NP Cargo">
+  <div class="page-header">
+    <div class="container">
+      <div class="header-content">
+        <div>
+          <h1>Itens Cadastrados</h1>
+          <p>Visualize e gerencie todos os produtos disponíveis para cotação.</p>
+        </div>
+        <a href="/cadastrar-item" class="btn-add">
+          <i class="fas fa-plus"></i> NOVO ITEM
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-container">
+    <ListaProdutos client:load />
+  </div>
+</MainLayout>
+
+<style>
+  .page-header {
+    background: white;
+    padding: 40px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  h1 {
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--text-main);
+    margin-bottom: 10px;
+    letter-spacing: -1px;
+  }
+
+  p {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+  }
+
+  .btn-add {
+    background: var(--primary);
+    color: white;
+    padding: 12px 25px;
+    border-radius: 12px;
+    font-weight: 800;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: 0.3s;
+    box-shadow: 0 4px 12px rgba(0, 74, 153, 0.2);
+  }
+
+  .btn-add:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 74, 153, 0.3);
+  }
+
+  .content-container {
+    padding-bottom: 50px;
+  }
+
+  @media (max-width: 768px) {
+    .header-content { flex-direction: column; align-items: flex-start; gap: 20px; }
+    .btn-add { width: 100%; justify-content: center; }
+  }
+</style>

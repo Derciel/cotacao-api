@@ -1,0 +1,192 @@
+---
+// e:/projetos em andamento/projeto-cotacao-2025/cotacao-backend/frontend/src/pages/termos-uso.astro
+import MainLayout from '../layouts/MainLayout.astro';
+---
+
+<MainLayout title="Termos de Uso | NP Cargo">
+  <div class="terms-container">
+    <div class="glass-card terms-card">
+      <header class="terms-header">
+        <i class="fas fa-file-contract"></i>
+        <h1>Termos de Uso</h1>
+        <p>Última atualização: {new Date().toLocaleDateString('pt-BR')}</p>
+      </header>
+
+      <div class="terms-content">
+        <section>
+          <h2>1. Aceitação dos Termos</h2>
+          <p>
+            Ao acessar e utilizar o sistema <strong>NP Cargo</strong>, você concorda em cumprir e estar vinculado aos seguintes Termos de Uso. Este sistema é uma ferramenta de gestão logística destinada exclusivamente a usuários autorizados.
+          </p>
+        </section>
+
+        <section>
+          <h2>2. Propósito do Sistema</h2>
+          <p>
+            O NP Cargo é uma plataforma para auxílio na cotação de fretes, acompanhamento de pedidos e rastreio de mercadorias. Ele integra dados de transportadoras parceiras e market-places de frete para facilitar a tomada de decisão logística.
+          </p>
+        </section>
+
+        <section>
+          <h2>3. Natureza das Cotações</h2>
+          <div class="alert-info">
+            <i class="fas fa-info-circle"></i>
+            <p>
+              As cotações geradas pelo sistema são <strong>estimativas baseadas em informações de terceiros</strong> (Frenet, Rodonaves, SSW, etc.). O valor final do frete pode sofrer variações devido a:
+              <ul>
+                <li>Diferenças de peso ou cubagem na pesagem oficial da transportadora.</li>
+                <li>Taxas extras não previstas (TRT, TDE, reentrega, etc.).</li>
+                <li>Alterações nas tabelas de preços das transportadoras no momento da coleta.</li>
+              </ul>
+            </p>
+          </div>
+        </section>
+
+        <section>
+          <h2>4. Responsabilidades do Usuário</h2>
+          <p>
+            O usuário é responsável pela veracidade de todos os dados inseridos, incluindo peso, dimensões da carga, valor da nota e dados do destinatário. Informações incorretas podem invalidar a cotação ou gerar cobranças adicionais.
+          </p>
+        </section>
+
+        <section>
+          <h2>5. Privacidade e Dados (LGPD)</h2>
+          <p>
+            Tratamos seus dados e os dados de seus clientes com segurança e de acordo com a <strong>Lei Geral de Proteção de Dados (LGPD)</strong>. Os dados de destinatários e notas fiscais são utilizados estritamente para a finalidade logística de cotação e transporte.
+          </p>
+        </section>
+
+        <section>
+          <h2>6. Limitação de Responsabilidade</h2>
+          <p>
+            A NP Cargo não se responsabiliza por atrasos ou falhas na prestação de serviço por parte das transportadoras, nem por indisponibilidade momentânea das APIs de cotação de terceiros integradas ao sistema.
+          </p>
+        </section>
+      </div>
+
+      <footer class="terms-footer">
+        <p>Dúvidas sobre os termos? Entre em contato com o suporte administrativo.</p>
+        <button class="btn-print" onclick="window.print()"><i class="fas fa-print"></i> Imprimir Termos</button>
+      </aside>
+    </div>
+  </div>
+</MainLayout>
+
+<style>
+  .terms-container {
+    padding: 60px 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .terms-card {
+    padding: 60px;
+    background: var(--bg-surface);
+    border-radius: 24px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+  }
+
+  .terms-header {
+    text-align: center;
+    margin-bottom: 50px;
+  }
+
+  .terms-header i {
+    font-size: 3rem;
+    color: var(--primary);
+    margin-bottom: 20px;
+  }
+
+  .terms-header h1 {
+    font-size: 2.8rem;
+    font-weight: 900;
+    color: var(--text-main);
+    margin-bottom: 10px;
+    letter-spacing: -1px;
+  }
+
+  .terms-header p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  .terms-content {
+    line-height: 1.8;
+    color: var(--text-main);
+  }
+
+  .terms-content section {
+    margin-bottom: 40px;
+  }
+
+  .terms-content h2 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .terms-content p, .terms-content ul {
+    font-size: 1.05rem;
+  }
+
+  .terms-content ul {
+    margin-top: 10px;
+    padding-left: 20px;
+  }
+
+  .alert-info {
+    background: rgba(59, 130, 246, 0.08);
+    border-left: 4px solid var(--primary);
+    padding: 25px;
+    border-radius: 12px;
+    display: flex;
+    gap: 15px;
+    margin: 20px 0;
+  }
+
+  .alert-info i {
+    font-size: 1.4rem;
+    color: var(--primary);
+    margin-top: 3px;
+  }
+
+  .terms-footer {
+    margin-top: 60px;
+    padding-top: 40px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    color: var(--text-muted);
+  }
+
+  .btn-print {
+    margin-top: 20px;
+    background: var(--bg-body);
+    border: 1px solid var(--border);
+    padding: 10px 20px;
+    border-radius: 99px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: 0.3s;
+  }
+
+  .btn-print:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  @media (max-width: 768px) {
+    .terms-card { padding: 30px; }
+    .terms-header h1 { font-size: 2rem; }
+  }
+
+  @media print {
+    .navbar, .footer, .btn-print { display: none !important; }
+    .terms-container { padding: 0; }
+    .terms-card { box-shadow: none; border: none; }
+  }
+</style>

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Carga (Vermelho) -->
+  <rect x="212" y="61" width="279" height="201" fill="#E31F59" />
+  <!-- Cabine (Amarelo) -->
+  <path d="M212 262H21V191L82 111H212V262Z" fill="#F4A532" />
+  <!-- Janela (Amarelo Escuro) -->
+  <path d="M82 111L21 191H82V111Z" fill="#D28628" />
+  <!-- Chassi (Bege) -->
+  <rect x="21" y="262" width="470" height="121" rx="50" fill="#EFE0D1" />
+  <!-- Rodas (Azul) -->
+  <circle cx="129" cy="383" r="76" fill="#0092D1" />
+  <circle cx="383" cy="383" r="76" fill="#0092D1" />
+</svg>

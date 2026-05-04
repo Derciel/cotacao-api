@@ -1,0 +1,33 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import NovaCotacaoComponent from '../components/NovaCotacao.vue';
+---
+
+<MainLayout title="Nova Cotação | Nicopel Cargo">
+  <div class="page-container">
+    <header class="page-header">
+      <h1>Nova Cotação</h1>
+      <p>Preencha os dados abaixo para calcular as melhores opções de frete.</p>
+    </header>
+    
+    <NovaCotacaoComponent client:load />
+  </div>
+</MainLayout>
+
+<style>
+  .page-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .page-header h1 {
+    color: var(--primary);
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 10px;
+    letter-spacing: -1px;
+  }
+  .page-header p {
+    color: var(--text-light);
+    font-size: 1.1rem;
+  }
+</style>

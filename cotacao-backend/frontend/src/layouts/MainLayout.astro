@@ -1,0 +1,482 @@
+---
+// src/layouts/MainLayout.astro
+import '../styles/global.css';
+
+const { pathname } = Astro.url;
+const { title, hideNavbar = false } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <script is:inline>
+    // Script de bloqueio para evitar flicker
+    (function() {
+      const theme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Nicopel Cargo - Logística Inteligente</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+  
+  <div class="bg-wrapper">
+    <div class="bg-pattern"></div>
+  </div>
+  
+  {!hideNavbar && (
+  <nav class="navbar">
+    <div class="container nav-content">
+      
+      <div class="nav-left">
+        <a href="/" class="brand">
+          <img src="/favicon.svg" alt="Truck Icon" class="nav-logo" />
+          <span class="brand-text">Nicopel <strong>Cargo</strong></span>
+        </a>
+      </div>
+
+      <div class="nav-links" id="main-nav-links">
+        <a href="/" class={`nav-item ${pathname === '/' ? 'active-pill' : ''}`} data-role="ANY">
+          <i class="fas fa-home"></i> <span>Dashboard</span>
+        </a>
+        <a href="/nova-cotacao" class={`nav-item ${pathname === '/nova-cotacao' ? 'active-pill' : ''}`} data-role="ANY">
+          <i class="fas fa-plus-circle"></i> <span>Nova Cotação</span>
+        </a>
+        <a href="/historico" class={`nav-item ${pathname === '/historico' ? 'active-pill' : ''}`} data-role="ANY">
+          <i class="fas fa-history"></i> <span>Histórico</span>
+        </a>
+        <a href="/relatorios" class={`nav-item ${pathname === '/relatorios' ? 'active-pill' : ''}`} data-role="ANY">
+          <i class="fas fa-chart-line"></i> <span>Analytics</span>
+        </a>
+        <a href="/rastreio" class={`nav-item ${pathname === '/rastreio' ? 'active-pill' : ''}`} data-role="ANY">
+          <i class="fas fa-truck-loading"></i> <span>Rastreio</span>
+        </a>
+        <a href="/conferencia-frete" class={`nav-item ${pathname === '/conferencia-frete' ? 'active-pill' : ''}`} data-role="ANY">
+          <i class="fas fa-file-invoice-dollar"></i> <span>Conferência</span>
+        </a>
+        <a href="/coletas" class={`nav-item ${pathname === '/coletas' ? 'active-pill' : ''}`} data-role="ANY">
+          <i class="fas fa-truck-pickup"></i> <span>Coletas</span>
+        </a>
+        <a href="/usuarios" class={`nav-item ${pathname === '/usuarios' ? 'active-pill' : ''}`} data-role="ADMIN">
+          <i class="fas fa-users-cog"></i> <span>Usuários</span>
+        </a>
+      </div>
+      
+      <div class="nav-right">
+        <button id="theme-toggle" class="theme-toggle-btn" title="Alternar Modo">
+          <i class="fas fa-moon"></i>
+        </button>
+        <div id="user-menu" class="user-menu" style="display: none;">
+          <span id="nav-username" class="username"></span>
+          <button id="logout-btn" class="logout-btn" title="Sair"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+      </div>
+    </div>
+  </nav>
+  )}
+
+  <main class="main-content">
+    <div class="container">
+      <slot />
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="footer-brand">
+        <img src="/favicon.svg" alt="Truck Icon" class="footer-logo" />
+        <strong>Nicopel Cargo</strong> &copy; {new Date().getFullYear()}
+      </div>
+      <div class="footer-links">
+        <a href="/api-referencia">Documentação</a>
+        <a href="/termos-uso">Termos de Uso</a>
+      </div>
+    </div>
+  </footer>
+
+  <div id="toast-container"></div>
+
+  <script is:inline>
+    // Configuração de URL Base e Busca Autenticada Global
+    window.PUBLIC_API_URL = 'https://cotacao.nicopel.com.br';
+    
+    window.safeFetch = async function(url, options) {
+      options = options || {};
+      const token = localStorage.getItem('auth_token');
+      const headers = new Headers(options.headers || {});
+
+      if (token) {
+        headers.set('Authorization', 'Bearer ' + token);
+      }
+
+      const finalOptions = Object.assign({}, options, { headers: headers });
+      const apiUrl = window.PUBLIC_API_URL + url;
+
+      try {
+        const response = await fetch(apiUrl, finalOptions);
+        
+        // Se 401 desloga automaticamente (exceção para login)
+        if (response.status === 401 && !url.includes('/auth/login')) {
+             localStorage.removeItem('auth_token');
+             localStorage.removeItem('user_info');
+             if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+             }
+             return { ok: false, status: 401, data: { message: 'Sessão expirada' } };
+        }
+        
+        const contentType = response.headers.get('content-type');
+        let data;
+        if (contentType && contentType.includes('application/json')) {
+          data = await response.json();
+        } else {
+          data = { message: await response.text() };
+        }
+        return { ok: response.ok, status: response.status, data: data };
+      } catch (error) {
+        console.error('Fetch error:', error);
+        return { ok: false, status: 500, data: { message: 'Erro de conexão' } };
+      }
+    };
+
+    // Sistema de Notificação (Toast)
+    window.showToast = function(message, type, duration) {
+      type = type || 'info';
+      duration = duration || 5000;
+      var container = document.getElementById('toast-container');
+      if (!container) return;
+      
+      var toast = document.createElement('div');
+      var colors = { 
+        success: 'linear-gradient(135deg, #10b981, #059669)', 
+        error: 'linear-gradient(135deg, #ef4444, #b91c1c)', 
+        warning: 'linear-gradient(135deg, #f59e0b, #d97706)', 
+        info: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' 
+      };
+      var icons = { 
+        success: 'fas fa-check-circle', 
+        error: 'fas fa-times-circle', 
+        warning: 'fas fa-exclamation-triangle', 
+        info: 'fas fa-info-circle' 
+      };
+      
+      toast.className = 'toast-message';
+      toast.style.background = colors[type] || colors.info;
+      
+      var iconClass = icons[type] || icons.info;
+      
+      toast.innerHTML = 
+        '<div class="toast-body">' +
+          '<i class="' + iconClass + '"></i> ' +
+          '<span>' + message + '</span>' +
+        '</div>' +
+        '<button onclick="this.parentElement.remove()" class="toast-close"><i class="fas fa-times"></i></button>';
+      
+      container.appendChild(toast);
+      
+      setTimeout(function() { 
+        toast.style.transform = 'translateX(0)'; 
+      }, 10);
+      
+      setTimeout(function() { 
+        if(toast.parentElement) {
+          toast.style.transform = 'translateX(150%)';
+          toast.style.opacity = '0';
+          setTimeout(function() { if(toast.parentElement) toast.remove(); }, 400);
+        } 
+      }, duration);
+    };
+
+    // Lógica de Autenticação Global
+    (function() {
+      const pathname = window.location.pathname.replace(/\/$/, '');
+      if (pathname === '/login') return;
+
+      const token = localStorage.getItem('auth_token');
+      const userInfo = localStorage.getItem('user_info');
+
+      if (!token || !userInfo) {
+        window.location.href = '/login';
+        return;
+      }
+
+      const user = JSON.parse(userInfo);
+      
+      // Ajustar Menu baseado no Role e Permissões Granulares (Desktop Only)
+      const allNavLinks = document.querySelectorAll('.nav-links .nav-item');
+      allNavLinks.forEach(link => {
+         const href = link.getAttribute('href');
+         if (user.role === 'ADMIN') {
+            link.style.display = 'flex';
+         } else {
+            const hasPermission = user.permissions && user.permissions.includes(href);
+            link.style.display = hasPermission ? 'flex' : 'none';
+            if (pathname === href && !hasPermission) window.location.href = '/';
+         }
+      });
+
+      // Exibir Menu de Usuário
+      const userMenu = document.getElementById('user-menu');
+      const navUsername = document.getElementById('nav-username');
+      const logoutBtn = document.getElementById('logout-btn');
+
+      if (userMenu && navUsername) {
+        userMenu.style.display = 'flex';
+        navUsername.textContent = user.username;
+      }
+
+      if (logoutBtn) {
+        logoutBtn.onclick = () => {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_info');
+          window.location.href = '/login';
+        };
+      }
+
+      // Lógica do Toggle de Tema
+      const themeToggle = document.getElementById('theme-toggle');
+      if (themeToggle) {
+        themeToggle.onclick = () => {
+          const currentTheme = document.documentElement.getAttribute('data-theme');
+          const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', newTheme);
+          localStorage.setItem('theme', newTheme);
+        };
+      }
+    })();
+  </script>
+
+  <style>
+    /* --- VARIÁVEIS HERDADAS E ADAPTADAS --- */
+    :root {
+      /* Usando variáveis globais */
+      --bg-light: var(--bg-body);
+      --text-main: var(--text-main);
+      --text-muted: var(--text-muted);
+      --border: var(--border);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      color: var(--text-main);
+      display: flex; flex-direction: column;
+      min-height: 100vh;
+      background-color: var(--bg-light);
+    }
+
+    a { text-decoration: none; color: inherit; }
+
+    /* Fundo */
+    .bg-wrapper { 
+      position: fixed; inset: 0; z-index: -10; 
+      background: var(--bg-body);
+      transition: background 0.3s ease;
+    }
+    .bg-pattern { 
+      width: 100%; height: 100%; 
+      background-image: radial-gradient(var(--text-muted) 1px, transparent 1px); 
+      background-size: 24px 24px; 
+      opacity: 0.05; 
+    }
+
+    .container { max-width: 1440px; margin: 0 auto; padding: 0 40px; }
+
+    /* --- NAVBAR --- */
+    .navbar {
+      position: sticky; top: 0; z-index: 1000; height: 80px;
+      background: var(--glass-bg); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border); display: flex; align-items: center;
+      transition: all 0.3s ease;
+    }
+    .nav-content { display: flex; justify-content: space-between; align-items: center; width: 100%; position: relative; }
+    .nav-left, .nav-right { display: flex; align-items: center; gap: 20px; }
+
+    /* Logo */
+    .brand { display: flex; align-items: center; gap: 12px; transition: 0.3s; }
+    .brand:hover { transform: scale(1.02); }
+    .nav-logo { width: 32px; height: 32px; object-fit: contain; }
+    .brand-text { font-size: 1.4rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px; }
+    .brand-text strong { color: var(--primary); }
+    .nav-logo img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    /* Links */
+    .nav-links { display: flex; gap: 8px; }
+    .nav-item {
+      padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; font-weight: 700;
+      color: var(--text-main); transition: 0.2s; display: flex; align-items: center; gap: 8px;
+      white-space: nowrap;
+    }
+    .nav-item:hover, .nav-item.active-pill {
+        background: rgba(0, 74, 153, 0.08);
+        color: var(--primary);
+    }
+
+    /* Mobile Menu Toggle */
+    .mobile-menu-btn {
+        display: none;
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-main);
+        width: 40px; height: 40px;
+        border-radius: 12px;
+        cursor: pointer;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+    }
+
+    /* Botão Dark Mode */
+    .theme-toggle-btn {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      width: 40px; height: 40px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      font-size: 1.1rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* User Menu */
+    .user-menu { display: flex; align-items: center; gap: 10px; background: var(--bg-surface); border: 1px solid var(--border); padding: 5px 12px; border-radius: 99px; }
+    .username { font-size: 0.8rem; font-weight: 700; color: var(--text-main); }
+    .logout-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.9rem; transition: 0.2s; padding: 4px; }
+
+    /* --- RESPONSIVIDADE --- */
+    @media (max-width: 1200px) {
+        .container { padding: 0 20px; }
+        .nav-item span { display: none; }
+        .nav-item { padding: 12px; font-size: 1.1rem; }
+    }
+
+    @media (max-width: 768px) {
+        .navbar { height: 70px; }
+        .mobile-menu-btn { display: none; }
+        
+        .mobile-menu-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(2px);
+            z-index: 9998;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .mobile-menu-backdrop.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Desktop navigation */
+        .nav-links { display: flex; align-items: center; gap: 5px; }
+
+        .brand-logo { width: 100px; }
+        .main-content { padding: 30px 0; }
+        .username { display: none; }
+    }
+
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Conteúdo */
+    .main-content { flex: 1; padding: 40px 0; }
+
+    /* Footer */
+    .footer { background: var(--glass-bg); border-top: 1px solid var(--border); padding: 25px 0; margin-top: auto; }
+    .footer-content { display: flex; justify-content: space-between; align-items: center; color: var(--text-muted); font-size: 0.8rem; }
+    .footer-brand { display: flex; align-items: center; gap: 10px; }
+    .footer-logo { width: 20px; height: 20px; object-fit: contain; filter: grayscale(1) opacity(0.7); transition: 0.3s; }
+    .footer-brand:hover .footer-logo { filter: grayscale(0) opacity(1); transform: scale(1.1); }
+    .footer-links { display: flex; gap: 15px; }
+
+
+    /* Toast Premium */
+    #toast-container { 
+      position: fixed; 
+      top: 30px; 
+      right: 30px; 
+      z-index: 9999; 
+      display: flex; 
+      flex-direction: column; 
+      gap: 12px; 
+      pointer-events: none;
+    }
+    
+    .toast-message {
+      pointer-events: auto;
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between; 
+      min-width: 320px; 
+      max-width: 450px;
+      padding: 16px 20px;
+      border-radius: 14px; 
+      color: white; 
+      box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+      transform: translateX(120%); 
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      border-left: 6px solid rgba(0,0,0,0.1);
+      backdrop-filter: blur(8px);
+    }
+    
+    .toast-body { 
+      display: flex; 
+      align-items: center; 
+      gap: 14px; 
+      font-weight: 600;
+      font-size: 0.95rem;
+      letter-spacing: -0.01em;
+    }
+    
+    .toast-body i {
+      font-size: 1.25rem;
+      width: 28px;
+      height: 28px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .toast-close { 
+      background: rgba(255,255,255,0.1); 
+      border: none; 
+      color: white; 
+      cursor: pointer; 
+      font-size: 1.1rem; 
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.2s;
+      margin-left: 15px;
+    }
+    
+
+  </style>
+</body>
+</html>

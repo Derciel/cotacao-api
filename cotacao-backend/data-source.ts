@@ -1,0 +1,17 @@
+import 'dotenv/config';
+import { DataSource } from 'typeorm';
+import ormConfig from './src/orm.config.js';
+
+/**
+ * Esta configuração é usada especificamente pela CLI do TypeORM para
+ * executar comandos como a geração e execução de migrations.
+ * Ela importa a configuração principal do 'orm.config.ts' e a adapta
+ * para o contexto da CLI.
+ */
+const dataSource = new DataSource({
+  ...ormConfig,
+  entities: ['src/**/*.entity.ts'],
+  migrations: ['src/migrations/*.ts'],
+});
+
+export default dataSource;

@@ -1,0 +1,27 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import AnalyticsDashboard from '../components/AnalyticsDashboard.vue';
+---
+
+<MainLayout title="Analytics & Relatórios | Nicopel Cargo">
+  <div class="page-container">
+    <AnalyticsDashboard client:load />
+  </div>
+</MainLayout>
+
+<style>
+  .page-container { padding: 40px; }
+  .mt-40 { margin-top: 40px; }
+  .ai-insights { border: 1.5px solid rgba(255, 138, 0, 0.1); background: linear-gradient(135deg, #ffffff 0%, #fffcf0 100%); padding: 30px; border-radius: 24px; }
+  .ai-badge {
+    background: #1e293b; color: white; padding: 4px 10px; border-radius: 8px;
+    font-size: 0.7rem; font-weight: 800; text-transform: uppercase; display: inline-block; margin-bottom: 10px;
+  }
+  .insight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-top: 20px; }
+  .insight-box { display: flex; gap: 15px; background: white; padding: 20px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.05); }
+  .insight-box i { font-size: 1.2rem; }
+  .insight-box p { font-size: 0.9rem; margin: 0; color: #475569; line-height: 1.5; }
+  .text-yellow { color: #f59e0b; }
+  .text-orange { color: #ea580c; }
+  
+</style>
