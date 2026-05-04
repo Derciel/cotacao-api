@@ -2,9 +2,12 @@
     "name": "estoquepro-monorepo",
     "private": true,
     "workspaces": [
-        "cotacao-backend",
-        "cotacao-frontend"
+        "cotacao-backend"
     ],
+    "scripts": {
+        "build:all": "npm run build:all --workspace=cotacao-backend",
+        "start": "npm run start:prod --workspace=cotacao-backend"
+    },
     "dependencies": {
         "@nestjs/jwt": "^11.0.2",
         "@nestjs/passport": "^11.0.5",
