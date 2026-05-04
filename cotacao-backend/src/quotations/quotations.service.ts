@@ -77,7 +77,14 @@ export class QuotationsService {
 
         // Determinação da Alíquota
         let aliquotaResult = 0;
-        if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
+        const canEditIpi = user?.role === UserRole.ADMIN || user?.username?.toLowerCase() === 'bianca';
+
+        if (quotation.empresa_faturamento === EmpresaFaturamento.FLEXOBOX || 
+            quotation.empresa_faturamento === EmpresaFaturamento.L_LOG) {
+          aliquotaResult = 0;
+        } else if (canEditIpi && createDto.percentualIpi !== undefined) {
+          aliquotaResult = createDto.percentualIpi;
+        } else if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
           const nomeSuperior = product.nome.toUpperCase();
           const categoriaSuperior = product.categoria ? product.categoria.toUpperCase() : '';
 
@@ -88,8 +95,6 @@ export class QuotationsService {
           } else {
             aliquotaResult = 3.25;
           }
-        } else if (createDto.percentualIpi) {
-          aliquotaResult = createDto.percentualIpi;
         }
 
         // Cálculo Base e IPI "Inclusive" (Extração Facilitada conforme solicitado)
@@ -201,19 +206,24 @@ export class QuotationsService {
         const totalIntegralItem = Number(item.valor_total_item);
 
         let aliquotaResult = 0;
-        if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
+        // No finalize não temos o objeto user direto, mas a cotação já tem o percentual_ipi salvo se foi editado no create
+        
+        if (quotation.empresa_faturamento === EmpresaFaturamento.FLEXOBOX || 
+            quotation.empresa_faturamento === EmpresaFaturamento.L_LOG) {
+          aliquotaResult = 0;
+        } else if (quotation.percentual_ipi > 0) {
+          aliquotaResult = Number(quotation.percentual_ipi);
+        } else if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
           const nome = item.product?.nome ? item.product.nome.toUpperCase() : '';
           const categoria = (item.product as any)?.categoria ? String((item.product as any).categoria).toUpperCase() : '';
 
           if (nome.includes('SERIGRAFIA') || nome.includes('TAMPA')) {
             aliquotaResult = 0;
-            } else if (categoria === 'POTE' || nome.includes('POTE') || nome.includes('COPO')) {
-              aliquotaResult = 6.75;
-            } else {
-              aliquotaResult = 3.25;
-            }
-          } else if (quotation.percentual_ipi) {
-          aliquotaResult = quotation.percentual_ipi;
+          } else if (categoria === 'POTE' || nome.includes('POTE') || nome.includes('COPO')) {
+            aliquotaResult = 6.75;
+          } else {
+            aliquotaResult = 3.25;
+          }
         }
 
         // Recalcular no finalize mantendo a regra de "Extração"
