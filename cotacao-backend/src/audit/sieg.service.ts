@@ -15,11 +15,8 @@ export class SiegService {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
   ) {
-    this.apiKey = this.configService.get<string>('SIEG_API_KEY') || 'vFPmjhnVBtimeq19FX6yXosGF8PznplfoA9yGbj2DIs';
-    // Usaremos o email do admin ou um fixo configurado. 
-    // Como a chave foi passada pelo user, o email associado à conta dele no SIEG é necessário.
-    // Vou assumir um padrão ou buscar do config se disponível.
-    this.email = 'ti@nicopel.com.br'; // Ajustar conforme necessário ou colocar no .env
+    this.apiKey = this.configService.get<string>('SIEG_API_KEY');
+    this.email = this.configService.get<string>('SIEG_EMAIL');
   }
 
   /**
