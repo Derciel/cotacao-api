@@ -1,92 +1,135 @@
 <template>
-  <div class="conferencia-container animate-pop">
-    <div class="glass-card">
-      <div class="card-header">
-        <div class="header-content">
-          <div class="icon-box">
+  <div class="conferencia-container animate-fade-in">
+    <!-- Header Premium -->
+    <div class="glass-card header-card">
+      <div class="header-main">
+        <div class="header-info">
+          <div class="icon-circle">
             <i class="fas fa-file-invoice-dollar"></i>
           </div>
-          <div class="titles">
-            <h2 class="card-title">Módulo de Conferência (SIEG)</h2>
-            <p class="card-subtitle">Auditoria de fretes, pesos e volumes em tempo real</p>
+          <div>
+            <h1 class="page-title">Módulo de Conferência</h1>
+            <p class="page-subtitle">Auditoria de fretes, pesos e volumes integrados ao SIEG</p>
           </div>
         </div>
         <div class="header-actions">
-            <button @click="loadAudits" class="btn-refresh" :disabled="loading">
-                <i :class="['fas fa-sync-alt', { 'fa-spin': loading }]"></i> Atualizar
-            </button>
+          <button @click="loadData" class="btn-primary-outline" :disabled="loading">
+            <i :class="['fas fa-sync-alt', { 'fa-spin': loading }]"></i>
+            <span>Sincronizar Dados</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard de Resumo -->
+    <div v-if="summary && Object.keys(summary).length > 0" class="summary-row">
+      <div v-for="(data, carrier) in summary" :key="carrier" class="summary-box glass-premium">
+        <div class="box-top">
+          <span class="carrier-tag">{{ carrier }}</span>
+          <span class="count-tag">{{ data.count }} Audits</span>
+        </div>
+        <div class="box-values">
+          <div class="val-group">
+            <span class="val-label">Economia</span>
+            <span class="val-number text-success">R$ {{ formatNumber(data.gains) }}</span>
+          </div>
+          <div class="val-group">
+            <span class="val-label">Perda/Divergência</span>
+            <span class="val-number text-danger">R$ {{ formatNumber(data.losses) }}</span>
+          </div>
+        </div>
+        <div class="box-progress">
+          <div class="progress-track">
+            <div class="progress-fill" :style="{ width: getProgressWidth(data), background: getProgressColor(data) }"></div>
+          </div>
+          <div class="progress-labels">
+            <span>{{ getProgressPercentage(data) }}% OK</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lista de Auditorias -->
+    <div class="glass-card table-card">
+      <div class="card-header-inner">
+        <h3>Histórico de Conferências</h3>
+        <div class="filters">
+            <!-- Espaço para filtros futuros -->
         </div>
       </div>
 
-      <!-- Resumo de Ganhos/Perdas -->
-      <div class="summary-grid mt-20" v-if="summary">
-        <div v-for="(data, carrier) in summary" :key="carrier" class="summary-card">
-            <div class="carrier-name">{{ carrier }}</div>
-            <div class="stats">
-                <div class="stat-item">
-                    <span class="label">Economia (Ganhos)</span>
-                    <span class="value gain">R$ {{ data.gains.toFixed(2) }}</span>
-                </div>
-                <div class="stat-item">
-                    <span class="label">Divergência (Perdas)</span>
-                    <span class="value loss">R$ {{ data.losses.toFixed(2) }}</span>
-                </div>
-            </div>
-            <div class="progress-bar">
-                <div class="progress" :style="{ width: getProgressWidth(data), background: getProgressColor(data) }"></div>
-            </div>
-        </div>
-      </div>
-
-      <!-- Tabela de Auditoria -->
-      <div class="table-scroll mt-30">
-        <table class="items-table">
+      <div class="table-wrapper">
+        <table v-if="!loading && audits.length > 0" class="premium-table">
           <thead>
             <tr>
-              <th>NF / CT-e</th>
+              <th>Documento</th>
               <th>Transportadora</th>
-              <th>Valor Cotado</th>
-              <th>Valor Real (SIEG)</th>
+              <th>Cotação</th>
+              <th>Real (SIEG)</th>
               <th>Divergência</th>
               <th>Status</th>
-              <th>Ações</th>
+              <th class="text-right">Ações</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="audit in audits" :key="audit.id" :class="{ 'row-divergent': audit.status === 'DIVERGENTE' }">
+            <tr v-for="audit in audits" :key="audit.id" :class="{ 'row-warning': audit.status === 'DIVERGENTE' }">
               <td>
-                <div class="nf-info">
-                    <span class="nf-label">NF: {{ audit.nfe_number }}</span>
-                    <span class="cte-label">CTE: {{ audit.cte_number }}</span>
+                <div class="doc-cell">
+                  <div class="nf-badge">NF {{ audit.nfe_number }}</div>
+                  <div class="cte-info">CT-e {{ audit.cte_number || 'Pendente' }}</div>
                 </div>
               </td>
-              <td class="font-bold">{{ audit.transportadora }}</td>
-              <td>R$ {{ Number(audit.valor_frete_cotado).toFixed(2) }}</td>
-              <td>R$ {{ Number(audit.valor_frete_sieg).toFixed(2) }}</td>
-              <td :class="['diff-value', { 'text-red': audit.divergencia_valor > 0.5, 'text-green': audit.divergencia_valor <= 0.5 }]">
-                R$ {{ Number(audit.divergencia_valor).toFixed(2) }}
+              <td>
+                <span class="carrier-name-cell">{{ audit.transportadora }}</span>
               </td>
               <td>
-                <span :class="['status-pill', audit.status.toLowerCase()]">
-                  {{ audit.status }}
+                <span class="currency">R$</span> {{ formatNumber(audit.valor_frete_cotado) }}
+              </td>
+              <td>
+                <span class="currency">R$</span> {{ formatNumber(audit.valor_frete_sieg) }}
+              </td>
+              <td>
+                <span :class="['diff-tag', getDiffClass(audit.divergencia_valor)]">
+                  R$ {{ formatNumber(audit.divergencia_valor) }}
                 </span>
               </td>
               <td>
-                <div class="action-btns">
-                    <button v-if="audit.status === 'DIVERGENTE'" @click="checkManual(audit.id)" class="btn-check" title="Aprovar Manualmente">
-                        <i class="fas fa-check"></i>
-                    </button>
-                    <button class="btn-download" title="Baixar XML">
-                        <i class="fas fa-download"></i>
-                    </button>
+                <div :class="['status-indicator', audit.status.toLowerCase()]">
+                  <span class="dot"></span>
+                  {{ audit.status }}
+                </div>
+              </td>
+              <td class="text-right">
+                <div class="btn-group">
+                  <button v-if="audit.status === 'DIVERGENTE'" @click="handleCheck(audit.id)" class="btn-action success" title="Aprovar">
+                    <i class="fas fa-check"></i>
+                  </button>
+                  <button class="btn-action info" title="Ver XML">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button class="btn-action secondary" title="Download">
+                    <i class="fas fa-download"></i>
+                  </button>
                 </div>
               </td>
             </tr>
-            <tr v-if="audits.length === 0">
-                <td colspan="7" class="empty-state">Nenhuma auditoria realizada ainda.</td>
-            </tr>
           </tbody>
         </table>
+
+        <!-- State Empty -->
+        <div v-else-if="!loading && audits.length === 0" class="empty-state-lux">
+          <div class="empty-icon">
+            <i class="fas fa-clipboard-check"></i>
+          </div>
+          <h4>Nenhuma auditoria encontrada</h4>
+          <p>As conferências realizadas via SIEG aparecerão aqui.</p>
+        </div>
+
+        <!-- State Loading -->
+        <div v-if="loading" class="loading-overlay">
+          <div class="loader-premium"></div>
+          <span>Processando dados fiscais...</span>
+        </div>
       </div>
     </div>
   </div>
@@ -94,87 +137,465 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
 
 const audits = ref([]);
 const summary = ref(null);
 const loading = ref(false);
 
-const loadAudits = async () => {
-    loading.ref = true;
-    try {
-        const [resAudits, resSummary] = await Promise.all([
-            axios.get('/api/audit'),
-            axios.get('/api/audit/summary')
-        ]);
-        audits.value = resAudits.data;
-        summary.value = resSummary.data;
-    } catch (error) {
-        console.error('Erro ao carregar auditorias:', error);
-    } finally {
-        loading.value = false;
-    }
+const formatNumber = (val) => {
+  return Number(val || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const checkManual = async (id) => {
-    if(!confirm('Deseja aprovar esta divergência manualmente?')) return;
-    try {
-        await axios.post(`/api/audit/${id}/check`);
-        loadAudits();
-    } catch (error) {
-        alert('Erro ao processar check manual');
-    }
+const getDiffClass = (val) => {
+  if (val > 0.5) return 'is-loss';
+  if (val < -0.5) return 'is-gain';
+  return 'is-neutral';
 };
 
 const getProgressWidth = (data) => {
+  const total = data.gains + data.losses;
+  if (total === 0) return '0%';
+  const perc = (data.gains / total) * 100;
+  return `${perc}%`;
+};
+
+const getProgressPercentage = (data) => {
     const total = data.gains + data.losses;
-    if (total === 0) return '0%';
-    return (data.gains / total * 100) + '%';
+    if (total === 0) return '0';
+    return ((data.gains / total) * 100).toFixed(0);
 };
 
 const getProgressColor = (data) => {
-    return data.losses > data.gains ? '#ef4444' : '#10b981';
+  const perc = (data.gains / (data.gains + data.losses || 1)) * 100;
+  if (perc > 90) return 'var(--primary)';
+  if (perc > 70) return '#10b981';
+  return '#f59e0b';
 };
 
-onMounted(loadAudits);
+const loadData = async () => {
+  if (loading.value) return;
+  loading.value = true;
+  try {
+    const [resAudits, resSummary] = await Promise.all([
+      window.safeFetch('/api/audit'),
+      window.safeFetch('/api/audit/summary')
+    ]);
+
+    if (resAudits.ok) audits.value = resAudits.data;
+    if (resSummary.ok) summary.value = resSummary.data;
+  } catch (error) {
+    console.error('Audit Error:', error);
+    if (window.showToast) window.showToast('Erro ao carregar dados de auditoria', 'error');
+  } finally {
+    loading.value = false;
+  }
+};
+
+const handleCheck = async (id) => {
+    if (!confirm('Deseja marcar esta divergência como conferida?')) return;
+    try {
+        const res = await window.safeFetch(`/api/audit/${id}/check`, { method: 'POST' });
+        if (res.ok) {
+            if (window.showToast) window.showToast('Auditado com sucesso', 'success');
+            loadData();
+        }
+    } catch (e) {
+        console.error(e);
+    }
+};
+
+onMounted(() => {
+  loadData();
+});
 </script>
 
 <style scoped>
-.conferencia-container { max-width: 1200px; margin: 0 auto; }
+.conferencia-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  animation: fadeIn 0.5s ease-out;
+}
 
-.summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-.summary-card { background: var(--bg-surface); padding: 20px; border-radius: 20px; border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
-.carrier-name { font-weight: 900; font-size: 1.1rem; margin-bottom: 15px; color: var(--primary); }
-.stats { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
-.stat-item { display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700; }
-.value.gain { color: #10b981; }
-.value.loss { color: #ef4444; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-.progress-bar { height: 8px; background: var(--bg-input); border-radius: 4px; overflow: hidden; }
-.progress { height: 100%; transition: width 0.3s ease; }
+/* Glass Cards */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  padding: 24px;
+}
 
-.nf-info { display: flex; flex-direction: column; gap: 4px; }
-.nf-label { font-weight: 800; font-size: 0.8rem; color: var(--text-main); }
-.cte-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; }
+/* Header */
+.header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 
-.status-pill { padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; }
-.status-pill.ok { background: #dcfce7; color: #166534; }
-.status-pill.divergente { background: #fee2e2; color: #991b1b; }
-.status-pill.conferido { background: #dbeafe; color: #1e40af; }
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
 
-.diff-value { font-weight: 900; }
-.text-red { color: #ef4444; }
-.text-green { color: #10b981; }
+.icon-circle {
+  width: 56px;
+  height: 56px;
+  background: var(--primary);
+  color: white;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  box-shadow: 0 8px 16px rgba(0, 74, 153, 0.2);
+}
 
-.action-btns { display: flex; gap: 8px; }
-.btn-check, .btn-download { width: 32px; height: 32px; border-radius: 10px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-.btn-check { background: #10b981; color: white; }
-.btn-download { background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border); }
-.btn-check:hover { transform: scale(1.1); }
+.page-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
 
-.row-divergent { background: rgba(239, 68, 68, 0.05); }
-.empty-state { padding: 40px; text-align: center; color: var(--text-muted); font-weight: 700; }
+.page-subtitle {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin: 4px 0 0;
+}
 
-.btn-refresh { background: var(--bg-surface); border: 1px solid var(--border); padding: 8px 16px; border-radius: 12px; font-weight: 700; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
-.btn-refresh:hover { background: var(--bg-input); }
+/* Buttons */
+.btn-primary-outline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  background: white;
+  border: 2px solid var(--primary);
+  color: var(--primary);
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-primary-outline:hover:not(:disabled) {
+  background: var(--primary);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 74, 153, 0.15);
+}
+
+/* Summary Row */
+.summary-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.summary-box {
+  padding: 24px;
+  border-radius: 24px;
+  background: white;
+  border: 1px solid var(--border);
+  transition: transform 0.3s;
+}
+
+.summary-box:hover {
+  transform: translateY(-5px);
+}
+
+.box-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.carrier-tag {
+  background: #f1f5f9;
+  color: var(--primary);
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.count-tag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.box-values {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.val-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.val-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.val-number {
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+.text-success { color: #10b981; }
+.text-danger { color: #ef4444; }
+
+.progress-track {
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-labels {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* Table Card */
+.table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.card-header-inner {
+  padding: 24px 30px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header-inner h3 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.table-wrapper {
+  position: relative;
+  min-height: 200px;
+  overflow-x: auto;
+}
+
+.premium-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.premium-table th {
+  padding: 16px 30px;
+  background: rgba(241, 245, 249, 0.5);
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+}
+
+.premium-table td {
+  padding: 16px 30px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  font-size: 0.95rem;
+  color: var(--text-main);
+}
+
+.premium-table tr:last-child td {
+  border-bottom: none;
+}
+
+.premium-table tr:hover {
+  background: rgba(0, 74, 153, 0.02);
+}
+
+.doc-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nf-badge {
+  font-weight: 800;
+  color: var(--primary);
+  font-size: 0.9rem;
+}
+
+.cte-info {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.carrier-name-cell {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.currency {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-right: 2px;
+}
+
+.diff-tag {
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.is-loss { background: #fee2e2; color: #991b1b; }
+.is-gain { background: #dcfce7; color: #166534; }
+.is-neutral { background: #f1f5f9; color: #475569; }
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: 99px;
+  background: white;
+  border: 1px solid var(--border);
+}
+
+.status-indicator .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.status-indicator.ok .dot { background: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
+.status-indicator.divergente .dot { background: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2); }
+.status-indicator.conferido .dot { background: var(--primary); box-shadow: 0 0 0 3px rgba(0, 74, 153, 0.2); }
+
+.row-warning {
+  background: rgba(245, 158, 11, 0.03) !important;
+}
+
+/* Actions */
+.btn-group {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.btn-action {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 0.2s;
+  font-size: 0.85rem;
+}
+
+.btn-action.success { background: #10b981; color: white; }
+.btn-action.info { background: #f1f5f9; color: var(--primary); }
+.btn-action.secondary { background: #f1f5f9; color: var(--text-muted); }
+
+.btn-action:hover {
+  transform: scale(1.1);
+  filter: brightness(0.9);
+}
+
+/* Empty State */
+.empty-state-lux {
+  padding: 60px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.empty-icon {
+  width: 80px;
+  height: 80px;
+  background: #f1f5f9;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: var(--text-light);
+  margin-bottom: 20px;
+}
+
+.empty-state-lux h4 { margin: 0; font-size: 1.25rem; font-weight: 800; }
+.empty-state-lux p { color: var(--text-muted); margin-top: 8px; }
+
+/* Loading */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(4px);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+}
+
+.loader-premium {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f1f5f9;
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 768px) {
+  .header-main { flex-direction: column; align-items: flex-start; gap: 20px; }
+  .summary-row { grid-template-columns: 1fr; }
+  .premium-table th:nth-child(3), .premium-table td:nth-child(3),
+  .premium-table th:nth-child(4), .premium-table td:nth-child(4) {
+    display: none;
+  }
+}
 </style>
