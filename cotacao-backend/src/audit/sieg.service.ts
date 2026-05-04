@@ -14,9 +14,8 @@ export class SiegService {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
-  ) {
-    this.apiKey = this.configService.get<string>('SIEG_API_KEY');
-    this.email = this.configService.get<string>('SIEG_EMAIL');
+    this.apiKey = this.configService.get<string>('SIEG_API_KEY') || '';
+    this.email = this.configService.get<string>('SIEG_EMAIL') || '';
   }
 
   /**
@@ -41,10 +40,13 @@ export class SiegService {
       for (const filter of filterOptions) {
           const payload: any = {
             apikey: this.apiKey,
-            email: this.email,
             type: 'cte',
             ...filter
           };
+          
+          if (this.email) {
+            payload.email = this.email;
+          }
 
           const response = await firstValueFrom(
             this.httpService.post(`${this.baseUrl}/getdocs`, payload)
@@ -134,12 +136,15 @@ export class SiegService {
    */
   async getXml(xmlKey: string, type: 'nfe' | 'cte'): Promise<string | null> {
     try {
-      const payload = {
+      const payload: any = {
         apikey: this.apiKey,
-        email: this.email,
         type: type,
         xmlkey: xmlKey
       };
+
+      if (this.email) {
+        payload.email = this.email;
+      }
 
       const response = await firstValueFrom(
         this.httpService.post(`${this.baseUrl}/getxml`, payload)
@@ -156,11 +161,14 @@ export class SiegService {
    */
   async testConnection(): Promise<any> {
       try {
-          const payload = {
+          const payload: any = {
             apikey: this.apiKey,
-            email: this.email,
             type: 'cte'
           };
+
+          if (this.email) {
+            payload.email = this.email;
+          }
 
           const response = await firstValueFrom(
             this.httpService.post(`${this.baseUrl}/getdocs`, payload)
