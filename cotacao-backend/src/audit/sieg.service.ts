@@ -48,7 +48,7 @@ export class SiegService {
       );
 
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Erro ao buscar dados na SIEG: ${error.message}`);
       return null;
     }
