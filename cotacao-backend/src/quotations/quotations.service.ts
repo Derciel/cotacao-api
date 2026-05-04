@@ -175,6 +175,8 @@ export class QuotationsService {
 
       if (!quotation) throw new NotFoundException(`Cotação #${id} não encontrada.`);
 
+      console.log(`Finalizando cotação #${id} - Itens: ${quotation.items?.length}`);
+
       quotation.transportadora_escolhida = finalizeDto.transportadoraEscolhida || 'WHATSAPP (Pendente)';
       quotation.valor_frete = finalizeDto.valorFrete ? parseFloat(finalizeDto.valorFrete.toString()) : 0;
       quotation.dias_para_entrega = finalizeDto.diasParaEntrega !== undefined ? Number(finalizeDto.diasParaEntrega) : null;
@@ -200,17 +202,17 @@ export class QuotationsService {
 
         let aliquotaResult = 0;
         if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
-          const nome = item.product ? item.product.nome.toUpperCase() : '';
-          const categoria = (item.product as any)?.categoria ? (item.product as any).categoria.toUpperCase() : '';
+          const nome = item.product?.nome ? item.product.nome.toUpperCase() : '';
+          const categoria = (item.product as any)?.categoria ? String((item.product as any).categoria).toUpperCase() : '';
 
           if (nome.includes('SERIGRAFIA') || nome.includes('TAMPA')) {
             aliquotaResult = 0;
-          } else if (categoria === 'POTE' || nome.includes('POTE') || nome.includes('COPO')) {
-            aliquotaResult = 6.75;
-          } else {
-            aliquotaResult = 3.25;
-          }
-        } else if (quotation.percentual_ipi) {
+            } else if (categoria === 'POTE' || nome.includes('POTE') || nome.includes('COPO')) {
+              aliquotaResult = 6.75;
+            } else {
+              aliquotaResult = 3.25;
+            }
+          } else if (quotation.percentual_ipi) {
           aliquotaResult = quotation.percentual_ipi;
         }
 

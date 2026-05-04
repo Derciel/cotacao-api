@@ -149,7 +149,7 @@ export class SiegService {
       );
 
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       return null;
     }
   }
@@ -175,7 +175,7 @@ export class SiegService {
               docsCount: Array.isArray(response.data) ? response.data.length : 0,
               message: 'Conexão com SIEG estabelecida com sucesso!'
           };
-      } catch (error) {
+      } catch (error: any) {
           this.logger.error(`Erro no teste de conexão SIEG: ${error.message}`);
           return {
               success: false,

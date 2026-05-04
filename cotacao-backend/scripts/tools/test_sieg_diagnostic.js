@@ -2,38 +2,40 @@ import axios from 'axios';
 
 const apiKey = 'vFPmjhnVBtimeq19FX6yXosGF8PznplfoA9yGbj2DIs';
 const email = 'ti@nicopel.com.br';
-const baseUrl = 'https://api.sieg.com/aws/service.svc';
 
-async function testSieg() {
-    console.log('--- Iniciando Teste de Conexão SIEG ---');
-    console.log(`Email: ${email}`);
+async function testSiegHeaders() {
+    console.log('--- Teste SIEG (Auth via Headers) ---');
+    
+    // Tentando o novo endpoint REST que parece mais provável
+    const url = 'https://api.sieg.com/api/v1/cte/download'; 
     
     try {
-        const payload = {
-            apikey: apiKey,
-            email: email,
-            type: 'cte'
-        };
-
-        console.log('Enviando requisição para getxml...');
-        const response = await axios.post(`${baseUrl}/getxml`, payload);
+        console.log(`Enviando GET para ${url} com Headers...`);
+        const response = await axios.get(url, {
+            headers: {
+                'apikey': apiKey,
+                'email': email,
+                'Content-Type': 'application/json'
+            },
+            params: {
+                // Se for GET, os filtros vão aqui
+                'take': 5
+            },
+            timeout: 15000
+        });
         
-        if (response.data && Array.isArray(response.data)) {
-            console.log(`SUCESSO! Foram encontrados ${response.data.length} documentos.`);
-            console.log('Últimos 3 documentos:');
-            response.data.slice(0, 3).forEach(doc => {
-                console.log(`- Data: ${doc.Date}, Chave: ${doc.XmlKey.substring(0, 20)}...`);
-            });
-        } else {
-            console.log('Resposta inesperada ou vazia:', response.data);
-        }
+        console.log('SUCESSO!');
+        console.log('Status:', response.status);
+        console.log('Documentos:', response.data);
     } catch (error) {
-        console.error('ERRO na conexão:', error.message);
+        console.log('FALHA!');
         if (error.response) {
-            console.error('Status:', error.response.status);
-            console.error('Dados:', error.response.data);
+            console.log('Status:', error.response.status);
+            console.log('Dados:', JSON.stringify(error.response.data));
+        } else {
+            console.log('Mensagem:', error.message);
         }
     }
 }
 
-testSieg();
+testSiegHeaders();
