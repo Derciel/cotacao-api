@@ -19,7 +19,7 @@ export class SiegService {
     // Usaremos o email do admin ou um fixo configurado. 
     // Como a chave foi passada pelo user, o email associado à conta dele no SIEG é necessário.
     // Vou assumir um padrão ou buscar do config se disponível.
-    this.email = 'diretoria@nicopel.com.br'; // Ajustar conforme necessário ou colocar no .env
+    this.email = 'ti@nicopel.com.br'; // Ajustar conforme necessário ou colocar no .env
   }
 
   /**
