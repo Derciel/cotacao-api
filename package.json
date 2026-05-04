@@ -6,7 +6,8 @@
     ],
     "scripts": {
         "build:all": "npm run build:all --workspace=cotacao-backend",
-        "start": "npm run start:prod --workspace=cotacao-backend"
+        "start": "npm run start:prod --workspace=cotacao-backend",
+        "start:prod": "npm run start:prod --workspace=cotacao-backend"
     },
     "dependencies": {
         "@nestjs/jwt": "^11.0.2",
