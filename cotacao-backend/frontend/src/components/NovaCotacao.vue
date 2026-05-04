@@ -650,13 +650,13 @@ const showToastLocal = (msg: string, type: any = 'info') => { if(window && windo
         </div>
         <div class="table-scroll">
             <table class="items-table">
-                <thead><tr><th width="30%">Produto</th><th width="8%">Emb</th><th width="8%">Qtd</th><th width="20%">Medidas (Alt x Lar x Com)</th><th width="12%">Vl. Unit</th><th width="7%">IPI %</th><th width="10%">Total</th><th width="5%"></th></tr></thead>
+                <thead><tr><th width="28%">Produto</th><th width="8%">Emb</th><th width="8%">Qtd</th><th width="20%">Medidas (Alt x Lar x Com)</th><th width="12%">Vl. Unit</th><th width="12%">IPI %</th><th width="10%">Total</th><th width="2%"></th></tr></thead>
                 <tbody>
                     <tr v-for="(item, idx) in items" :key="idx">
                         <td>
                             <input v-model="item.search" @change="findProduct(idx)" @keydown.space.prevent="openProductSearch(idx)" placeholder="Espaço para buscar..." class="table-input">
                         </td>
-                        <td><input type="number" v-model="item.units" :readonly="!isAdmin" :class="['table-input', 'center', { locked: !isAdmin }]" @input="calcRow(idx)"></td>
+                        <td><input type="number" v-model="item.units" class="table-input center" @input="calcRow(idx)"></td>
                         <td><input type="number" v-model="item.qty" @input="calcRow(idx)" class="table-input center"></td>
                         <td>
                             <div class="dim-group">
@@ -668,7 +668,7 @@ const showToastLocal = (msg: string, type: any = 'info') => { if(window && windo
                             </div>
                         </td>
                         <td><input type="number" v-model="item.unitValue" @input="calcRow(idx)" class="table-input money" step="0.01"></td>
-                        <td><input type="number" v-model="item.ipi" @input="calcRow(idx)" class="table-input center"></td>
+                        <td><input type="number" v-model="item.ipi" :readonly="!isAdmin" :class="['table-input', 'center', { locked: !isAdmin }]" @input="calcRow(idx)"></td>
                         <td class="total-col">R$ {{ item.total.toFixed(2) }}</td>
                         <td><button @click="removeItem(idx)" class="btn-del">×</button></td>
                     </tr>
