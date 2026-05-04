@@ -14,6 +14,7 @@ export class SiegService {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+  ) {
     this.apiKey = this.configService.get<string>('SIEG_API_KEY') || '';
     this.email = this.configService.get<string>('SIEG_EMAIL') || '';
   }
