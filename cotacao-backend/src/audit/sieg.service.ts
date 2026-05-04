@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const XLSX = require('xlsx');
+import { XMLParser } from 'fast-xml-parser';
 
 @Injectable()
 export class SiegService {
@@ -105,10 +106,97 @@ export class SiegService {
     } catch (error: any) {
       this.logger.error(`Erro ao buscar dados na SIEG (API): ${error.message}`);
       
-      // Fallback para Excel conforme solicitado pelo usuário
+      // Fallback 1: XML (Mais preciso)
+      this.logger.log('Iniciando fallback para busca em arquivos XML...');
+      const xmlData = await this.findCteByXmlFolder(nfNumber, context);
+      if (xmlData) return xmlData;
+
+      // Fallback 2: Excel
       this.logger.log('Iniciando fallback para busca em planilhas Excel...');
       return this.findCteByExcel(nfNumber, context);
     }
+  }
+
+  /**
+   * Busca dados em arquivos XML recursivamente na raiz do projeto
+   */
+  async findCteByXmlFolder(nfNumber: string, context?: any): Promise<any> {
+    try {
+      const rootPath = path.resolve('..');
+      const parser = new XMLParser({ ignoreAttributes: false });
+      
+      // Procurar por pastas que possam conter XMLs (ex: 'xmls', 'XML', etc)
+      const entries = fs.readdirSync(rootPath, { withFileTypes: true });
+      const folders = entries.filter(e => e.isDirectory() && !e.name.startsWith('.')).map(e => e.name);
+      
+      // Adicionar a própria raiz na busca
+      folders.push('.');
+
+      for (const folder of folders) {
+        const folderPath = path.join(rootPath, folder);
+        if (!fs.existsSync(folderPath)) continue;
+
+        const files = this.getAllFiles(folderPath).filter(f => f.endsWith('.xml'));
+        
+        for (const filePath of files) {
+          const xmlContent = fs.readFileSync(filePath, 'utf-8');
+          const jsonObj = parser.parse(xmlContent);
+
+          // Lógica simplificada para extrair dados de CT-e
+          // O formato padrão é cteProc -> CTe -> infCte
+          const cte = jsonObj?.cteProc?.CTe?.infCte || jsonObj?.CTe?.infCte;
+          
+          if (cte) {
+            const chavesNf = this.extractNfChaves(cte);
+            const matchNf = chavesNf.some(ch => ch.includes(nfNumber));
+
+            if (matchNf) {
+              this.logger.log(`Match encontrado no XML (${path.basename(filePath)}) para NF ${nfNumber}`);
+              return {
+                numero_cte: cte.ide?.nCT || 'N/A',
+                valor_frete: Number(cte.vPrest?.vTPrest || 0),
+                peso: Number(cte.infCteNorm?.infCarga?.vCarga || 0),
+                volumes: 1
+              };
+            }
+          }
+        }
+      }
+
+      return null;
+    } catch (error: any) {
+      this.logger.error(`Erro ao varrer pasta de XMLs: ${error.message}`);
+      return null;
+    }
+  }
+
+  private getAllFiles(dirPath: string, arrayOfFiles: string[] = []): string[] {
+    const files = fs.readdirSync(dirPath);
+    files.forEach((file) => {
+      const fullPath = path.join(dirPath, file);
+      if (fs.statSync(fullPath).isDirectory()) {
+        if (!file.includes('node_modules') && !file.startsWith('.')) {
+          arrayOfFiles = this.getAllFiles(fullPath, arrayOfFiles);
+        }
+      } else {
+        arrayOfFiles.push(fullPath);
+      }
+    });
+    return arrayOfFiles;
+  }
+
+  private extractNfChaves(cte: any): string[] {
+    const chaves: string[] = [];
+    
+    // CT-e pode ter múltiplas NFe referenciadas em infDoc -> infNFe
+    const infNFe = cte.infCteNorm?.infDoc?.infNFe;
+    if (Array.isArray(infNFe)) {
+      infNFe.forEach(nfe => nfe.chave && chaves.push(String(nfe.chave)));
+    } else if (infNFe?.chave) {
+      chaves.push(String(infNFe.chave));
+    }
+
+    return chaves;
   }
 
   /**
