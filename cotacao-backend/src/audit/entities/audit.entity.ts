@@ -67,6 +67,12 @@ export class Audit {
   @Column({ name: 'conferido_por_id', nullable: true })
   conferidoPorId!: number;
 
+  @Column({ type: 'text', nullable: true })
+  xml_content!: string;
+
+  @Column({ nullable: true })
+  xml_filename!: string;
+
   @CreateDateColumn()
   created_at!: Date;
 }

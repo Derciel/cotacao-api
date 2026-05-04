@@ -43,4 +43,10 @@ export class AuditController {
   async testSieg() {
     return this.auditService.testSieg();
   }
+
+  @Get(':auditId/xml')
+  @ApiOperation({ summary: 'Baixa o arquivo XML original da auditoria' })
+  async getXml(@Param('auditId') auditId: string) {
+    return this.auditService.getXmlContent(+auditId);
+  }
 }

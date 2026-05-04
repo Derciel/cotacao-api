@@ -135,4 +135,15 @@ export class AuditService {
   async testSieg() {
     return this.siegService.testConnection();
   }
+
+  async getXmlContent(auditId: number) {
+    const audit = await this.auditRepository.findOne({ where: { id: auditId } });
+    if (!audit || !audit.xml_content) {
+      throw new NotFoundException('XML não encontrado para esta auditoria.');
+    }
+    return {
+      xml: audit.xml_content,
+      filename: audit.xml_filename || `audit_${auditId}.xml`
+    };
+  }
 }

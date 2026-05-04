@@ -104,10 +104,10 @@
                   <button v-if="audit.status === 'DIVERGENTE'" @click="handleCheck(audit.id)" class="btn-action success" title="Aprovar">
                     <i class="fas fa-check"></i>
                   </button>
-                  <button class="btn-action info" title="Ver XML">
+                  <button v-if="audit.xml_content" @click="openXmlModal(audit)" class="btn-action info" title="Ver XML">
                     <i class="fas fa-eye"></i>
                   </button>
-                  <button class="btn-action secondary" title="Download">
+                  <button v-if="audit.xml_content" @click="downloadXml(audit.id)" class="btn-action secondary" title="Download XML">
                     <i class="fas fa-download"></i>
                   </button>
                 </div>
@@ -132,6 +132,28 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal Visualizador XML -->
+    <div v-if="selectedXmlAudit" class="modal-overlay" @click.self="selectedXmlAudit = null">
+      <div class="modal-box xml-viewer-modal animate-pop">
+        <div class="modal-header">
+          <div>
+            <h3>Visualizador de XML</h3>
+            <p>Auditoria NF {{ selectedXmlAudit.nfe_number }} | {{ selectedXmlAudit.xml_filename }}</p>
+          </div>
+          <button @click="selectedXmlAudit = null" class="btn-close">&times;</button>
+        </div>
+        <div class="xml-content-area">
+          <pre><code>{{ selectedXmlAudit.xml_content }}</code></pre>
+        </div>
+        <div class="modal-footer">
+          <button @click="downloadXml(selectedXmlAudit.id)" class="btn-primary">
+            <i class="fas fa-download"></i> Download Arquivo
+          </button>
+          <button @click="selectedXmlAudit = null" class="btn-secondary">Fechar</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -141,6 +163,7 @@ import { ref, onMounted } from 'vue';
 const audits = ref([]);
 const summary = ref(null);
 const loading = ref(false);
+const selectedXmlAudit = ref(null);
 
 const formatNumber = (val) => {
   return Number(val || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -202,6 +225,33 @@ const handleCheck = async (id) => {
     } catch (e) {
         console.error(e);
     }
+};
+
+const openXmlModal = (audit) => {
+  selectedXmlAudit.value = audit;
+};
+
+const downloadXml = async (auditId) => {
+  try {
+    const res = await window.safeFetch(`/api/audit/${auditId}/xml`);
+    if (res.ok) {
+      const { xml, filename } = res.data;
+      const blob = new Blob([xml], { type: 'application/xml' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || `audit_${auditId}.xml`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } else {
+      if (window.showToast) window.showToast('Erro ao baixar XML', 'error');
+    }
+  } catch (e) {
+    console.error('Download Error:', e);
+    if (window.showToast) window.showToast('Falha na conexão', 'error');
+  }
 };
 
 onMounted(() => {
@@ -589,6 +639,124 @@ onMounted(() => {
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+
+/* Modal XML */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.xml-viewer-modal {
+  width: 100%;
+  max-width: 900px;
+  max-height: 85vh;
+  background: white;
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.modal-header {
+  padding: 24px 30px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 850;
+  color: var(--primary);
+}
+
+.modal-header p {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-close:hover {
+  color: #ef4444;
+  transform: rotate(90deg);
+}
+
+.xml-content-area {
+  flex: 1;
+  overflow: auto;
+  padding: 20px 30px;
+  background: #f8fafc;
+}
+
+.xml-content-area pre {
+  margin: 0;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #1e293b;
+}
+
+.modal-footer {
+  padding: 20px 30px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: white;
+}
+
+.animate-pop {
+  animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.9) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-secondary {
+  background: #f1f5f9;
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
 
 @media (max-width: 768px) {
   .header-main { flex-direction: column; align-items: flex-start; gap: 20px; }
