@@ -123,7 +123,7 @@ export class SiegService {
   async findCteByXmlFolder(nfNumber: string, context?: any): Promise<any> {
     try {
       const rootPath = path.resolve('..');
-      const parser = new XMLParser({ ignoreAttributes: false });
+      const parser = new XMLParser({ ignoreAttributes: false, parseTagValue: false });
       
       // Procurar por pastas que possam conter XMLs (ex: 'xmls', 'XML', etc)
       const entries = fs.readdirSync(rootPath, { withFileTypes: true });
@@ -148,15 +148,47 @@ export class SiegService {
           
           if (cte) {
             const chavesNf = this.extractNfChaves(cte);
-            const matchNf = chavesNf.some(ch => ch.includes(nfNumber));
+            
+            // Match preciso: o número da NF deve bater exatamente com a parte correspondente na chave de 44 dígitos
+            const targetNf = nfNumber.replace(/^0+/, '');
+            const matchNf = chavesNf.some(ch => {
+              if (ch.length === 44) {
+                const nfInKey = ch.substring(25, 34).replace(/^0+/, '');
+                return nfInKey === targetNf;
+              }
+              return ch.includes(nfNumber);
+            });
 
             if (matchNf) {
               this.logger.log(`Match encontrado no XML (${path.basename(filePath)}) para NF ${nfNumber}`);
+              
+              // Extração robusta usando o objeto já parseado
+              const valorFrete = Number(cte.vPrest?.vTPrest || 0);
+              
+              // Peso: pode estar em diferentes tags dependendo da transportadora
+              let peso = 0;
+              const infQ = cte.infCTeNorm?.infCarga?.infQ;
+              if (Array.isArray(infQ)) {
+                const pesoObj = infQ.find(q => String(q.tpMed).toUpperCase().includes('PESO'));
+                peso = Number(pesoObj?.qCarga || 0);
+              } else if (infQ) {
+                peso = Number(infQ.qCarga || 0);
+              }
+
+              // Volumes
+              let volumes = 1;
+              if (Array.isArray(infQ)) {
+                const volObj = infQ.find(q => String(q.tpMed).toUpperCase().includes('VOLUME'));
+                volumes = Number(volObj?.qCarga || 1);
+              }
+
               return {
-                numero_cte: cte.ide?.nCT || 'N/A',
-                valor_frete: Number(cte.vPrest?.vTPrest || 0),
-                peso: Number(cte.infCteNorm?.infCarga?.vCarga || 0),
-                volumes: 1
+                numero_cte: cte.ide?.nCT || cte.ide?.cCT || 'N/A',
+                valor_frete: valorFrete,
+                peso: peso,
+                volumes: volumes,
+                xml_content: xmlContent,
+                xml_filename: path.basename(filePath)
               };
             }
           }
@@ -189,7 +221,7 @@ export class SiegService {
     const chaves: string[] = [];
     
     // CT-e pode ter múltiplas NFe referenciadas em infDoc -> infNFe
-    const infNFe = cte.infCteNorm?.infDoc?.infNFe;
+    const infNFe = cte.infCTeNorm?.infDoc?.infNFe;
     if (Array.isArray(infNFe)) {
       infNFe.forEach(nfe => nfe.chave && chaves.push(String(nfe.chave)));
     } else if (infNFe?.chave) {
@@ -258,26 +290,39 @@ export class SiegService {
    */
   private extractDataFromXml(xml: string, key: string) {
     try {
-        // Valor total da prestação <vPrest><vTPrest>XXX.XX</vTPrest></vPrest>
-        const vTPrestMatch = xml.match(/<vTPrest>(.*?)<\/vTPrest>/);
-        const valorFrete = vTPrestMatch ? parseFloat(vTPrestMatch[1]) : 0;
+        const parser = new XMLParser({ ignoreAttributes: false, parseTagValue: false });
+        const jsonObj = parser.parse(xml);
+        const cte = jsonObj?.cteProc?.CTe?.infCte || jsonObj?.CTe?.infCte;
 
-        // Peso bruto <qCarga>XXX.XXXX</qCarga> (dentro de infQ)
-        const qCargaMatch = xml.match(/<tpMed>PESO BRUTO<\/tpMed>.*?<qCarga>(.*?)<\/qCarga>/s) || xml.match(/<qCarga>(.*?)<\/qCarga>/);
-        const peso = qCargaMatch ? parseFloat(qCargaMatch[1]) : 0;
+        if (!cte) return null;
 
-        // Volumes <qVol>XXX</qVol>
-        const qVolMatch = xml.match(/<qVol>(.*?)<\/qVol>/);
-        const volumes = qVolMatch ? parseInt(qVolMatch[1]) : 1;
+        const valorFrete = Number(cte.vPrest?.vTPrest || 0);
+        
+        let peso = 0;
+        const infQ = cte.infCTeNorm?.infCarga?.infQ;
+        if (Array.isArray(infQ)) {
+          const pesoObj = infQ.find(q => String(q.tpMed).toUpperCase().includes('PESO'));
+          peso = Number(pesoObj?.qCarga || 0);
+        } else if (infQ) {
+          peso = Number(infQ.qCarga || 0);
+        }
+
+        let volumes = 1;
+        if (Array.isArray(infQ)) {
+          const volObj = infQ.find(q => String(q.tpMed).toUpperCase().includes('VOLUME'));
+          volumes = Number(volObj?.qCarga || 1);
+        }
 
         return {
-            numero_cte: key, // Usando a chave como número identificador
+            numero_cte: cte.ide?.nCT || cte.ide?.cCT || key,
             valor_frete: valorFrete,
             peso: peso,
-            volumes: volumes
+            volumes: volumes,
+            xml_content: xml,
+            xml_filename: `${key}.xml`
         };
     } catch (e) {
-        this.logger.error('Erro ao processar XML do CT-e');
+        this.logger.error('Erro ao processar XML do CT-e via Parser');
         return null;
     }
   }

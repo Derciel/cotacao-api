@@ -72,6 +72,8 @@ export class AuditService {
       divergencia_valor: diff,
       status: status,
       transportadora: quotation.transportadora_escolhida,
+      xml_content: siegData.xml_content,
+      xml_filename: siegData.xml_filename,
     });
 
     return await this.auditRepository.save(audit);
