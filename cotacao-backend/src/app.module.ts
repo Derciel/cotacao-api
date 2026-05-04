@@ -12,6 +12,7 @@ import { DocumentsModule } from './documents/documents.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { UsersModule } from './users/users.module.js';
 import { AiModule } from './ai/ai.module.js';
+import { AuditModule } from './audit/audit.module.js';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -64,6 +65,7 @@ const __dirname = dirname(__filename);
     AuthModule,
     UsersModule,
     AiModule,
+    AuditModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'frontend', 'dist'),
       exclude: ['/api*'], 

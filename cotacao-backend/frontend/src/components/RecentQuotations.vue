@@ -27,6 +27,7 @@
             <th>Data</th>
             <th class="text-right">Valor Total</th>
             <th class="text-center">Status</th>
+            <th class="text-center">Audit</th>
           </tr>
         </thead>
         <tbody>
@@ -43,6 +44,12 @@
               <span :class="['status-badge', (quote.status || 'PENDENTE').toLowerCase()]">
                 {{ quote.status || 'PENDENTE' }}
               </span>
+            </td>
+            <td class="text-center">
+                <button v-if="quote.nf" @click="auditQuote(quote.id)" class="btn-audit-mini" title="Realizar Auditoria SIEG">
+                    <i class="fas fa-search-dollar"></i>
+                </button>
+                <span v-else class="no-nf">-</span>
             </td>
           </tr>
         </tbody>
@@ -79,6 +86,19 @@ const fetchRecent = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const auditQuote = async (id) => {
+    try {
+        const res = await safeFetch(`/api/audit/${id}`, { method: 'POST' });
+        if (res.ok) {
+            window.showToast('Auditoria realizada com sucesso!', 'success');
+        } else {
+            window.showToast(res.data?.message || 'Erro ao realizar auditoria', 'error');
+        }
+    } catch (error) {
+        window.showToast('Erro de conexão com o servidor', 'error');
+    }
 };
 
 onMounted(() => {
@@ -243,6 +263,19 @@ onMounted(() => {
     background: #dbeafe;
     color: #1e40af;
   }
+
+  .btn-audit-mini {
+    background: var(--primary);
+    color: white;
+    border: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .btn-audit-mini:hover { transform: scale(1.1); box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3); }
+  .no-nf { color: var(--text-muted); font-size: 0.8rem; }
 
   @media (max-width: 768px) {
     .recent-card { padding: 15px; }
