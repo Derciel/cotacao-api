@@ -30,24 +30,33 @@ export class SiegService {
       this.logger.log(`Iniciando busca real na SIEG para NF: ${nfNumber}`);
       
       // 1. Definir os filtros de busca
-      // Tentaremos buscar documentos onde a Nicopel é tomadora, remetente ou destinatária
-      const searchRoles = ['cnpjtomador', 'cnpjremetente', 'cnpjdestinatario'];
+      // Tentaremos primeiro uma busca sem filtros de CNPJ (pode retornar docs de todas as empresas da conta)
+      // e depois com filtros específicos se nada for encontrado.
+      const filterOptions = [
+          { }, // Sem filtro (Global)
+          { cnpjtomador: this.cnpjNicopel },
+          { cnpjremetente: this.cnpjNicopel },
+          { cnpjdestinatario: this.cnpjNicopel }
+      ];
+      
       let docs: any[] = [];
 
-      for (const role of searchRoles) {
+      for (const filter of filterOptions) {
           const payload: any = {
             apikey: this.apiKey,
             email: this.email,
-            type: 'cte'
+            type: 'cte',
+            ...filter
           };
-          payload[role] = this.cnpjNicopel;
 
           const response = await firstValueFrom(
             this.httpService.post(`${this.baseUrl}/getdocs`, payload)
           );
 
           if (response.data && Array.isArray(response.data)) {
+              this.logger.log(`Busca SIEG com filtro ${JSON.stringify(filter)} retornou ${response.data.length} documentos.`);
               docs = [...docs, ...response.data];
+              if (docs.length > 0) break; // Se encontrou algo, para de tentar outros filtros
           }
       }
 
