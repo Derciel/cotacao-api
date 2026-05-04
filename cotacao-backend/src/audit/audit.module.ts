@@ -12,7 +12,6 @@ import { QuotationsModule } from '../quotations/quotations.module.js';
   imports: [
     TypeOrmModule.forFeature([Audit, Quotation]),
     HttpModule,
-    QuotationsModule,
   ],
   controllers: [AuditController],
   providers: [AuditService, SiegService],
