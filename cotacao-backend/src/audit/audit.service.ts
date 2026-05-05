@@ -44,8 +44,25 @@ export class AuditService {
     });
 
     if (!siegData) {
-      this.logger.warn(`Conferência abortada: Nenhum CT-e encontrado no SIEG ou Excel para a NF ${quotation.nf}`);
-      throw new NotFoundException(`Não foi possível localizar o CT-e correspondente (API/Excel) para a NF ${quotation.nf}. Verifique se o documento está nas planilhas enviadas.`);
+      this.logger.warn(`Conferência pendente: Nenhum CT-e encontrado no SIEG ou Excel para a NF ${quotation.nf}`);
+      
+      // Em vez de estourar 404 (que gera erro no console), vamos criar/atualizar a auditoria como PENDENTE
+      let audit = await this.auditRepository.findOne({ where: { quotationId: quotation.id } });
+      if (!audit) {
+        audit = this.auditRepository.create({ quotationId: quotation.id });
+      }
+
+      audit.nfe_number = quotation.nf || '---';
+      audit.status = AuditStatus.DIVERGENTE; // Ou criar um novo status PENDENTE se preferir
+      audit.divergencia_valor = 0;
+      audit.valor_frete_cotado = quotation.valor_frete;
+      audit.valor_frete_sieg = 0;
+      audit.transportadora = quotation.transportadora_escolhida;
+      audit.cte_number = 'NÃO LOCALIZADO';
+      
+      await this.auditRepository.save(audit);
+      
+      return audit;
     }
 
     const actualFreight = Number(siegData.valor_frete);
