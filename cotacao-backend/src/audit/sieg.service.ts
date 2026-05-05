@@ -81,24 +81,24 @@ export class SiegService {
           const xml = await this.getXml(doc.XmlKey, 'cte');
           if (!xml) continue;
 
-          // Limpamos zeros à esquerda do número da NF para garantir o match (ex: 000067704 -> 67704)
-          const cleanNfNumber = nfNumber.replace(/^0+/, '');
-          
-          // Verifica se o XML contém a NF em tags comuns de documentos originários
-          // <nDoc> é comum em CT-es para referenciar o número da NF-e sem a chave
-          // <nNF> é a tag padrão de número de nota
-          const isMatch = (
-              xml.includes(`<nDoc>${nfNumber}</nDoc>`) || 
-              xml.includes(`<nDoc>${cleanNfNumber}</nDoc>`) || 
-              xml.includes(`<nNF>${nfNumber}</nNF>`) ||
-              xml.includes(`<nNF>${cleanNfNumber}</nNF>`) ||
-              (nfNumber.length >= 7 && xml.includes(nfNumber)) || // Busca genérica se for um número longo
-              (nfNumber.length === 44 && xml.includes(nfNumber))  // Busca exata por chave de acesso
-          );
+          // Extração minuciosa para validação
+          const dataFromXml = this.extractDataFromXml(xml, doc.XmlKey);
+          if (!dataFromXml) continue;
 
-          if (isMatch) {
-              this.logger.log(`CT-e encontrado com sucesso! Chave: ${doc.XmlKey}`);
-              return this.extractDataFromXml(xml, doc.XmlKey);
+          const chavesNf = this.extractNfChaves(this.parseXmlToObj(xml));
+          const targetNf = nfNumber.replace(/^0+/, '');
+          
+          const hasNfMatch = chavesNf.some(ch => {
+              const cleanCh = ch.replace(/^0+/, '');
+              if (cleanCh.length === 44) {
+                 return cleanCh.substring(25, 34).replace(/^0+/, '') === targetNf;
+              }
+              return cleanCh === targetNf || ch === nfNumber;
+          });
+
+          if (hasNfMatch) {
+              this.logger.log(`CT-e validado com sucesso via API SIEG! Chave: ${doc.XmlKey}`);
+              return dataFromXml;
           }
       }
 
@@ -121,16 +121,21 @@ export class SiegService {
    * Busca dados em arquivos XML recursivamente na raiz do projeto
    */
   async findCteByXmlFolder(nfNumber: string, context?: any): Promise<any> {
+    if (!nfNumber || nfNumber.trim() === '' || nfNumber === '---') {
+      this.logger.warn(`Busca local ignorada: Número de NF inválido (${nfNumber})`);
+      return null;
+    }
+
     try {
       const rootPath = path.resolve('..');
       const parser = new XMLParser({ ignoreAttributes: false, parseTagValue: false });
       
-      // Procurar por pastas que possam conter XMLs (ex: 'xmls', 'XML', etc)
       const entries = fs.readdirSync(rootPath, { withFileTypes: true });
       const folders = entries.filter(e => e.isDirectory() && !e.name.startsWith('.')).map(e => e.name);
-      
-      // Adicionar a própria raiz na busca
       folders.push('.');
+
+      const targetNf = nfNumber.replace(/^0+/, '');
+      const contextCnpj = context?.cnpj ? String(context.cnpj).replace(/\D/g, '') : null;
 
       for (const folder of folders) {
         const folderPath = path.join(rootPath, folder);
@@ -139,58 +144,48 @@ export class SiegService {
         const files = this.getAllFiles(folderPath).filter(f => f.endsWith('.xml'));
         
         for (const filePath of files) {
-          const xmlContent = fs.readFileSync(filePath, 'utf-8');
-          const jsonObj = parser.parse(xmlContent);
+          try {
+            const xmlContent = fs.readFileSync(filePath, 'utf-8');
+            const jsonObj = parser.parse(xmlContent);
+            const cte = jsonObj?.cteProc?.CTe?.infCte || jsonObj?.CTe?.infCte;
+            
+            if (!cte) continue;
 
-          // Lógica simplificada para extrair dados de CT-e
-          // O formato padrão é cteProc -> CTe -> infCte
-          const cte = jsonObj?.cteProc?.CTe?.infCte || jsonObj?.CTe?.infCte;
-          
-          if (cte) {
+            // 1. Extração minuciosa de todas as NFs vinculadas
             const chavesNf = this.extractNfChaves(cte);
             
-            // Match preciso: o número da NF deve bater exatamente com a parte correspondente na chave de 44 dígitos
-            const targetNf = nfNumber.replace(/^0+/, '');
-            const matchNf = chavesNf.some(ch => {
-              if (ch.length === 44) {
-                const nfInKey = ch.substring(25, 34).replace(/^0+/, '');
-                return nfInKey === targetNf;
+            // 2. Verificação de Match de NF (Rigoroso)
+            const hasNfMatch = chavesNf.some(ch => {
+              const cleanCh = ch.replace(/^0+/, '');
+              if (cleanCh.length === 44) {
+                 return cleanCh.substring(25, 34).replace(/^0+/, '') === targetNf;
               }
-              return ch.includes(nfNumber);
+              return cleanCh === targetNf || ch === nfNumber;
             });
 
-            if (matchNf) {
-              this.logger.log(`Match encontrado no XML (${path.basename(filePath)}) para NF ${nfNumber}`);
-              
-              // Extração robusta usando o objeto já parseado
-              const valorFrete = Number(cte.vPrest?.vTPrest || 0);
-              
-              // Peso: pode estar em diferentes tags dependendo da transportadora
-              let peso = 0;
-              const infQ = cte.infCTeNorm?.infCarga?.infQ;
-              if (Array.isArray(infQ)) {
-                const pesoObj = infQ.find(q => String(q.tpMed).toUpperCase().includes('PESO'));
-                peso = Number(pesoObj?.qCarga || 0);
-              } else if (infQ) {
-                peso = Number(infQ.qCarga || 0);
-              }
+            if (!hasNfMatch) continue;
 
-              // Volumes
-              let volumes = 1;
-              if (Array.isArray(infQ)) {
-                const volObj = infQ.find(q => String(q.tpMed).toUpperCase().includes('VOLUME'));
-                volumes = Number(volObj?.qCarga || 1);
-              }
-
-              return {
-                numero_cte: cte.ide?.nCT || cte.ide?.cCT || 'N/A',
-                valor_frete: valorFrete,
-                peso: peso,
-                volumes: volumes,
-                xml_content: xmlContent,
-                xml_filename: path.basename(filePath)
-              };
+            // 3. Verificação de Contexto (CNPJ ou Valor) para evitar "Falso Positivo"
+            let contextMatch = true; 
+            if (contextCnpj) {
+                const emitCnpj = String(cte.emit?.CNPJ || '').replace(/\D/g, '');
+                const remCnpj = String(cte.rem?.CNPJ || '').replace(/\D/g, '');
+                const destCnpj = String(cte.dest?.CNPJ || '').replace(/\D/g, '');
+                const tomaCnpj = String(cte.toma3?.CNPJ || cte.toma4?.CNPJ || '').replace(/\D/g, '');
+                
+                contextMatch = [emitCnpj, remCnpj, destCnpj, tomaCnpj].includes(contextCnpj);
             }
+
+            if (contextCnpj && !contextMatch) {
+                this.logger.debug(`NF ${nfNumber} encontrada no XML ${path.basename(filePath)}, mas CNPJ não confere. Ignorando.`);
+                continue;
+            }
+
+            this.logger.log(`Match minucioso encontrado no XML local: ${path.basename(filePath)} para NF ${nfNumber}`);
+            return this.extractDataFromXml(xmlContent, path.basename(filePath));
+
+          } catch (e) {
+            continue;
           }
         }
       }
@@ -252,50 +247,44 @@ export class SiegService {
    * Busca dados em planilhas Excel na raiz do projeto
    */
   async findCteByExcel(nfNumber: string, context?: any): Promise<any> {
+    if (!nfNumber || nfNumber.trim() === '' || nfNumber === '---') return null;
+
     try {
       const rootPath = path.resolve('..');
       const files = fs.readdirSync(rootPath).filter(f => f.endsWith('.xlsx'));
       
-      this.logger.log(`Varrendo ${files.length} arquivos Excel em ${rootPath}`);
+      const cleanNf = nfNumber.replace(/^0+/, '');
+      const contextCnpj = context?.cnpj ? String(context.cnpj).replace(/\D/g, '') : null;
 
       for (const fileName of files) {
         const filePath = path.join(rootPath, fileName);
         const workbook = XLSX.readFile(filePath);
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         const data: any[] = XLSX.utils.sheet_to_json(worksheet);
 
         for (const row of data) {
-          // Normalização para busca
-          const cleanNf = nfNumber.replace(/^0+/, '');
+          // Normalização rigorosa
           const rowNumero = String(row.Numero || '').replace(/^0+/, '');
           const rowChave = String(row.Chave || '');
+          
+          if (!rowNumero && !rowChave) continue;
 
-          // 1. Match Principal por NF ou Chave
-          const matchNf = rowNumero === cleanNf || rowChave.includes(nfNumber);
+          // 1. Match de NF (Rigoroso)
+          const matchNf = rowNumero === cleanNf || (rowChave.length === 44 && rowChave.substring(25, 34).replace(/^0+/, '') === cleanNf);
 
-          // 2. Contexto adicional
-          let matchContext = false;
-          if (context) {
-            const rowCnpjs = [row.CnpjEmit, row.CnpjDest, row.CnpjRem, row.CnpjTom].map(c => String(c || '').replace(/\D/g, ''));
-            const contextCnpj = String(context.cnpj || '').replace(/\D/g, '');
-            const matchCnpj = contextCnpj && rowCnpjs.includes(contextCnpj);
-            
-            const rowRazao = String(row.RzEmit || row.RzDest || '').toUpperCase();
-            const contextRazao = String(context.razaoSocial || '').toUpperCase();
-            const matchRazao = contextRazao && rowRazao.includes(contextRazao);
-            
-            const matchValor = Math.abs((Number(row.Valor) || 0) - (Number(context.valor) || 0)) < 2.00;
+          if (!matchNf) continue;
 
-            if ((matchCnpj && matchValor) || (matchRazao && matchValor)) {
-                matchContext = true;
-            }
+          // 2. Validação de Contexto (Opcional mas recomendado)
+          let contextOk = true;
+          if (contextCnpj) {
+             const rowCnpjs = [row.CnpjEmit, row.CnpjDest, row.CnpjRem, row.CnpjTom].map(c => String(c || '').replace(/\D/g, ''));
+             contextOk = rowCnpjs.includes(contextCnpj);
           }
 
-          if (matchNf || matchContext) {
-            this.logger.log(`Match encontrado no Excel (${fileName}) para NF ${nfNumber}`);
+          if (matchNf && contextOk) {
+            this.logger.log(`Match rigoroso encontrado no Excel (${fileName}) para NF ${nfNumber}`);
             
-            // Tenta buscar o XML localmente mesmo que tenha batido no Excel, para habilitar o "olho"
+            // Busca o XML local para ter o conteúdo e habilitar o "olho"
             const localXml = await this.findCteByXmlFolder(nfNumber, context);
 
             return {
@@ -317,15 +306,22 @@ export class SiegService {
     }
   }
 
+  private parseXmlToObj(xml: string): any {
+    try {
+        const parser = new XMLParser({ ignoreAttributes: false, parseTagValue: false });
+        const jsonObj = parser.parse(xml);
+        return jsonObj?.cteProc?.CTe?.infCte || jsonObj?.CTe?.infCte;
+    } catch (e) {
+        return null;
+    }
+  }
+
   /**
    * Extrai dados de valor, peso e volume do XML do CT-e
    */
   private extractDataFromXml(xml: string, key: string) {
     try {
-        const parser = new XMLParser({ ignoreAttributes: false, parseTagValue: false });
-        const jsonObj = parser.parse(xml);
-        const cte = jsonObj?.cteProc?.CTe?.infCte || jsonObj?.CTe?.infCte;
-
+        const cte = this.parseXmlToObj(xml);
         if (!cte) return null;
 
         const valorFrete = Number(cte.vPrest?.vTPrest || 0);

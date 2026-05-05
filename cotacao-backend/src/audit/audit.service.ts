@@ -70,16 +70,20 @@ export class AuditService {
 
     // Normalização do número da NF para exibição como referência
     let nfeNumber = quotation.nf;
-    if (!nfeNumber || nfeNumber.length > 20) {
-      // Se a NF na cotação for a chave completa ou estiver vazia, 
-      // tenta extrair o número curto da chave do CT-e encontrada no SIEG
+    if (!nfeNumber || nfeNumber.trim() === '' || nfeNumber === '---') {
+      // Se não tem NF oficial, tenta usar o número do pedido manual como fallback para busca
+      nfeNumber = quotation.numero_pedido_manual;
+    }
+
+    if (!nfeNumber || nfeNumber === '---') {
+      // Último recurso: extrair da chave do CT-e se o SIEG retornou algo
       if (siegData.numero_cte && siegData.numero_cte.length === 44) {
         nfeNumber = siegData.numero_cte.substring(25, 34).replace(/^0+/, '');
       }
     }
 
     // Atualiza todos os campos
-    audit.nfe_number = nfeNumber || quotation.nf;
+    audit.nfe_number = nfeNumber && nfeNumber !== '---' ? nfeNumber : (quotation.nf || '---');
     audit.cte_number = siegData?.numero_cte || 'CTE-SIMULADO';
     audit.valor_frete_cotado = quotation.valor_frete;
     audit.valor_frete_sieg = actualFreight;
