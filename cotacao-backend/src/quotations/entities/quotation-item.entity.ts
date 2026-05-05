@@ -15,7 +15,13 @@ export class QuotationItem {
   @JoinColumn({ name: 'product_id' })
   product!: Relation<Product>;
 
-  @Column()
+  @Column({
+    type: 'numeric',
+    precision: 12,
+    scale: 4,
+    default: 0,
+    comment: 'Quantidade do produto (suporta valores fracionados).',
+  })
   quantidade!: number;
 
   @Column({
@@ -28,9 +34,27 @@ export class QuotationItem {
 
   @Column({
     type: 'numeric',
-    precision: 10,
-    scale: 2,
+    precision: 12,
+    scale: 4,
     comment: 'Valor total do item (quantidade * valor unitário).',
   })
   valor_total_item!: number;
+
+  @Column({
+    type: 'numeric',
+    precision: 12,
+    scale: 4,
+    nullable: true,
+    comment: 'Valor base do item (sem IPI).',
+  })
+  valor_base_item!: number;
+
+  @Column({
+    type: 'numeric',
+    precision: 12,
+    scale: 4,
+    nullable: true,
+    comment: 'Valor do IPI calculado para este item.',
+  })
+  valor_ipi_item!: number;
 }

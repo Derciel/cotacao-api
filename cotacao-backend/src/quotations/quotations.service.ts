@@ -73,7 +73,7 @@ export class QuotationsService {
         qItem.quantidade = item.quantidade;
 
         // Cálculo do Total com IPI Embutido (para Nicopel) ou Total Direto (outros)
-        const totalComIpiInput = Number((qItem.quantidade * valUnitInput).toFixed(2));
+        const totalComIpiInput = qItem.quantidade * valUnitInput;
 
         // Determinação da Alíquota
         let aliquotaResult = 0;
@@ -101,19 +101,20 @@ export class QuotationsService {
         // A regra é: O valor digitado já tem IPI.
         // IPI = Total * (Alíquota/100)
         // Base = Total - IPI
-        const totalIntegralItem = Number((qItem.quantidade * valUnitInput).toFixed(2));
+        const totalIntegralItem = qItem.quantidade * valUnitInput;
         let valorIpiItem = 0;
 
         if (aliquotaResult > 0) {
-          valorIpiItem = Number((totalIntegralItem * (aliquotaResult / 100)).toFixed(2));
+          valorIpiItem = totalIntegralItem * (aliquotaResult / 100);
         }
 
-        const valorBaseItem = Number((totalIntegralItem - valorIpiItem).toFixed(2));
+        const valorBaseItem = totalIntegralItem - valorIpiItem;
 
         // Salvando os resultados no item
-        // valor_total_item é o TOTAL INTEGRAL (conforme digitado)
         qItem.valor_total_item = totalIntegralItem;
-        qItem.valor_unitario_na_cotacao = Number(valUnitInput.toFixed(4));
+        qItem.valor_unitario_na_cotacao = valUnitInput;
+        qItem.valor_base_item = valorBaseItem;
+        qItem.valor_ipi_item = valorIpiItem;
 
         // Acumula os valores para o resumo da nota
         accumulatedTotalProdutos += valorBaseItem; // "Total Produto" (Base)
@@ -228,14 +229,18 @@ export class QuotationsService {
 
         // Recalcular no finalize mantendo a regra de "Extração"
         // O valor salvo em valor_unitario_na_cotacao já é o valor INTEGRAL (com IPI)
-        const totalIntegralItemFinal = Number((item.quantidade * item.valor_unitario_na_cotacao).toFixed(2));
+        const totalIntegralItemFinal = item.quantidade * item.valor_unitario_na_cotacao;
         let valorIpiItemFinal = 0;
 
         if (aliquotaResult > 0) {
-          valorIpiItemFinal = Number((totalIntegralItemFinal * (aliquotaResult / 100)).toFixed(2));
+          valorIpiItemFinal = totalIntegralItemFinal * (aliquotaResult / 100);
         }
 
-        const valorBaseItemFinal = Number((totalIntegralItemFinal - valorIpiItemFinal).toFixed(2));
+        const valorBaseItemFinal = totalIntegralItemFinal - valorIpiItemFinal;
+
+        item.valor_total_item = totalIntegralItemFinal;
+        item.valor_base_item = valorBaseItemFinal;
+        item.valor_ipi_item = valorIpiItemFinal;
 
         novoValorTotalProdutos += valorBaseItemFinal;
         valorIpiTotalGeral += valorIpiItemFinal;

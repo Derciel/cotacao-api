@@ -7,8 +7,8 @@ export class CreateQuotationItemDto {
   @IsPositive()
   productId: number;
 
-  @ApiProperty({ description: 'Quantidade do produto', example: 100 })
-  @IsInt()
+  @ApiProperty({ description: 'Quantidade do produto', example: 100.5 })
+  @IsNumber()
   @IsPositive()
   quantidade: number;
 

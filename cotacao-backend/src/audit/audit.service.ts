@@ -72,7 +72,7 @@ export class AuditService {
     let nfeNumber = quotation.nf;
     if (!nfeNumber || nfeNumber.trim() === '' || nfeNumber === '---') {
       // Se não tem NF oficial, tenta usar o número do pedido manual como fallback para busca
-      nfeNumber = quotation.numero_pedido_manual;
+      nfeNumber = quotation.numero_pedido_manual || '---';
     }
 
     if (!nfeNumber || nfeNumber === '---') {
