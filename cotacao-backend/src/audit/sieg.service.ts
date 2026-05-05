@@ -220,12 +220,20 @@ export class SiegService {
   private extractNfChaves(cte: any): string[] {
     const chaves: string[] = [];
     
-    // CT-e pode ter múltiplas NFe referenciadas em infDoc -> infNFe
+    // 1. CT-e referenciando NF-e (Chave de 44 dígitos)
     const infNFe = cte.infCTeNorm?.infDoc?.infNFe;
     if (Array.isArray(infNFe)) {
       infNFe.forEach(nfe => nfe.chave && chaves.push(String(nfe.chave)));
     } else if (infNFe?.chave) {
       chaves.push(String(infNFe.chave));
+    }
+
+    // 2. CT-e referenciando NF manual (Número do documento)
+    const infNF = cte.infCTeNorm?.infDoc?.infNF;
+    if (Array.isArray(infNF)) {
+      infNF.forEach(nf => nf.nDoc && chaves.push(String(nf.nDoc)));
+    } else if (infNF?.nDoc) {
+      chaves.push(String(infNF.nDoc));
     }
 
     return chaves;
@@ -249,30 +257,45 @@ export class SiegService {
         const data: any[] = XLSX.utils.sheet_to_json(worksheet);
 
         for (const row of data) {
-          // 1. Match Principal por NF
-          const matchNf = String(row.Numero).includes(nfNumber.replace(/^0+/, '')) || 
-                         String(row.Chave).includes(nfNumber);
+          // Normalização para busca
+          const cleanNf = nfNumber.replace(/^0+/, '');
+          const rowNumero = String(row.Numero || '').replace(/^0+/, '');
+          const rowChave = String(row.Chave || '');
 
-          // 2. Se não houver NF ou se quisermos validar mais (conforme pedido pelo user)
+          // 1. Match Principal por NF ou Chave
+          const matchNf = rowNumero === cleanNf || rowChave.includes(nfNumber);
+
+          // 2. Contexto adicional
           let matchContext = false;
           if (context) {
-            const matchCnpj = [row.CnpjEmit, row.CnpjDest, row.CnpjRem, row.CnpjTom].includes(context.cnpj?.replace(/\D/g, ''));
-            const matchRazao = [row.RzEmit, row.RzDest].some(r => r?.toUpperCase().includes(context.razaoSocial?.toUpperCase()));
-            const matchValor = Math.abs((row.Valor || 0) - (context.valor || 0)) < 10.00; // Tolerância de 10 reais para "aproximado"
+            const rowCnpjs = [row.CnpjEmit, row.CnpjDest, row.CnpjRem, row.CnpjTom].map(c => String(c || '').replace(/\D/g, ''));
+            const contextCnpj = String(context.cnpj || '').replace(/\D/g, '');
+            const matchCnpj = contextCnpj && rowCnpjs.includes(contextCnpj);
+            
+            const rowRazao = String(row.RzEmit || row.RzDest || '').toUpperCase();
+            const contextRazao = String(context.razaoSocial || '').toUpperCase();
+            const matchRazao = contextRazao && rowRazao.includes(contextRazao);
+            
+            const matchValor = Math.abs((Number(row.Valor) || 0) - (Number(context.valor) || 0)) < 2.00;
 
-            // Se bater CNPJ e Valor, ou Razão e Valor, consideramos match
             if ((matchCnpj && matchValor) || (matchRazao && matchValor)) {
                 matchContext = true;
             }
           }
 
           if (matchNf || matchContext) {
-            this.logger.log(`Match encontrado no Excel (${fileName}) para NF ${nfNumber} / Contexto: ${matchContext}`);
+            this.logger.log(`Match encontrado no Excel (${fileName}) para NF ${nfNumber}`);
+            
+            // Tenta buscar o XML localmente mesmo que tenha batido no Excel, para habilitar o "olho"
+            const localXml = await this.findCteByXmlFolder(nfNumber, context);
+
             return {
-              numero_cte: row.Chave || row.Numero,
-              valor_frete: row.Valor || 0,
-              peso: 0,
-              volumes: 1
+              numero_cte: rowChave || rowNumero || 'N/A',
+              valor_frete: Number(row.Valor) || 0,
+              peso: Number(row.Peso) || 0,
+              volumes: Number(row.Volumes) || 1,
+              xml_content: localXml?.xml_content || null,
+              xml_filename: localXml?.xml_filename || null
             };
           }
         }

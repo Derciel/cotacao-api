@@ -63,6 +63,7 @@
           <thead>
             <tr>
               <th>Documento</th>
+              <th>Referência</th>
               <th>Transportadora</th>
               <th>Cotação</th>
               <th>Real (SIEG)</th>
@@ -75,8 +76,15 @@
             <tr v-for="audit in audits" :key="audit.id" :class="{ 'row-warning': audit.status === 'DIVERGENTE' }">
               <td>
                 <div class="doc-cell">
-                  <div class="nf-badge">NF {{ audit.nfe_number }}</div>
-                  <div class="cte-info">CT-e {{ audit.cte_number || 'Pendente' }}</div>
+                  <div class="nf-badge">NF {{ audit.nfe_number || '---' }}</div>
+                  <div class="cte-info" :title="audit.cte_number">
+                    CT-e {{ audit.cte_number?.length > 20 ? audit.cte_number.substring(0, 8) + '...' + audit.cte_number.slice(-8) : (audit.cte_number || 'Pendente') }}
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="ref-cell">
+                  <span class="ref-badge">{{ audit.quotation?.numero_pedido_manual || 'ID: ' + audit.quotationId }}</span>
                 </div>
               </td>
               <td>
@@ -521,6 +529,22 @@ onMounted(() => {
   color: var(--text-muted);
   font-weight: 600;
   margin-right: 2px;
+}
+  
+.ref-cell {
+  display: flex;
+  align-items: center;
+}
+
+.ref-badge {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: monospace;
 }
 
 .diff-tag {

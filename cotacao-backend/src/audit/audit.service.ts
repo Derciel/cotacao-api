@@ -24,7 +24,7 @@ export class AuditService {
   async auditQuotation(quotationId: number): Promise<Audit> {
     const quotation = await this.quotationRepository.findOne({
       where: { id: quotationId },
-      relations: ['items'],
+      relations: ['client', 'items'],
     });
 
     if (!quotation) {
@@ -59,22 +59,29 @@ export class AuditService {
       status = AuditStatus.DIVERGENTE;
     }
 
-    const audit = this.auditRepository.create({
-      quotationId: quotation.id,
-      nfe_number: quotation.nf,
-      cte_number: siegData?.numero_cte || 'CTE-SIMULADO',
-      valor_frete_cotado: quotation.valor_frete,
-      valor_frete_sieg: actualFreight,
-      peso_cotado: 100, // Idealmente viria da soma dos itens da cotação
-      peso_sieg: actualWeight,
-      volumes_cotados: 1, // Idem
-      volumes_sieg: actualVolumes,
-      divergencia_valor: diff,
-      status: status,
-      transportadora: quotation.transportadora_escolhida,
-      xml_content: siegData.xml_content,
-      xml_filename: siegData.xml_filename,
-    });
+    // Tentar encontrar auditoria existente para esta cotação
+    let audit = await this.auditRepository.findOne({ where: { quotationId: quotation.id } });
+
+    if (!audit) {
+      audit = this.auditRepository.create({
+        quotationId: quotation.id,
+      });
+    }
+
+    // Atualiza todos os campos
+    audit.nfe_number = quotation.nf;
+    audit.cte_number = siegData?.numero_cte || 'CTE-SIMULADO';
+    audit.valor_frete_cotado = quotation.valor_frete;
+    audit.valor_frete_sieg = actualFreight;
+    audit.peso_cotado = 100; // Poderia ser calculado dos itens
+    audit.peso_sieg = actualWeight;
+    audit.volumes_cotados = 1;
+    audit.volumes_sieg = actualVolumes;
+    audit.divergencia_valor = diff;
+    audit.status = status;
+    audit.transportadora = quotation.transportadora_escolhida;
+    audit.xml_content = siegData.xml_content || audit.xml_content; // Preserva se o novo for nulo
+    audit.xml_filename = siegData.xml_filename || audit.xml_filename;
 
     return await this.auditRepository.save(audit);
   }
@@ -114,10 +121,20 @@ export class AuditService {
    * Lista todas as auditorias com filtros
    */
   async findAll() {
-    return await this.auditRepository.find({
+    const audits = await this.auditRepository.find({
       order: { created_at: 'DESC' },
       relations: ['quotation'],
     });
+
+    // Filtra para mostrar apenas a auditoria mais recente por cotação (evita repetições visuais)
+    const uniqueAudits = new Map<number, Audit>();
+    for (const audit of audits) {
+      if (!uniqueAudits.has(audit.quotationId)) {
+        uniqueAudits.set(audit.quotationId, audit);
+      }
+    }
+
+    return Array.from(uniqueAudits.values());
   }
 
   /**
