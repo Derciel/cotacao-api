@@ -31,8 +31,19 @@ export class AuditService {
       throw new NotFoundException('Cotação não encontrada.');
     }
 
-    if (!quotation.nf) {
-      throw new BadRequestException('Esta cotação não possui número de NF associado para auditoria.');
+    if (!quotation.nf || quotation.nf.trim() === '' || quotation.nf === '---') {
+      this.logger.warn(`Cotação ${quotation.id} sem NF. Registrando auditoria como pendente.`);
+      let audit = await this.auditRepository.findOne({ where: { quotationId: quotation.id } });
+      if (!audit) {
+        audit = this.auditRepository.create({ quotationId: quotation.id });
+      }
+      audit.nfe_number = '---';
+      audit.status = AuditStatus.DIVERGENTE; // Mantemos divergente/pendente para atenção do usuário
+      audit.cte_number = 'AGUARDANDO NF';
+      audit.valor_frete_cotado = quotation.valor_frete;
+      audit.valor_frete_sieg = 0;
+      await this.auditRepository.save(audit);
+      return audit;
     }
 
     // Busca dados reais no SIEG (API ou Excel Fallback)
@@ -88,8 +99,7 @@ export class AuditService {
     // Normalização do número da NF para exibição como referência
     let nfeNumber = quotation.nf;
     if (!nfeNumber || nfeNumber.trim() === '' || nfeNumber === '---') {
-      // Se não tem NF oficial, tenta usar o número do pedido manual como fallback para busca
-      nfeNumber = quotation.numero_pedido_manual || '---';
+      nfeNumber = '---'; // Mantém explicitamente como pendente se não houver NF
     }
 
     if (!nfeNumber || nfeNumber === '---') {

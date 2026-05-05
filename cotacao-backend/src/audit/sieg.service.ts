@@ -33,7 +33,6 @@ export class SiegService {
       this.logger.log(`Iniciando busca real na SIEG para NF: ${nfNumber}`);
       
       const filterOptions = [
-          { }, // Sem filtro (Global)
           { cnpjtomador: this.cnpjNicopel },
           { cnpjremetente: this.cnpjNicopel },
           { cnpjdestinatario: this.cnpjNicopel }
@@ -255,7 +254,16 @@ export class SiegService {
         for (const row of data) {
           const rowNf = String(row.Numero || '').replace(/^0+/, '');
           const rowChave = String(row.Chave || '');
-          const match = rowNf === target || (rowChave.length === 44 && rowChave.substring(25, 34).replace(/^0+/, '') === target);
+          
+          // Prioridade para extração via Chave (44 dígitos)
+          let match = false;
+          if (rowChave.length === 44) {
+            const nfFromKey = rowChave.substring(25, 34).replace(/^0+/, '');
+            match = (nfFromKey === target);
+          } else {
+            // Fallback apenas se o número coincidir EXATAMENTE e não tiver cara de número de pedido (opcional)
+            match = (rowNf === target);
+          }
 
           if (match) {
             const localXml = await this.findCteByXmlFolder(nfNumber, context);
