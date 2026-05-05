@@ -112,6 +112,9 @@
                   <button v-if="audit.status === 'DIVERGENTE'" @click="handleCheck(audit.id)" class="btn-action success" title="Aprovar">
                     <i class="fas fa-check"></i>
                   </button>
+                  <button @click="openPdfPreview(audit.quotation)" class="btn-action primary" title="Ver PDF Cotação">
+                    <i class="fas fa-file-pdf"></i>
+                  </button>
                   <button v-if="audit.xml_content" @click="openXmlModal(audit)" class="btn-action info" title="Ver XML">
                     <i class="fas fa-eye"></i>
                   </button>
@@ -162,6 +165,32 @@
         </div>
       </div>
     </div>
+
+    <!-- Visualizador de PDF Modal -->
+    <div v-if="isPdfPreviewOpen" class="modal-overlay pdf-modal" @click.self="isPdfPreviewOpen = false">
+        <div class="pdf-container animate-pop" :class="{ 'bg-black': currentCarrierLogo === 'white', 'bg-white': currentCarrierLogo === 'dark' }">
+            <div class="pdf-header">
+                <div class="pdf-titles">
+                    <h3>Visualizando Cotação Original</h3>
+                    <p>Documento gerado no momento do orçamento</p>
+                </div>
+                <button class="btn-close-pdf" @click="isPdfPreviewOpen = false">×</button>
+            </div>
+            
+            <div class="pdf-content">
+                <div v-if="isPdfLoading" class="pdf-loading">
+                    <div class="spinner-blue"></div>
+                    <p>Aguarde, carregando documento...</p>
+                </div>
+                <iframe 
+                    :src="pdfPreviewUrl" 
+                    class="pdf-frame" 
+                    @load="onPdfLoaded"
+                    frameborder="0"
+                ></iframe>
+            </div>
+        </div>
+    </div>
   </div>
 </template>
 
@@ -172,6 +201,12 @@ const audits = ref([]);
 const summary = ref(null);
 const loading = ref(false);
 const selectedXmlAudit = ref(null);
+
+// PDF States
+const isPdfPreviewOpen = ref(false);
+const pdfPreviewUrl = ref("");
+const isPdfLoading = ref(false);
+const currentCarrierLogo = ref("");
 
 const formatNumber = (val) => {
   return Number(val || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -237,6 +272,34 @@ const handleCheck = async (id) => {
 
 const openXmlModal = (audit) => {
   selectedXmlAudit.value = audit;
+};
+
+const getAuthToken = () => {
+    return localStorage.getItem('auth_token');
+};
+
+const openPdfPreview = (quotation) => {
+    if (!quotation) {
+        if (window.showToast) window.showToast('Dados da cotação não encontrados para este audit', 'warning');
+        return;
+    }
+    const token = getAuthToken();
+    const url = `/api/quotations/${quotation.id}/pdf?token=${token}`;
+    pdfPreviewUrl.value = url;
+    isPdfLoading.value = true;
+    isPdfPreviewOpen.value = true;
+    
+    // Identifica a transportadora para o fundo adaptativo
+    const carrier = quotation.transportadora_escolhida?.toUpperCase() || "";
+    if (carrier.includes("RODONAVES") || carrier.includes("TEX CARGO") || carrier.includes("ENVIA") || carrier.includes("SUDOESTE")) {
+        currentCarrierLogo.value = "white"; // Logos brancas pedem fundo preto
+    } else {
+        currentCarrierLogo.value = "dark"; // Logos escuras pedem fundo branco
+    }
+};
+
+const onPdfLoaded = () => {
+    isPdfLoading.value = false;
 };
 
 const downloadXml = async (auditId) => {
@@ -606,6 +669,7 @@ onMounted(() => {
 }
 
 .btn-action.success { background: #10b981; color: white; }
+.btn-action.primary { background: var(--primary); color: white; }
 .btn-action.info { background: #f1f5f9; color: var(--primary); }
 .btn-action.secondary { background: #f1f5f9; color: var(--text-muted); }
 
@@ -613,6 +677,26 @@ onMounted(() => {
   transform: scale(1.1);
   filter: brightness(0.9);
 }
+
+/* PDF Preview Modal */
+.pdf-modal { background: rgba(0,0,0,0.85); z-index: 10000; }
+.pdf-container { width: 95%; height: 90vh; max-width: 1000px; border-radius: 20px; display: flex; flex-direction: column; overflow: hidden; }
+.pdf-container.bg-black { background: #111; color: white; }
+.pdf-container.bg-white { background: #fff; color: #111; }
+
+.pdf-header { padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(128,128,128,0.2); }
+.pdf-titles h3 { margin: 0; font-size: 1.2rem; font-weight: 850; color: inherit; }
+.pdf-titles p { margin: 0; font-size: 0.8rem; opacity: 0.7; }
+
+.btn-close-pdf { background: none; border: none; font-size: 2rem; color: inherit; cursor: pointer; opacity: 0.6; transition: 0.2s; }
+.btn-close-pdf:hover { opacity: 1; transform: rotate(90deg); }
+
+.pdf-content { flex: 1; position: relative; }
+.pdf-frame { width: 100%; height: 100%; }
+.pdf-loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: inherit; z-index: 10; }
+
+.spinner-blue { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; margin: 0 auto 15px; animation: spin-alt 1s linear infinite; }
+@keyframes spin-alt { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
 /* Empty State */
 .empty-state-lux {

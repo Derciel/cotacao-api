@@ -222,18 +222,27 @@ export class SiegService {
     
     // 1. CT-e referenciando NF-e (Chave de 44 dígitos)
     const infNFe = cte.infCTeNorm?.infDoc?.infNFe;
+    const processNfeKey = (key: string) => {
+      if (key && key.length === 44) {
+        // O número da NF-e fica nas posições 26 a 34 da chave de 44 dígitos
+        const nfFromKey = key.substring(25, 34).replace(/^0+/, '');
+        if (nfFromKey) chaves.push(nfFromKey);
+      }
+      if (key) chaves.push(String(key));
+    };
+
     if (Array.isArray(infNFe)) {
-      infNFe.forEach(nfe => nfe.chave && chaves.push(String(nfe.chave)));
+      infNFe.forEach(nfe => nfe.chave && processNfeKey(String(nfe.chave)));
     } else if (infNFe?.chave) {
-      chaves.push(String(infNFe.chave));
+      processNfeKey(String(infNFe.chave));
     }
 
     // 2. CT-e referenciando NF manual (Número do documento)
     const infNF = cte.infCTeNorm?.infDoc?.infNF;
     if (Array.isArray(infNF)) {
-      infNF.forEach(nf => nf.nDoc && chaves.push(String(nf.nDoc)));
+      infNF.forEach(nf => nf.nDoc && chaves.push(String(nf.nDoc).replace(/^0+/, '')));
     } else if (infNF?.nDoc) {
-      chaves.push(String(infNF.nDoc));
+      chaves.push(String(infNF.nDoc).replace(/^0+/, ''));
     }
 
     return chaves;
