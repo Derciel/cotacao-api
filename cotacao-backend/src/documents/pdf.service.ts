@@ -48,6 +48,7 @@ export class PdfService {
 
     let totalVol = 0, totalWeight = 0;
     cleaned.items?.forEach((item: any) => {
+      item.quantidade = Number(item.quantidade); // Remove trailing zeros (4 casas) from database
       if (item.product?.unidades_caixa > 0) {
         const caixas = item.quantidade / item.product.unidades_caixa;
         totalVol += caixas;
@@ -102,6 +103,9 @@ export class PdfService {
   private _registerHandlebarsHelpers(): void {
     handlebars.registerHelper('formatCurrency', (v) =>
       new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0));
+
+    handlebars.registerHelper('formatUnitValue', (v) =>
+      new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 5, maximumFractionDigits: 5 }).format(v || 0));
 
     handlebars.registerHelper('calculateVolume', (u, q) => (u > 0 ? (q / u).toFixed(0) : '0'));
     handlebars.registerHelper('calculateWeight', (p, q, u) => (u > 0 ? ((q / u) * p).toFixed(2) : '0.00'));

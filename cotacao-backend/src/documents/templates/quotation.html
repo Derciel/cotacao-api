@@ -188,7 +188,7 @@
                     <td class="text-center">{{calculateWeight this.product.peso_caixa_kg this.quantidade
                         this.product.unidades_caixa}}</td>
                     <td class="text-center">{{this.product.medida_cm}}</td>
-                    <td class="text-right">{{formatCurrency this.valor_unitario_na_cotacao}}</td>
+                    <td class="text-right">{{formatUnitValue this.valor_unitario_na_cotacao}}</td>
                     <td class="text-right">{{formatCurrency this.valor_total_item}}</td>
                 </tr>
                 {{/each}}

@@ -26,8 +26,8 @@ export class QuotationItem {
 
   @Column({
     type: 'numeric',
-    precision: 10,
-    scale: 4,
+    precision: 12,
+    scale: 5,
     comment: 'Valor unitário do produto no momento da cotação.',
   })
   valor_unitario_na_cotacao!: number;
