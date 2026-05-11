@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import archiver from 'archiver';
-import { Stream } from 'node:stream';
+import { PassThrough } from 'node:stream';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, MoreThanOrEqual } from 'typeorm';
 import { Quotation, QuotationStatus, EmpresaFaturamento } from './entities/quotation.entity.js';
@@ -611,10 +611,10 @@ export class QuotationsService {
 
   async generateZipBuffer(quotationIds: number[]): Promise<Buffer> {
     return new Promise(async (resolve, reject) => {
-      const archive = archiver.create('zip', { zlib: { level: 9 } });
+      const archive = archiver('zip', { zlib: { level: 9 } });
       const chunks: Buffer[] = [];
       
-      const stream = new Stream.PassThrough();
+      const stream = new PassThrough();
       stream.on('data', chunk => chunks.push(chunk));
       stream.on('end', () => resolve(Buffer.concat(chunks)));
       stream.on('error', reject);
