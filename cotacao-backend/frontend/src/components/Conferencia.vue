@@ -196,6 +196,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { getAuthenticatedBlobUrl } from '../utils/api-utils';
 
 const audits = ref([]);
 const summary = ref(null);
@@ -283,11 +284,19 @@ const openPdfPreview = (quotation) => {
         if (window.showToast) window.showToast('Dados da cotação não encontrados para este audit', 'warning');
         return;
     }
-    const token = getAuthToken();
-    const url = `/api/quotations/${quotation.id}/pdf?token=${token}`;
-    pdfPreviewUrl.value = url;
+    const url = `/api/quotations/${quotation.id}/pdf`;
+    
     isPdfLoading.value = true;
     isPdfPreviewOpen.value = true;
+
+    try {
+        const blobUrl = await getAuthenticatedBlobUrl(url);
+        pdfPreviewUrl.value = blobUrl;
+    } catch (e) {
+        console.error(e);
+        if (window.showToast) window.showToast('Erro ao carregar PDF', 'error');
+        isPdfPreviewOpen.value = false;
+    }
     
     // Identifica a transportadora para o fundo adaptativo
     const carrier = quotation.transportadora_escolhida?.toUpperCase() || "";

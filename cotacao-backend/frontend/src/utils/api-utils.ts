@@ -93,3 +93,15 @@ export const downloadAuthenticated = async (url: string, filename?: string) => {
         return false;
     }
 };
+export const getAuthenticatedBlobUrl = async (url: string) => {
+    const token = getAuthToken();
+    const headers = new Headers();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    headers.set('ngrok-skip-browser-warning', '69420');
+
+    const res = await fetch(getBackendUrl() + url, { headers });
+    if (!res.ok) throw new Error('Erro ao carregar arquivo');
+
+    const blob = await res.blob();
+    return window.URL.createObjectURL(blob);
+};

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { safeFetch, getAuthToken } from '../utils/api-utils';
+import { safeFetch, getAuthToken, getAuthenticatedBlobUrl } from '../utils/api-utils';
 
 const quotations = ref<any[]>([]);
 const isLoading = ref(true);
@@ -173,11 +173,20 @@ const getPdfLink = (id: number) => {
     return `/api/quotations/${id}/pdf?token=${token}`;
 };
 
-const openPdfPreview = (item: any) => {
-    const url = getPdfLink(item.id);
-    pdfPreviewUrl.value = url;
+const openPdfPreview = async (item: any) => {
+    const url = `/api/quotations/${item.id}/pdf`;
+    
     isPdfLoading.value = true;
     isPdfPreviewOpen.value = true;
+
+    try {
+        const blobUrl = await getAuthenticatedBlobUrl(url);
+        pdfPreviewUrl.value = blobUrl;
+    } catch (e) {
+        console.error(e);
+        window.showToast('Erro ao carregar PDF', 'error');
+        isPdfPreviewOpen.value = false;
+    }
     
     // Identifica a transportadora para o fundo adaptativo
     const carrier = item.transportadora_escolhida?.toUpperCase() || "";
