@@ -1,6 +1,7 @@
+import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { AppModule } from './app.module.js'; // Adicionado .js
+import { AppModule } from './app.module.js';
 import { Logger } from '@nestjs/common';
 
 async function bootstrap() {
@@ -25,7 +26,6 @@ async function bootstrap() {
   SwaggerModule.setup('api-docs', app, document);
 
   const port = process.env.PORT || 3000;
-  // Escutando em 0.0.0.0 para o Render
   await app.listen(port, '0.0.0.0');
 
   logger.log(`Aplicação rodando em: http://0.0.0.0:${port}/api-docs`);
