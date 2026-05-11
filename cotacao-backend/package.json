@@ -16,6 +16,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@nestjs/axios": "^4.0.1",
+    "@nestjs/cli": "^11.0.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -44,7 +45,6 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
     "@types/archiver": "^7.0.0",
