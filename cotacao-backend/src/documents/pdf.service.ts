@@ -6,13 +6,15 @@ import handlebars from 'handlebars';
 import { QuotationsService } from '../quotations/quotations.service.js';
 import { Quotation, EmpresaFaturamento } from '../quotations/entities/quotation.entity.js';
 
+type QuotationsServicePort = Pick<QuotationsService, 'findOne' | 'isFreightExempt'>;
+
 @Injectable()
 export class PdfService {
   private readonly templatePath: string;
 
   constructor(
     @Inject(forwardRef(() => QuotationsService))
-    private readonly quotationsService: QuotationsService
+    private readonly quotationsService: QuotationsServicePort
   ) {
     this.templatePath = path.resolve(process.cwd(), 'src/documents/templates/quotation.html');
     this._registerHandlebarsHelpers();

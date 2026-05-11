@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
-import archiver from 'archiver';
+import type archiver from 'archiver';
 import { PassThrough } from 'node:stream';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, MoreThanOrEqual } from 'typeorm';
@@ -14,6 +14,8 @@ import { Client } from '../clients/entities/client.entity.js';
 import { PdfService } from '../documents/pdf.service.js';
 import { FrenetService } from '../freight/frenet.service.js';
 
+type PdfServicePort = Pick<PdfService, 'generateQuotationPdf'>;
+
 @Injectable()
 export class QuotationsService {
   constructor(
@@ -27,7 +29,7 @@ export class QuotationsService {
     private clientRepository: Repository<Client>,
     private dataSource: DataSource,
     @Inject(forwardRef(() => PdfService))
-    private pdfService: PdfService,
+    private pdfService: PdfServicePort,
     private frenetService: FrenetService,
   ) { }
 
@@ -611,7 +613,11 @@ export class QuotationsService {
 
   async generateZipBuffer(quotationIds: number[]): Promise<Buffer> {
     return new Promise(async (resolve, reject) => {
-      const archive = archiver('zip', { zlib: { level: 9 } });
+      type ZipArchiveConstructor = new (options?: archiver.ArchiverOptions) => archiver.Archiver;
+      const { ZipArchive } = await import('archiver') as unknown as {
+        ZipArchive: ZipArchiveConstructor;
+      };
+      const archive = new ZipArchive({ zlib: { level: 9 } });
       const chunks: Buffer[] = [];
       
       const stream = new PassThrough();
