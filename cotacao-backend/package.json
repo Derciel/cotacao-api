@@ -3,8 +3,9 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
+    "prebuild": "npm install --include=dev --no-audit --no-fund",
     "build": "tsc -p tsconfig.build.json",
-    "build:frontend": "npm install --prefix frontend && npm run build --prefix frontend",
+    "build:frontend": "npm install --include=dev --no-audit --no-fund --prefix frontend && npm run build --prefix frontend",
     "build:all": "npm run build:frontend && npm run build",
     "dev": "npm run start:dev",
     "build:dev": "tsc -p tsconfig.build.json --watch",
