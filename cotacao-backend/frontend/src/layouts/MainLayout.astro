@@ -118,6 +118,7 @@ const { title, hideNavbar = false } = Astro.props;
       if (token) {
         headers.set('Authorization', 'Bearer ' + token);
       }
+      headers.set('ngrok-skip-browser-warning', '69420');
 
       const finalOptions = Object.assign({}, options, { headers: headers });
       const apiUrl = window.PUBLIC_API_URL + url;
