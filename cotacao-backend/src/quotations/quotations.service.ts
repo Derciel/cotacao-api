@@ -557,7 +557,7 @@ export class QuotationsService {
     return Array.from(groupsMap.values());
   }
   async createBatch(batchDto: BatchQuotationDto, user: any) {
-    const results = [];
+    const results: any[] = [];
     
     for (const req of batchDto.requests) {
       try {
@@ -594,8 +594,7 @@ export class QuotationsService {
           await this.finalize(quotation.id, {
             transportadoraEscolhida: bestOption.carrier,
             valorFrete: bestOption.price,
-            diasParaEntrega: bestOption.deadline,
-            status: QuotationStatus.APROVADO
+            diasParaEntrega: bestOption.deadline
           });
           results.push({ id: quotation.id, status: 'SUCCESS', client: client.razao_social, carrier: bestOption.carrier });
         } else {
