@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import * as archiver from 'archiver';
+import { Stream } from 'stream';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, MoreThanOrEqual } from 'typeorm';
 import { Quotation, QuotationStatus, EmpresaFaturamento } from './entities/quotation.entity.js';
@@ -7,6 +9,10 @@ import { QuotationItem } from './entities/quotation-item.entity.js';
 import { CreateQuotationDto } from './dto/create-quotation.dto.js';
 import { FinalizeQuotationDto } from './dto/finalize-quotation.dto.js';
 import { Product } from '../products/entities/product.entity.js';
+import { BatchQuotationDto } from './dto/batch-quotation.dto.js';
+import { Client } from '../clients/entities/client.entity.js';
+import { PdfService } from '../documents/pdf.service.js';
+import { FrenetService } from '../freight/frenet.service.js';
 
 @Injectable()
 export class QuotationsService {
@@ -17,7 +23,11 @@ export class QuotationsService {
     private itemRepository: Repository<QuotationItem>,
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
+    @InjectRepository(Client)
+    private clientRepository: Repository<Client>,
     private dataSource: DataSource,
+    private pdfService: PdfService,
+    private frenetService: FrenetService,
   ) { }
 
   async create(createDto: CreateQuotationDto, user?: any): Promise<Quotation> {
@@ -545,5 +555,82 @@ export class QuotationsService {
     });
 
     return Array.from(groupsMap.values());
+  }
+  async createBatch(batchDto: BatchQuotationDto, user: any) {
+    const results = [];
+    
+    for (const req of batchDto.requests) {
+      try {
+        // 1. Encontrar ou buscar cliente por CNPJ
+        let client = await this.clientRepository.findOne({ where: { cnpj: req.cnpj.replace(/\D/g, '') } });
+        
+        if (!client) {
+          // Se não achar, tenta buscar na Brasil API ou algo do tipo? 
+          // Por simplicidade, vamos assumir que o frontend já validou ou vamos jogar erro
+          // Na verdade, podemos usar o repositório para salvar um "Pendente" ou buscar
+          throw new Error(`Cliente com CNPJ ${req.cnpj} não encontrado. Cadastre-o primeiro.`);
+        }
+
+        // 2. Criar Cotação Base
+        const quotation = await this.create({
+          clientId: client.id,
+          originCep: req.originCep || '86087350',
+          destCep: client.cep,
+          empresaFaturamento: (req.empresaFaturamento as any) || EmpresaFaturamento.NICOPEL,
+          items: req.items,
+          isTest: false
+        }, user);
+
+        // 3. Calcular Fretes
+        const options = await this.frenetService.calculateForQuotation(quotation.id);
+        
+        // 4. Escolher o melhor (mais barato > 0)
+        const bestOption = options
+          .filter(o => o.price > 0 && o.recommendation !== 'manual_quote')
+          .sort((a, b) => a.price - b.price)[0];
+
+        if (bestOption) {
+          // 5. Finalizar
+          await this.finalize(quotation.id, {
+            transportadoraEscolhida: bestOption.carrier,
+            valorFrete: bestOption.price,
+            diasParaEntrega: bestOption.deadline,
+            status: QuotationStatus.APROVADO
+          });
+          results.push({ id: quotation.id, status: 'SUCCESS', client: client.razao_social, carrier: bestOption.carrier });
+        } else {
+          results.push({ id: quotation.id, status: 'MANUAL_REQUIRED', client: client.razao_social, message: 'Nenhuma transportadora automática disponível' });
+        }
+      } catch (e: any) {
+        results.push({ cnpj: req.cnpj, status: 'ERROR', message: e.message });
+      }
+    }
+    
+    return results;
+  }
+
+  async generateZipBuffer(quotationIds: number[]): Promise<Buffer> {
+    return new Promise(async (resolve, reject) => {
+      const archive = archiver.create('zip', { zlib: { level: 9 } });
+      const chunks: Buffer[] = [];
+      
+      const stream = new Stream.PassThrough();
+      stream.on('data', chunk => chunks.push(chunk));
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+      stream.on('error', reject);
+      
+      archive.pipe(stream);
+      
+      for (const id of quotationIds) {
+        try {
+          const pdfBuffer = await this.pdfService.generateQuotationPdf(id);
+          archive.append(pdfBuffer, { name: `orcamento-${id}.pdf` });
+        } catch (e) {
+          console.error(`Erro ao gerar PDF para cotação ${id} no ZIP:`, e);
+        }
+      }
+      
+      await archive.finalize();
+    });
   }
 }

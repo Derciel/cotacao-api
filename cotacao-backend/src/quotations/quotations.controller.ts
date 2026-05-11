@@ -8,6 +8,7 @@ import { PdfService } from '../documents/pdf.service.js';
 
 import { CreateQuotationDto } from './dto/create-quotation.dto.js';
 import { FinalizeQuotationDto } from './dto/finalize-quotation.dto.js';
+import { BatchQuotationDto } from './dto/batch-quotation.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 
 /**
@@ -115,6 +116,30 @@ export class QuotationsController {
   @ApiOperation({ summary: 'Atualiza campos genéricos de uma cotação' })
   update(@Param('id') id: string, @Body() updateDto: any) {
     return this.quotationsService.update(+id, updateDto);
+  }
+
+  @Post('batch')
+  @ApiOperation({ summary: 'Cria várias cotações em lote e escolhe o melhor envio automaticamente' })
+  batchCreate(@Body() batchDto: BatchQuotationDto, @Req() req: any) {
+    return this.quotationsService.createBatch(batchDto, req.user);
+  }
+
+  @Post('batch/zip')
+  @ApiOperation({ summary: 'Gera um arquivo ZIP com os PDFs das cotações informadas' })
+  async downloadZip(@Body('ids') ids: number[], @Res() res: Response) {
+    if (!ids || ids.length === 0) {
+      return res.status(400).send('Nenhum ID informado.');
+    }
+    
+    const zipBuffer = await this.quotationsService.generateZipBuffer(ids);
+    
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Length': zipBuffer.length,
+      'Content-Disposition': 'attachment; filename=cotacoes-em-lote.zip',
+    });
+    
+    res.end(zipBuffer);
   }
 
   @Delete(':id')
