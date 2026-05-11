@@ -4,6 +4,8 @@ import '../styles/global.css';
 
 const { pathname } = Astro.url;
 const { title, hideNavbar = false } = Astro.props;
+
+const publicApiUrl = import.meta.env.PUBLIC_API_URL || 'https://cotacao.nicopel.com.br';
 ---
 
 <!DOCTYPE html>
@@ -106,9 +108,9 @@ const { title, hideNavbar = false } = Astro.props;
 
   <div id="toast-container"></div>
 
-  <script is:inline>
+  <script is:inline define:vars={{ publicApiUrl }}>
     // Configuração de URL Base e Busca Autenticada Global
-    window.PUBLIC_API_URL = 'https://cotacao.nicopel.com.br';
+    window.PUBLIC_API_URL = publicApiUrl;
     
     window.safeFetch = async function(url, options) {
       options = options || {};
