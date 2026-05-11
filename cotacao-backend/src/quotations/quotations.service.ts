@@ -95,6 +95,8 @@ export class QuotationsService {
         if (quotation.empresa_faturamento === EmpresaFaturamento.FLEXOBOX || 
             quotation.empresa_faturamento === EmpresaFaturamento.L_LOG) {
           aliquotaResult = 0;
+        } else if (canEditIpi && item.percentualIpi !== undefined) {
+          aliquotaResult = item.percentualIpi;
         } else if (canEditIpi && createDto.percentualIpi !== undefined) {
           aliquotaResult = createDto.percentualIpi;
         } else if (quotation.empresa_faturamento === EmpresaFaturamento.NICOPEL) {
@@ -594,14 +596,34 @@ export class QuotationsService {
 
         if (bestOption) {
           // 5. Finalizar
-          await this.finalize(quotation.id, {
+          const finalized = await this.finalize(quotation.id, {
             transportadoraEscolhida: bestOption.carrier,
             valorFrete: bestOption.price,
             diasParaEntrega: bestOption.deadline
           });
-          results.push({ id: quotation.id, status: 'SUCCESS', client: client.razao_social, carrier: bestOption.carrier });
+          results.push({
+            id: quotation.id,
+            cnpj: req.cnpj,
+            status: 'SUCCESS',
+            client: client.razao_social,
+            carrier: bestOption.carrier,
+            valorProdutos: Number(finalized.valor_total_produtos || 0),
+            valorIpi: Number(finalized.valor_ipi || 0),
+            valorFrete: Number(finalized.valor_frete || 0),
+            valorTotalNota: Number(finalized.valor_total_nota || 0)
+          });
         } else {
-          results.push({ id: quotation.id, status: 'MANUAL_REQUIRED', client: client.razao_social, message: 'Nenhuma transportadora automática disponível' });
+          results.push({
+            id: quotation.id,
+            cnpj: req.cnpj,
+            status: 'MANUAL_REQUIRED',
+            client: client.razao_social,
+            message: 'Nenhuma transportadora automática disponível',
+            valorProdutos: Number(quotation.valor_total_produtos || 0),
+            valorIpi: Number(quotation.valor_ipi || 0),
+            valorFrete: 0,
+            valorTotalNota: Number(quotation.valor_total_nota || 0)
+          });
         }
       } catch (e: any) {
         results.push({ cnpj: req.cnpj, status: 'ERROR', message: e.message });

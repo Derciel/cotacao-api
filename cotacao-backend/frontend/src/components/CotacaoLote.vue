@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue';
+import { ref, computed } from 'vue';
 import { safeFetch } from '../utils/api-utils';
 
 interface BatchResult {
@@ -7,8 +7,21 @@ interface BatchResult {
     cnpj?: string;
     client?: string;
     carrier?: string;
+    valorProdutos?: number;
+    valorIpi?: number;
+    valorFrete?: number;
+    valorTotalNota?: number;
     status: 'SUCCESS' | 'ERROR' | 'MANUAL_REQUIRED';
     message?: string;
+}
+
+interface BatchProduct {
+    productId: number;
+    nome: string;
+    quantidade: number;
+    valorUnitario: number;
+    ipi: number;
+    total: number;
 }
 
 const cnpjs = ref("");
@@ -17,8 +30,21 @@ const results = ref<BatchResult[]>([]);
 const isProductModalOpen = ref(false);
 const productSearch = ref("");
 const productList = ref<any[]>([]);
-const selectedProducts = ref<any[]>([]);
+const selectedProducts = ref<BatchProduct[]>([]);
 const isSearching = ref(false);
+const isAdmin = computed(() => {
+    try {
+        const raw = localStorage.getItem('user_info');
+        return raw ? JSON.parse(raw).role === 'ADMIN' : false;
+    } catch {
+        return false;
+    }
+});
+
+const cnpjList = computed(() => cnpjs.value.split('\n').map(c => c.trim()).filter(c => c.length > 0));
+const cnpjCount = computed(() => cnpjList.value.length);
+const totalPedido = computed(() => selectedProducts.value.reduce((acc, item) => acc + item.total, 0));
+const totalLote = computed(() => totalPedido.value * cnpjCount.value);
 
 const addProduct = () => {
     isProductModalOpen.value = true;
@@ -41,12 +67,16 @@ const fetchProducts = async (term: string) => {
 };
 
 const selectProduct = (p: any) => {
-    selectedProducts.value.push({
+    const item: BatchProduct = {
         productId: p.id,
         nome: p.nome,
         quantidade: 1,
-        valorUnitario: p.valor_unitario
-    });
+        valorUnitario: Number(p.valor_unitario) || 0,
+        ipi: getDefaultIpi(p),
+        total: 0
+    };
+    selectedProducts.value.push(item);
+    calcRow(selectedProducts.value.length - 1);
     isProductModalOpen.value = false;
 };
 
@@ -54,10 +84,31 @@ const removeProduct = (idx: number) => {
     selectedProducts.value.splice(idx, 1);
 };
 
+const getDefaultIpi = (p: any) => {
+    const nome = String(p.nome || '').toUpperCase();
+    const categoria = String(p.categoria || '').toUpperCase();
+
+    if (nome.includes('SERIGRAFIA') || nome.includes('TAMPA')) return 0;
+    if (categoria === 'POTE' || nome.includes('POTE') || nome.includes('COPO')) return 6.75;
+    return 3.25;
+};
+
+const calcRow = (idx: number) => {
+    const item = selectedProducts.value[idx];
+    if (!item) return;
+
+    const quantidade = Number(item.quantidade) || 0;
+    const valorUnitario = Number(item.valorUnitario) || 0;
+    const ipi = Number(item.ipi) || 0;
+    const baseTotal = quantidade * valorUnitario;
+    item.total = Number((baseTotal + (baseTotal * (ipi / 100))).toFixed(2));
+};
+
 const processBatch = async () => {
-    const list = cnpjs.value.split('\n').map(c => c.trim()).filter(c => c.length > 0);
+    const list = cnpjList.value;
     if (list.length === 0) return window.showToast("Insira ao menos um CNPJ.", "warning");
     if (selectedProducts.value.length === 0) return window.showToast("Selecione ao menos um produto.", "warning");
+    if (totalPedido.value <= 0) return window.showToast("Informe quantidade e valor unitário dos produtos.", "warning");
 
     isProcessing.value = true;
     results.value = [];
@@ -68,8 +119,9 @@ const processBatch = async () => {
                 cnpj: cnpj.replace(/\D/g, ''),
                 items: selectedProducts.value.map(p => ({
                     productId: p.productId,
-                    quantidade: p.quantidade,
-                    valorUnitario: p.valorUnitario
+                    quantidade: Number(p.quantidade) || 0,
+                    valorUnitario: (Number(p.valorUnitario) || 0) * (1 + ((Number(p.ipi) || 0) / 100)),
+                    percentualIpi: Number(p.ipi) || 0
                 }))
             }))
         };
@@ -123,6 +175,7 @@ const downloadZip = async () => {
 };
 
 const formatCNPJ = (v: string) => v?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') || v;
+const formatCurrency = (val?: number) => Number(val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 </script>
 
@@ -144,24 +197,74 @@ const formatCNPJ = (v: string) => v?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2
                     ></textarea>
                 </div>
 
-                <div class="product-section">
-                    <label class="section-label">2. Produtos do Lote</label>
-                    <div class="selected-products">
-                        <div v-for="(p, idx) in selectedProducts" :key="idx" class="product-item">
-                            <div class="p-info">
-                                <strong>{{ p.nome }}</strong>
-                                <div class="p-controls">
-                                    <input type="number" v-model="p.quantidade" class="mini-input" title="Quantidade">
-                                    <span>un</span>
-                                </div>
-                            </div>
-                            <button @click="removeProduct(idx)" class="btn-remove-p">×</button>
+                <div class="summary-panel">
+                    <label class="section-label">Resumo do lote</label>
+                    <div class="summary-grid">
+                        <div class="summary-card">
+                            <span>CNPJs</span>
+                            <strong>{{ cnpjCount }}</strong>
                         </div>
-                        <button @click="addProduct" class="btn-add-p">
-                            <i class="fas fa-plus"></i>
-                            <span>Adicionar Produto</span>
-                        </button>
+                        <div class="summary-card">
+                            <span>Produtos</span>
+                            <strong>{{ selectedProducts.length }}</strong>
+                        </div>
+                        <div class="summary-card wide">
+                            <span>Total por pedido</span>
+                            <strong>{{ formatCurrency(totalPedido) }}</strong>
+                        </div>
+                        <div class="summary-card wide accent">
+                            <span>Saldo total do lote</span>
+                            <strong>{{ formatCurrency(totalLote) }}</strong>
+                        </div>
                     </div>
+                </div>
+            </div>
+
+            <div class="product-section mt-20">
+                <div class="section-heading">
+                    <label class="section-label">2. Produtos do lote</label>
+                    <button @click="addProduct" class="btn-add-p compact">
+                        <i class="fas fa-plus"></i>
+                        <span>Adicionar Produto</span>
+                    </button>
+                </div>
+
+                <div class="table-scroll">
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th width="38%">Produto</th>
+                                <th width="13%">Quantidade</th>
+                                <th width="17%">Valor Unitário</th>
+                                <th width="12%">IPI %</th>
+                                <th width="16%">Valor Total</th>
+                                <th width="4%"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-if="selectedProducts.length === 0">
+                                <td colspan="6" class="empty-row">Nenhum produto adicionado.</td>
+                            </tr>
+                            <tr v-for="(p, idx) in selectedProducts" :key="`${p.productId}-${idx}`">
+                                <td>
+                                    <div class="product-name">{{ p.nome }}</div>
+                                </td>
+                                <td>
+                                    <input type="number" min="0" step="1" v-model.number="p.quantidade" @input="calcRow(idx)" class="table-input center">
+                                </td>
+                                <td>
+                                    <input type="number" min="0" step="0.01" v-model.number="p.valorUnitario" @input="calcRow(idx)" class="table-input money">
+                                </td>
+                                <td>
+                                    <input type="number" min="0" step="0.01" v-model.number="p.ipi" @input="calcRow(idx)" :readonly="!isAdmin" :class="['table-input', 'center', { locked: !isAdmin }]">
+                                </td>
+                                <td class="total-col">{{ formatCurrency(p.total) }}</td>
+                                <td>
+                                    <button @click="removeProduct(idx)" class="btn-remove-p" title="Remover produto">×</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -188,6 +291,8 @@ const formatCNPJ = (v: string) => v?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2
                             <th>CNPJ / CLIENTE</th>
                             <th>STATUS</th>
                             <th>MELHOR ENVIO</th>
+                            <th>FRETE</th>
+                            <th>TOTAL PEDIDO</th>
                             <th>MENSAGEM</th>
                         </tr>
                     </thead>
@@ -201,6 +306,8 @@ const formatCNPJ = (v: string) => v?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2
                                 <span class="status-badge" :class="r.status">{{ r.status }}</span>
                             </td>
                             <td>{{ r.carrier || '---' }}</td>
+                            <td>{{ r.valorFrete !== undefined ? formatCurrency(r.valorFrete) : '---' }}</td>
+                            <td><strong>{{ r.valorTotalNota !== undefined ? formatCurrency(r.valorTotalNota) : formatCurrency(totalPedido) }}</strong></td>
                             <td><small>{{ r.message || '-' }}</small></td>
                         </tr>
                     </tbody>
@@ -285,6 +392,73 @@ const formatCNPJ = (v: string) => v?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2
 .input-section,
 .product-section {
     min-width: 0;
+}
+
+.product-section {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 18px;
+}
+
+.summary-panel {
+    min-width: 0;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.summary-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+    min-height: 86px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 7px;
+}
+
+.summary-card span {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.summary-card strong {
+    color: var(--text-main);
+    font-size: 1.35rem;
+    font-weight: 900;
+}
+
+.summary-card.wide {
+    grid-column: span 2;
+}
+
+.summary-card.accent {
+    border-color: rgba(0, 74, 153, 0.24);
+    background: rgba(0, 74, 153, 0.06);
+}
+
+.summary-card.accent strong {
+    color: var(--primary);
+}
+
+.section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.section-heading .section-label {
+    margin-bottom: 0;
 }
 
 .section-label {
@@ -410,6 +584,14 @@ const formatCNPJ = (v: string) => v?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2
     transition: 0.3s;
 }
 
+.btn-add-p.compact {
+    width: auto;
+    min-height: 40px;
+    margin-top: 0;
+    padding: 9px 14px;
+    background: var(--bg-surface);
+}
+
 .btn-add-p:hover {
     background: var(--bg-surface);
     border-color: var(--primary);
@@ -488,6 +670,85 @@ const formatCNPJ = (v: string) => v?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2
 .btn-zip:hover {
     background: #047857;
     transform: translateY(-1px);
+}
+
+.table-scroll {
+    overflow-x: auto;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+}
+
+.items-table {
+    width: 100%;
+    min-width: 820px;
+    border-collapse: collapse;
+}
+
+.items-table th {
+    text-align: left;
+    padding: 14px 16px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-input);
+}
+
+.items-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.items-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.product-name {
+    font-weight: 850;
+    color: var(--text-main);
+    line-height: 1.35;
+}
+
+.table-input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    padding: 10px;
+    border-radius: 8px;
+    color: var(--text-main);
+    font-weight: 800;
+}
+
+.table-input:focus {
+    border-color: var(--primary);
+}
+
+.table-input.center {
+    text-align: center;
+}
+
+.table-input.money {
+    color: var(--primary);
+}
+
+.table-input.locked {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.total-col {
+    color: var(--text-main);
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.empty-row {
+    padding: 28px !important;
+    text-align: center;
+    color: var(--text-muted);
+    font-weight: 800;
 }
 
 .results-table-wrapper {
@@ -729,6 +990,19 @@ tr.ERROR { background: rgba(239, 68, 68, 0.02); }
     .btn-zip,
     .btn-giant {
         width: 100%;
+    }
+
+    .section-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .btn-add-p.compact {
+        width: 100%;
+    }
+
+    .summary-card strong {
+        font-size: 1.1rem;
     }
 
     .btn-giant {

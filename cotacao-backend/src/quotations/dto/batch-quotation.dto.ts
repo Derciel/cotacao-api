@@ -11,6 +11,10 @@ class BatchItemDto {
   @IsOptional()
   @IsNumber()
   valorUnitario?: number;
+
+  @IsOptional()
+  @IsNumber()
+  percentualIpi?: number;
 }
 
 class BatchRequestItemDto {

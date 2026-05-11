@@ -22,4 +22,13 @@ export class CreateQuotationItemDto {
   @IsOptional()
   valorUnitario?: number;
 
+  @ApiProperty({
+    description: 'Percentual de IPI específico do item.',
+    example: 3.25,
+    required: false
+  })
+  @IsNumber()
+  @IsOptional()
+  percentualIpi?: number;
+
 }
