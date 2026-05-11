@@ -4,12 +4,14 @@
     "workspaces": [
         "cotacao-backend"
     ],
-  "scripts": {
-    "build:all": "npm run build:all --workspace=cotacao-backend",
-    "dev": "npm run dev --workspace=cotacao-backend",
-    "start": "npm run start:prod --workspace=cotacao-backend",
-    "start:prod": "npm run start:prod --workspace=cotacao-backend"
-  },
+    "scripts": {
+        "build": "npm run build:all --workspace=cotacao-backend",
+        "build:all": "npm run build:all --workspace=cotacao-backend",
+        "dev": "npm run start:dev --workspace=cotacao-backend",
+        "start": "npm run start:prod --workspace=cotacao-backend",
+        "start:prod": "npm run start:prod --workspace=cotacao-backend",
+        "start:dev": "npm run start:dev --workspace=cotacao-backend"
+    },
     "dependencies": {
         "@nestjs/jwt": "^11.0.2",
         "@nestjs/passport": "^11.0.5",

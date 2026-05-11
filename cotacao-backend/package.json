@@ -3,15 +3,15 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "build": "nest build",
+    "build": "node_modules/.bin/nest build",
     "build:frontend": "npm install --prefix frontend && npm run build --prefix frontend",
     "build:all": "npm run build:frontend && npm run build",
     "dev": "npm run start:dev",
-    "start": "nest start",
-    "start:dev": "nest start --watch",
+    "start": "node_modules/.bin/nest start",
+    "start:dev": "node_modules/.bin/nest start --watch",
     "start:prod": "node dist/main.js",
     "typeorm": "node --loader ts-node/esm ./node_modules/typeorm/cli.js -d ./data-source.ts",
-    "postinstall": "npx puppeteer browsers install chrome --platform linux"
+    "postinstall": "node -e \"try{require('child_process').execSync('node_modules/.bin/puppeteer browsers install chrome --platform linux 2>/dev/null',{stdio:'pipe'})}catch(e){}\""
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
