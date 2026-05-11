@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import * as archiver from 'archiver';
-import { Stream } from 'stream';
+import { Stream } from 'node:stream';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, MoreThanOrEqual } from 'typeorm';
 import { Quotation, QuotationStatus, EmpresaFaturamento } from './entities/quotation.entity.js';
@@ -26,6 +26,7 @@ export class QuotationsService {
     @InjectRepository(Client)
     private clientRepository: Repository<Client>,
     private dataSource: DataSource,
+    @Inject(forwardRef(() => PdfService))
     private pdfService: PdfService,
     private frenetService: FrenetService,
   ) { }

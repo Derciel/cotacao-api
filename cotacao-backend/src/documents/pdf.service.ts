@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import puppeteer from 'puppeteer';
 import * as fs from 'fs/promises';
 import path from 'path';
@@ -10,7 +10,10 @@ import { Quotation, EmpresaFaturamento } from '../quotations/entities/quotation.
 export class PdfService {
   private readonly templatePath: string;
 
-  constructor(private readonly quotationsService: QuotationsService) {
+  constructor(
+    @Inject(forwardRef(() => QuotationsService))
+    private readonly quotationsService: QuotationsService
+  ) {
     this.templatePath = path.resolve(process.cwd(), 'src/documents/templates/quotation.html');
     this._registerHandlebarsHelpers();
   }
