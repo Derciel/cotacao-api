@@ -279,7 +279,7 @@ const getAuthToken = () => {
     return localStorage.getItem('auth_token');
 };
 
-const openPdfPreview = (quotation) => {
+const openPdfPreview = async (quotation) => {
     if (!quotation) {
         if (window.showToast) window.showToast('Dados da cotação não encontrados para este audit', 'warning');
         return;
