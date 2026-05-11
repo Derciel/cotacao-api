@@ -1,5 +1,5 @@
 export const getBackendUrl = () => {
-    return import.meta.env.PUBLIC_API_URL || 'https://cotacao.nicopel.com.br';
+    return import.meta.env.PUBLIC_API_URL || '';
 };
 
 export const getAuthToken = () => {
@@ -17,8 +17,8 @@ export const safeFetch = async (url: string, options: RequestInit = {}) => {
         headers.set('Authorization', `Bearer ${token}`);
     }
 
-    // Bypass da tela de aviso do Ngrok (impede o erro de CORS interceptado)
-    headers.set('ngrok-skip-browser-warning', '69420');
+
+
 
     const finalOptions = {
         ...options,
@@ -57,8 +57,8 @@ export const downloadAuthenticated = async (url: string, filename?: string) => {
     const headers = new Headers();
     if (token) headers.set('Authorization', `Bearer ${token}`);
     
-    // Bypass da tela de aviso do Ngrok
-    headers.set('ngrok-skip-browser-warning', '69420');
+
+
 
     try {
         const res = await fetch(getBackendUrl() + url, { headers });
@@ -97,7 +97,7 @@ export const getAuthenticatedBlobUrl = async (url: string) => {
     const token = getAuthToken();
     const headers = new Headers();
     if (token) headers.set('Authorization', `Bearer ${token}`);
-    headers.set('ngrok-skip-browser-warning', '69420');
+
 
     const res = await fetch(getBackendUrl() + url, { headers });
     if (!res.ok) throw new Error('Erro ao carregar arquivo');

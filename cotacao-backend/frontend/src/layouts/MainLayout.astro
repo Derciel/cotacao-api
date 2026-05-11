@@ -5,7 +5,7 @@ import '../styles/global.css';
 const { pathname } = Astro.url;
 const { title, hideNavbar = false } = Astro.props;
 
-const publicApiUrl = import.meta.env.PUBLIC_API_URL || 'https://cotacao.nicopel.com.br';
+const publicApiUrl = import.meta.env.PUBLIC_API_URL || '';
 ---
 
 <!DOCTYPE html>
@@ -120,7 +120,7 @@ const publicApiUrl = import.meta.env.PUBLIC_API_URL || 'https://cotacao.nicopel.
       if (token) {
         headers.set('Authorization', 'Bearer ' + token);
       }
-      headers.set('ngrok-skip-browser-warning', '69420');
+
 
       const finalOptions = Object.assign({}, options, { headers: headers });
       const apiUrl = window.PUBLIC_API_URL + url;
