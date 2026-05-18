@@ -66,29 +66,34 @@ const fetchCities = async () => {
 
     progress.value = { current: 0, total: results.value.length };
 
-    const batchSize = 10;
-    for (let i = 0; i < results.value.length; i += batchSize) {
-        const batch = results.value.slice(i, i + batchSize);
-        await Promise.all(batch.map(async (item) => {
-            item.status = 'LOADING';
-            try {
-                const resBrasil = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${item.cnpj}`);
-                if (!resBrasil.ok) throw new Error("CNPJ não encontrado");
-                
-                const dataBrasil = await resBrasil.json();
-                item.razaoSocial = dataBrasil.nome_fantasia || dataBrasil.razao_social;
-                item.cidade = dataBrasil.municipio;
-                item.uf = dataBrasil.uf;
-                item.cep = dataBrasil.cep;
-                item.status = 'READY';
-            } catch (err: any) {
-                item.status = 'ERROR';
-                item.message = err.message;
-            } finally {
-                progress.value.current++;
-            }
-        }));
-        if (i + batchSize < results.value.length) await delay(300);
+    // Execução sequencial para segurança máxima contra Rate Limits
+    for (let i = 0; i < results.value.length; i++) {
+        const item = results.value[i];
+        item.status = 'LOADING';
+        
+        try {
+            const resBrasil = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${item.cnpj}`);
+            
+            if (resBrasil.status === 429) throw new Error("Limite de requisições atingido");
+            if (!resBrasil.ok) throw new Error("CNPJ não encontrado");
+            
+            const dataBrasil = await resBrasil.json();
+            item.razaoSocial = dataBrasil.nome_fantasia || dataBrasil.razao_social;
+            item.cidade = dataBrasil.municipio;
+            item.uf = dataBrasil.uf;
+            item.cep = dataBrasil.cep;
+            item.status = 'READY';
+        } catch (err: any) {
+            item.status = 'ERROR';
+            item.message = err.message;
+        } finally {
+            progress.value.current++;
+        }
+        
+        // Pausa de 300ms entre requisições (Máx. de ~3 requisições por segundo na Brasil API)
+        if (i < results.value.length - 1) {
+            await delay(300);
+        }
     }
 
     isProcessingCities.value = false;
@@ -100,32 +105,35 @@ const calculatePrazos = async () => {
     const itemsToProcess = results.value.filter(r => r.status === 'READY');
     progress.value = { current: 0, total: itemsToProcess.length };
 
-    const batchSize = 5;
-    for (let i = 0; i < itemsToProcess.length; i += batchSize) {
-        const batch = itemsToProcess.slice(i, i + batchSize);
-        await Promise.all(batch.map(async (item) => {
-            item.status = 'LOADING';
-            try {
-                const resSimulate = await safeFetch('/api/freight/simulate', {
-                    method: 'POST',
-                    body: JSON.stringify({ cep: item.cep, cidade: item.cidade }),
-                    headers: { 'Content-Type': 'application/json' }
-                });
+    // Execução sequencial para Frenet e integrações
+    for (let i = 0; i < itemsToProcess.length; i++) {
+        const item = itemsToProcess[i];
+        item.status = 'LOADING';
+        
+        try {
+            const resSimulate = await safeFetch('/api/freight/simulate', {
+                method: 'POST',
+                body: JSON.stringify({ cep: item.cep, cidade: item.cidade }),
+                headers: { 'Content-Type': 'application/json' }
+            });
 
-                if (resSimulate.ok && Array.isArray(resSimulate.data)) {
-                    item.options = resSimulate.data;
-                    item.status = 'SUCCESS';
-                } else {
-                    throw new Error("Erro na simulação");
-                }
-            } catch (err: any) {
-                item.status = 'ERROR';
-                item.message = err.message;
-            } finally {
-                progress.value.current++;
+            if (resSimulate.ok && Array.isArray(resSimulate.data)) {
+                item.options = resSimulate.data;
+                item.status = 'SUCCESS';
+            } else {
+                throw new Error("Erro na simulação");
             }
-        }));
-        if (i + batchSize < itemsToProcess.length) await delay(200);
+        } catch (err: any) {
+            item.status = 'ERROR';
+            item.message = err.message;
+        } finally {
+            progress.value.current++;
+        }
+        
+        // Pausa de 400ms entre requisições (~2.5 requisições por segundo para não estourar a Frenet)
+        if (i < itemsToProcess.length - 1) {
+            await delay(400);
+        }
     }
 
     isProcessingPrazos.value = false;
