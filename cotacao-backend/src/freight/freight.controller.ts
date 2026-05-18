@@ -32,6 +32,48 @@ export class FreightController {
     return this.frenetService.simulateDeadline(body.cep, body.cidade);
   }
 
+  @Post('resolve-cnpj')
+  @ApiOperation({ summary: 'Buscar dados do cliente no banco ou API sem simular' })
+  async resolveCnpj(@Body() body: { cnpj: string }) {
+    if (!body.cnpj) throw new HttpException('CNPJ não informado', 400);
+    
+    const cleanCnpj = body.cnpj.replace(/\D/g, '');
+    let client = await this.clientRepository.findOne({ where: { cnpj: cleanCnpj } });
+    
+    if (!client) {
+      // Busca na Brasil API se não existir no banco
+      const res = await firstValueFrom(
+        this.httpService.get(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`)
+      ).catch((err) => {
+        if (err.response?.status === 429) throw new HttpException('RATE_LIMIT', 429);
+        return null;
+      });
+      
+      if (res && res.data) {
+        const d = res.data;
+        client = this.clientRepository.create({
+          cnpj: cleanCnpj,
+          razao_social: d.nome_fantasia || d.razao_social || 'Desconhecido',
+          fantasia: d.nome_fantasia || d.razao_social || '',
+          cep: (d.cep || '').replace(/\D/g, ''),
+          cidade: d.municipio || '',
+          estado: d.uf || '',
+          empresa_faturamento: 'NICOPEL'
+        });
+        await this.clientRepository.save(client);
+      } else {
+        throw new HttpException('CNPJ não encontrado na Brasil API', 404);
+      }
+    }
+
+    return {
+      cliente: client.razao_social || client.fantasia,
+      cidade: client.cidade,
+      uf: client.estado,
+      cep: client.cep
+    };
+  }
+
   @Post('simulate-cnpj')
   @ApiOperation({ summary: 'Simular prazo buscando no banco ou API' })
   async simulateCnpj(@Body() body: { cnpj: string }) {

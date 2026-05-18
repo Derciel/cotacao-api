@@ -15,10 +15,12 @@ interface PrazoResult {
         price: number;
         deadline: number;
     }[];
-}
-
 const cnpjs = ref("");
-const isProcessing = ref(false);
+const isProcessingCities = ref(false);
+const isProcessingPrazos = ref(false);
+const timeCities = ref(0);
+const timePrazos = ref(0);
+let timerInterval: any = null;
 const results = ref<PrazoResult[]>([]);
 const progress = ref({ current: 0, total: 0 });
 
@@ -47,16 +49,11 @@ const canCalculatePrazos = computed(() => results.value.some(r => r.status === '
 const getBestDeadline = (options: any[], uf: string) => {
     if (!options || options.length === 0) return '---';
     
-    const filterCorreiosUFs = ['AC', 'AP', 'AM', 'PA', 'RO', 'RR', 'TO', 'AL', 'BA', 'CE', 'MA', 'PB', 'PE', 'PI', 'RN', 'SE'];
-    let validOptions = [...options];
-    
-    if (filterCorreiosUFs.includes(uf?.toUpperCase())) {
-        validOptions = validOptions.filter(o => 
-            !o.carrier.toLowerCase().includes('correio') && 
-            !o.carrier.toLowerCase().includes('pac') && 
-            !o.carrier.toLowerCase().includes('sedex')
-        );
-    }
+    let validOptions = options.filter(o => 
+        !o.carrier.toLowerCase().includes('correio') && 
+        !o.carrier.toLowerCase().includes('pac') && 
+        !o.carrier.toLowerCase().includes('sedex')
+    );
     
     if (validOptions.length === 0) return 'Sem transp. disponível';
 
@@ -67,11 +64,21 @@ const getBestDeadline = (options: any[], uf: string) => {
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
-const processAll = async () => {
+const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+};
+
+const fetchCities = async () => {
     const list = cnpjList.value;
     if (list.length === 0) return window.showToast("Nenhum CNPJ válido encontrado no texto.", "warning");
 
-    isProcessing.value = true;
+    isProcessingCities.value = true;
+    timeCities.value = 0;
+    
+    timerInterval = setInterval(() => timeCities.value++, 1000);
+
     results.value = list.map(cnpj => ({
         cnpj: cnpj,
         razaoSocial: '---',
@@ -84,7 +91,6 @@ const processAll = async () => {
 
     progress.value = { current: 0, total: results.value.length };
 
-    // Execução sequencial chamando o backend (que verifica banco ou Brasil API)
     for (let i = 0; i < results.value.length; i++) {
         const item = results.value[i];
         item.status = 'LOADING';
@@ -94,7 +100,7 @@ const processAll = async () => {
         
         while (!success && retries > 0) {
             try {
-                const res = await safeFetch('/api/freight/simulate-cnpj', {
+                const res = await safeFetch('/api/freight/resolve-cnpj', {
                     method: 'POST',
                     body: JSON.stringify({ cnpj: item.cnpj }),
                     headers: { 'Content-Type': 'application/json' }
@@ -109,8 +115,7 @@ const processAll = async () => {
                     item.cidade = res.data.cidade || '---';
                     item.uf = res.data.uf || '---';
                     item.cep = res.data.cep || '---';
-                    item.options = res.data.options || [];
-                    item.status = 'SUCCESS';
+                    item.status = 'READY';
                     success = true;
                 } else {
                     throw new Error(res.data?.message || "Erro na consulta");
@@ -119,7 +124,7 @@ const processAll = async () => {
                 if (err.message === "RATE_LIMIT" || err.message.includes('fetch') || err.message.includes('Network')) {
                     retries--;
                     if (retries > 0) {
-                        await delay(2000); // Pausa longa antes de tentar novamente
+                        await delay(2000);
                         continue;
                     }
                     item.status = 'ERROR';
@@ -134,14 +139,75 @@ const processAll = async () => {
         
         progress.value.current++;
         
-        // Pausa de 400ms para evitar sobrecarga (2.5 req/s)
         if (i < results.value.length - 1) {
+            await delay(400); 
+        }
+    }
+
+    clearInterval(timerInterval);
+    isProcessingCities.value = false;
+    window.showToast(`Cidades buscadas em ${formatTime(timeCities.value)}!`, "success");
+};
+
+const calculatePrazos = async () => {
+    const itemsToProcess = results.value.filter(r => r.status === 'READY');
+    if (itemsToProcess.length === 0) return;
+
+    isProcessingPrazos.value = true;
+    timePrazos.value = 0;
+    progress.value = { current: 0, total: itemsToProcess.length };
+    
+    timerInterval = setInterval(() => timePrazos.value++, 1000);
+
+    for (let i = 0; i < itemsToProcess.length; i++) {
+        const item = itemsToProcess[i];
+        item.status = 'LOADING';
+        
+        let success = false;
+        let retries = 3;
+        
+        while (!success && retries > 0) {
+            try {
+                const res = await safeFetch('/api/freight/simulate', {
+                    method: 'POST',
+                    body: JSON.stringify({ cep: item.cep, cidade: item.cidade }),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (res.ok && Array.isArray(res.data)) {
+                    item.options = res.data;
+                    item.status = 'SUCCESS';
+                    success = true;
+                } else {
+                    throw new Error("Erro na simulação");
+                }
+            } catch (err: any) {
+                if (err.message.includes('fetch') || err.message.includes('Network')) {
+                    retries--;
+                    if (retries > 0) {
+                        await delay(2000);
+                        continue;
+                    }
+                    item.status = 'ERROR';
+                    item.message = "Erro de rede";
+                } else {
+                    item.status = 'ERROR';
+                    item.message = err.message;
+                    break;
+                }
+            }
+        }
+        
+        progress.value.current++;
+        
+        if (i < itemsToProcess.length - 1) {
             await delay(400);
         }
     }
 
-    isProcessing.value = false;
-    window.showToast("Processamento concluído!", "success");
+    clearInterval(timerInterval);
+    isProcessingPrazos.value = false;
+    window.showToast(`Prazos calculados em ${formatTime(timePrazos.value)}!`, "success");
 };
 
 const copyToClipboard = () => {
@@ -153,15 +219,11 @@ const copyToClipboard = () => {
         let bestCarrier = "---";
         
         if (r.options && r.options.length > 0) {
-            const filterCorreiosUFs = ['AC', 'AP', 'AM', 'PA', 'RO', 'RR', 'TO', 'AL', 'BA', 'CE', 'MA', 'PB', 'PE', 'PI', 'RN', 'SE'];
-            let validOptions = [...r.options];
-            if (filterCorreiosUFs.includes(r.uf?.toUpperCase())) {
-                validOptions = validOptions.filter(o => 
-                    !o.carrier.toLowerCase().includes('correio') && 
-                    !o.carrier.toLowerCase().includes('pac') && 
-                    !o.carrier.toLowerCase().includes('sedex')
-                );
-            }
+            let validOptions = r.options.filter(o => 
+                !o.carrier.toLowerCase().includes('correio') && 
+                !o.carrier.toLowerCase().includes('pac') && 
+                !o.carrier.toLowerCase().includes('sedex')
+            );
             if (validOptions.length > 0) {
                 const sorted = validOptions.sort((a, b) => a.deadline - b.deadline);
                 const best = sorted.find(o => o.deadline > 0) || sorted[0];
@@ -216,9 +278,14 @@ const formatCNPJ = (v: string) => v?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2
             </div>
 
             <div class="action-bar mt-20" style="gap: 15px;">
-                <button @click="processAll" class="btn-giant" :disabled="isProcessing">
-                    <span v-if="isProcessing" class="btn-spinner"></span>
-                    {{ isProcessing ? `PROCESSANDO (${progress.current}/${progress.total})` : 'BUSCAR DADOS E PRAZOS' }}
+                <button @click="fetchCities" class="btn-giant" :disabled="isProcessingCities || isProcessingPrazos">
+                    <span v-if="isProcessingCities" class="btn-spinner"></span>
+                    {{ isProcessingCities ? `BUSCANDO CIDADES (${progress.current}/${progress.total}) - ${formatTime(timeCities)}` : '1. BUSCAR CIDADES E ESTADOS' }}
+                </button>
+
+                <button v-if="canCalculatePrazos" @click="calculatePrazos" class="btn-giant" style="background-color: #0284c7;" :disabled="isProcessingPrazos || isProcessingCities">
+                    <span v-if="isProcessingPrazos" class="btn-spinner"></span>
+                    {{ isProcessingPrazos ? `CALCULANDO PRAZOS (${progress.current}/${progress.total}) - ${formatTime(timePrazos)}` : '2. CALCULAR PRAZOS' }}
                 </button>
             </div>
         </div>
