@@ -18,8 +18,7 @@ interface PrazoResult {
 }
 
 const cnpjs = ref("");
-const isProcessingCities = ref(false);
-const isProcessingPrazos = ref(false);
+const isProcessing = ref(false);
 const results = ref<PrazoResult[]>([]);
 const progress = ref({ current: 0, total: 0 });
 
