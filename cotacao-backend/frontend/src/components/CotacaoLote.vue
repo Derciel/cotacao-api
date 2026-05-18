@@ -19,7 +19,8 @@ interface BatchResult {
 interface BatchProduct {
     productId: number;
     nome: string;
-    quantidade: number;
+    caixas: number;
+    unidadesCaixa: number;
     valorUnitario: number;
     ipi: number;
     total: number;
@@ -71,7 +72,8 @@ const selectProduct = (p: any) => {
     const item: BatchProduct = {
         productId: p.id,
         nome: p.nome,
-        quantidade: 1,
+        caixas: 1,
+        unidadesCaixa: Number(p.unidades_caixa) || 1,
         valorUnitario: Number(p.valor_unitario) || 0,
         ipi: getDefaultIpi(p),
         total: 0
@@ -98,7 +100,8 @@ const calcRow = (idx: number) => {
     const item = selectedProducts.value[idx];
     if (!item) return;
 
-    const quantidade = Number(item.quantidade) || 0;
+    const caixas = Number(item.caixas) || 0;
+    const quantidade = caixas * item.unidadesCaixa;
     const valorUnitario = Number(item.valorUnitario) || 0;
     const ipi = Number(item.ipi) || 0;
     const baseTotal = quantidade * valorUnitario;
@@ -120,7 +123,7 @@ const processBatch = async () => {
                 cnpj: cnpj.replace(/\D/g, ''),
                 items: selectedProducts.value.map(p => ({
                     productId: p.productId,
-                    quantidade: Number(p.quantidade) || 0,
+                    quantidade: (Number(p.caixas) || 0) * p.unidadesCaixa,
                     valorUnitario: (Number(p.valorUnitario) || 0) * (1 + ((Number(p.ipi) || 0) / 100)),
                     percentualIpi: Number(p.ipi) || 0
                 }))
@@ -234,24 +237,28 @@ const formatCurrency = (val?: number) => Number(val || 0).toLocaleString('pt-BR'
                     <table class="items-table">
                         <thead>
                             <tr>
-                                <th width="38%">Produto</th>
-                                <th width="13%">Quantidade</th>
-                                <th width="17%">Valor Unitário</th>
-                                <th width="12%">IPI %</th>
+                                <th width="30%">Produto</th>
+                                <th width="12%">Qtd/Caixa</th>
+                                <th width="12%">Caixas</th>
+                                <th width="16%">Valor Unitário</th>
+                                <th width="10%">IPI %</th>
                                 <th width="16%">Valor Total</th>
                                 <th width="4%"></th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-if="selectedProducts.length === 0">
-                                <td colspan="6" class="empty-row">Nenhum produto adicionado.</td>
+                                <td colspan="7" class="empty-row">Nenhum produto adicionado.</td>
                             </tr>
                             <tr v-for="(p, idx) in selectedProducts" :key="`${p.productId}-${idx}`">
                                 <td>
                                     <div class="product-name">{{ p.nome }}</div>
                                 </td>
+                                <td style="text-align: center; color: var(--text-muted); font-weight: 700;">
+                                    {{ p.unidadesCaixa }} un
+                                </td>
                                 <td>
-                                    <input type="number" min="0" step="1" v-model.number="p.quantidade" @input="calcRow(idx)" class="table-input center">
+                                    <input type="number" min="0" step="1" v-model.number="p.caixas" @input="calcRow(idx)" class="table-input center">
                                 </td>
                                 <td>
                                     <input type="number" min="0" step="0.01" v-model.number="p.valorUnitario" @input="calcRow(idx)" class="table-input money">

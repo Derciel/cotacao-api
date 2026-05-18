@@ -1,0 +1,33 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import ConsultaPrazos from '../components/ConsultaPrazos.vue';
+---
+
+<MainLayout title="Consulta de Prazos">
+    <div class="header-section mb-30">
+        <h1 class="page-title">Prazos de Entrega</h1>
+        <p class="page-subtitle">Consulte rapidamente a cidade, o estado e o prazo de entrega colando uma lista de CNPJs.</p>
+    </div>
+
+    <ConsultaPrazos client:load />
+</MainLayout>
+
+<style>
+.header-section {
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto 40px;
+}
+.page-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--text-main), #64748b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 10px;
+}
+.page-subtitle {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+}
+</style>

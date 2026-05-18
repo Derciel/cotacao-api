@@ -258,4 +258,34 @@ export class FrenetService {
       };
     });
   }
+
+  async simulateDeadline(destCep: string, cidade?: string): Promise<ProcessedShippingOption[]> {
+    const payload: FrenetPayload = {
+      SellerCEP: this.sellerCEP.replace(/\D/g, ''),
+      RecipientCEP: destCep.replace(/\D/g, ''),
+      ShipmentInvoiceValue: 100, // Valor simbólico
+      ShippingItemArray: [{
+        Weight: 1,
+        Width: 15,
+        Height: 15,
+        Length: 15,
+        Quantity: 1,
+      }],
+    };
+
+    const [frenetOptions, vipOption, rodonavesOption] = await Promise.all([
+      this.fetchFrenetOptions(payload).catch(err => {
+        console.warn('Frenet Simulate Error:', err.message);
+        return [];
+      }),
+      cidade ? this.vipFreightService.calculateVipFreight(cidade, 1, 1, 100).catch(() => null) : Promise.resolve(null),
+      this.rodonavesService.calculateFreight(payload.SellerCEP, payload.RecipientCEP, 1, 100).catch(() => null)
+    ]);
+
+    const processedOptions = this.processFrenetResponse(frenetOptions, 100);
+    if (vipOption && vipOption.price > 0) processedOptions.push(vipOption);
+    if (rodonavesOption && rodonavesOption.price > 0) processedOptions.push(rodonavesOption);
+
+    return processedOptions.filter(opt => opt.price > 0 || opt.deadline > 0);
+  }
 }
