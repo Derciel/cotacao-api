@@ -54,16 +54,11 @@ export class FreightController {
         client = this.clientRepository.create({
           cnpj: cleanCnpj,
           razao_social: d.nome_fantasia || d.razao_social || 'Desconhecido',
-          nome_fantasia: d.nome_fantasia || d.razao_social || '',
-          inscricao_estadual: '',
-          telefone: d.ddd_telefone_1 || '',
-          email: d.email || '',
+          fantasia: d.nome_fantasia || d.razao_social || '',
           cep: (d.cep || '').replace(/\D/g, ''),
-          endereco: d.logradouro || '',
-          numero: d.numero || '',
-          bairro: d.bairro || '',
           cidade: d.municipio || '',
-          uf: d.uf || ''
+          estado: d.uf || '',
+          empresa_faturamento: 'NICOPEL'
         });
         await this.clientRepository.save(client);
       } else {
@@ -74,9 +69,9 @@ export class FreightController {
     const options = await this.frenetService.simulateDeadline(client.cep, client.cidade);
     
     return {
-      cliente: client.razao_social || client.nome_fantasia,
+      cliente: client.razao_social || client.fantasia,
       cidade: client.cidade,
-      uf: client.uf,
+      uf: client.estado,
       cep: client.cep,
       options
     };
