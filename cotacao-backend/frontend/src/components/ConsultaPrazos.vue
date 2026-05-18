@@ -23,7 +23,26 @@ const isProcessingPrazos = ref(false);
 const results = ref<PrazoResult[]>([]);
 const progress = ref({ current: 0, total: 0 });
 
-const cnpjList = computed(() => cnpjs.value.split('\n').map(c => c.trim()).filter(c => c.length > 0));
+const extractCnpj = (text: string) => {
+    const match = text.match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/);
+    if (match) return match[0].replace(/\D/g, '');
+    const justNums = text.replace(/\D/g, '');
+    if (justNums.length === 14) return justNums;
+    return null;
+};
+
+const cnpjList = computed(() => {
+    const lines = cnpjs.value.split('\n');
+    const list: string[] = [];
+    for (const line of lines) {
+        const c = extractCnpj(line);
+        if (c && !list.includes(c)) {
+            list.push(c);
+        }
+    }
+    return list;
+});
+
 const canCalculatePrazos = computed(() => results.value.some(r => r.status === 'READY' || r.status === 'SUCCESS'));
 
 const getBestDeadline = (options: any[], uf: string) => {
@@ -49,13 +68,13 @@ const getBestDeadline = (options: any[], uf: string) => {
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
-const fetchCities = async () => {
+const processAll = async () => {
     const list = cnpjList.value;
-    if (list.length === 0) return window.showToast("Insira ao menos um CNPJ.", "warning");
+    if (list.length === 0) return window.showToast("Nenhum CNPJ válido encontrado no texto.", "warning");
 
-    isProcessingCities.value = true;
+    isProcessing.value = true;
     results.value = list.map(cnpj => ({
-        cnpj: cnpj.replace(/\D/g, ''),
+        cnpj: cnpj,
         razaoSocial: '---',
         cidade: '---',
         uf: '---',
@@ -66,78 +85,64 @@ const fetchCities = async () => {
 
     progress.value = { current: 0, total: results.value.length };
 
-    // Execução sequencial para segurança máxima contra Rate Limits
+    // Execução sequencial chamando o backend (que verifica banco ou Brasil API)
     for (let i = 0; i < results.value.length; i++) {
         const item = results.value[i];
         item.status = 'LOADING';
         
-        try {
-            const resBrasil = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${item.cnpj}`);
-            
-            if (resBrasil.status === 429) throw new Error("Limite de requisições atingido");
-            if (!resBrasil.ok) throw new Error("CNPJ não encontrado");
-            
-            const dataBrasil = await resBrasil.json();
-            item.razaoSocial = dataBrasil.nome_fantasia || dataBrasil.razao_social;
-            item.cidade = dataBrasil.municipio;
-            item.uf = dataBrasil.uf;
-            item.cep = dataBrasil.cep;
-            item.status = 'READY';
-        } catch (err: any) {
-            item.status = 'ERROR';
-            item.message = err.message;
-        } finally {
-            progress.value.current++;
-        }
+        let success = false;
+        let retries = 3;
         
-        // Pausa de 300ms entre requisições (Máx. de ~3 requisições por segundo na Brasil API)
-        if (i < results.value.length - 1) {
-            await delay(300);
-        }
-    }
+        while (!success && retries > 0) {
+            try {
+                const res = await safeFetch('/api/freight/simulate-cnpj', {
+                    method: 'POST',
+                    body: JSON.stringify({ cnpj: item.cnpj }),
+                    headers: { 'Content-Type': 'application/json' }
+                });
 
-    isProcessingCities.value = false;
-    window.showToast("Busca de cidades concluída!", "success");
-};
-
-const calculatePrazos = async () => {
-    isProcessingPrazos.value = true;
-    const itemsToProcess = results.value.filter(r => r.status === 'READY');
-    progress.value = { current: 0, total: itemsToProcess.length };
-
-    // Execução sequencial para Frenet e integrações
-    for (let i = 0; i < itemsToProcess.length; i++) {
-        const item = itemsToProcess[i];
-        item.status = 'LOADING';
-        
-        try {
-            const resSimulate = await safeFetch('/api/freight/simulate', {
-                method: 'POST',
-                body: JSON.stringify({ cep: item.cep, cidade: item.cidade }),
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (resSimulate.ok && Array.isArray(resSimulate.data)) {
-                item.options = resSimulate.data;
-                item.status = 'SUCCESS';
-            } else {
-                throw new Error("Erro na simulação");
+                if (res.status === 429) {
+                    throw new Error("RATE_LIMIT");
+                }
+                
+                if (res.ok && res.data) {
+                    item.razaoSocial = res.data.cliente || 'Desconhecido';
+                    item.cidade = res.data.cidade || '---';
+                    item.uf = res.data.uf || '---';
+                    item.cep = res.data.cep || '---';
+                    item.options = res.data.options || [];
+                    item.status = 'SUCCESS';
+                    success = true;
+                } else {
+                    throw new Error(res.data?.message || "Erro na consulta");
+                }
+            } catch (err: any) {
+                if (err.message === "RATE_LIMIT" || err.message.includes('fetch') || err.message.includes('Network')) {
+                    retries--;
+                    if (retries > 0) {
+                        await delay(2000); // Pausa longa antes de tentar novamente
+                        continue;
+                    }
+                    item.status = 'ERROR';
+                    item.message = "Erro de rede";
+                } else {
+                    item.status = 'ERROR';
+                    item.message = err.message;
+                    break;
+                }
             }
-        } catch (err: any) {
-            item.status = 'ERROR';
-            item.message = err.message;
-        } finally {
-            progress.value.current++;
         }
         
-        // Pausa de 400ms entre requisições (~2.5 requisições por segundo para não estourar a Frenet)
-        if (i < itemsToProcess.length - 1) {
+        progress.value.current++;
+        
+        // Pausa de 400ms para evitar sobrecarga (2.5 req/s)
+        if (i < results.value.length - 1) {
             await delay(400);
         }
     }
 
-    isProcessingPrazos.value = false;
-    window.showToast("Cálculo de prazos concluído!", "success");
+    isProcessing.value = false;
+    window.showToast("Processamento concluído!", "success");
 };
 
 const copyToClipboard = () => {
@@ -212,14 +217,9 @@ const formatCNPJ = (v: string) => v?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2
             </div>
 
             <div class="action-bar mt-20" style="gap: 15px;">
-                <button @click="fetchCities" class="btn-giant" :disabled="isProcessingCities || isProcessingPrazos">
-                    <span v-if="isProcessingCities" class="btn-spinner"></span>
-                    {{ isProcessingCities ? `BUSCANDO CIDADES (${progress.current}/${progress.total})` : '1. BUSCAR CIDADES E ESTADOS' }}
-                </button>
-
-                <button v-if="canCalculatePrazos" @click="calculatePrazos" class="btn-giant" style="background-color: #0284c7;" :disabled="isProcessingPrazos || isProcessingCities">
-                    <span v-if="isProcessingPrazos" class="btn-spinner"></span>
-                    {{ isProcessingPrazos ? `CALCULANDO PRAZOS (${progress.current}/${progress.total})` : '2. CALCULAR PRAZOS' }}
+                <button @click="processAll" class="btn-giant" :disabled="isProcessing">
+                    <span v-if="isProcessing" class="btn-spinner"></span>
+                    {{ isProcessing ? `PROCESSANDO (${progress.current}/${progress.total})` : 'BUSCAR DADOS E PRAZOS' }}
                 </button>
             </div>
         </div>
