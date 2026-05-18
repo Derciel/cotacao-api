@@ -15,6 +15,8 @@ interface PrazoResult {
         price: number;
         deadline: number;
     }[];
+}
+
 const cnpjs = ref("");
 const isProcessingCities = ref(false);
 const isProcessingPrazos = ref(false);
