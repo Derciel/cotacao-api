@@ -44,7 +44,7 @@ const getBestDeadline = (options: any[], uf: string) => {
 
     const sorted = validOptions.sort((a, b) => a.deadline - b.deadline);
     const best = sorted.find(o => o.deadline > 0) || sorted[0];
-    return `${best.deadline} dias (${best.carrier})`;
+    return `${best.deadline} dias úteis (${best.carrier})`;
 };
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -161,7 +161,7 @@ const copyToClipboard = () => {
             if (validOptions.length > 0) {
                 const sorted = validOptions.sort((a, b) => a.deadline - b.deadline);
                 const best = sorted.find(o => o.deadline > 0) || sorted[0];
-                bestDays = best.deadline.toString();
+                bestDays = `${best.deadline} dias úteis`;
                 bestCarrier = best.carrier;
             } else {
                  bestDays = "N/A";
