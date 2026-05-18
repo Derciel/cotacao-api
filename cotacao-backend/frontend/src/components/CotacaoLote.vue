@@ -13,6 +13,7 @@ interface BatchResult {
     valorTotalNota?: number;
     status: 'SUCCESS' | 'ERROR' | 'MANUAL_REQUIRED';
     message?: string;
+    prazo?: number;
 }
 
 interface BatchProduct {
@@ -292,6 +293,7 @@ const formatCurrency = (val?: number) => Number(val || 0).toLocaleString('pt-BR'
                             <th>STATUS</th>
                             <th>MELHOR ENVIO</th>
                             <th>FRETE</th>
+                            <th>PRAZO</th>
                             <th>TOTAL PEDIDO</th>
                             <th>MENSAGEM</th>
                         </tr>
@@ -307,6 +309,7 @@ const formatCurrency = (val?: number) => Number(val || 0).toLocaleString('pt-BR'
                             </td>
                             <td>{{ r.carrier || '---' }}</td>
                             <td>{{ r.valorFrete !== undefined ? formatCurrency(r.valorFrete) : '---' }}</td>
+                            <td>{{ r.prazo !== undefined ? `${r.prazo} dias` : '---' }}</td>
                             <td><strong>{{ r.valorTotalNota !== undefined ? formatCurrency(r.valorTotalNota) : formatCurrency(totalPedido) }}</strong></td>
                             <td><small>{{ r.message || '-' }}</small></td>
                         </tr>

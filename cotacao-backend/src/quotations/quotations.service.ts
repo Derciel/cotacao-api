@@ -610,7 +610,8 @@ export class QuotationsService {
             valorProdutos: Number(finalized.valor_total_produtos || 0),
             valorIpi: Number(finalized.valor_ipi || 0),
             valorFrete: Number(finalized.valor_frete || 0),
-            valorTotalNota: Number(finalized.valor_total_nota || 0)
+            valorTotalNota: Number(finalized.valor_total_nota || 0),
+            prazo: bestOption.deadline
           });
         } else {
           results.push({
