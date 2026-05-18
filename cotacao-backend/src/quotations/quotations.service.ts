@@ -652,8 +652,13 @@ export class QuotationsService {
       
       for (const id of quotationIds) {
         try {
+          const quotation = await this.findOne(id);
           const pdfBuffer = await this.pdfService.generateQuotationPdf(id);
-          archive.append(pdfBuffer, { name: `orcamento-${id}.pdf` });
+          
+          let clientName = quotation.client?.fantasia || quotation.client?.razao_social || 'cliente';
+          clientName = clientName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+          
+          archive.append(pdfBuffer, { name: `${clientName}_orcamento-${id}.pdf` });
         } catch (e) {
           console.error(`Erro ao gerar PDF para cotação ${id} no ZIP:`, e);
         }
