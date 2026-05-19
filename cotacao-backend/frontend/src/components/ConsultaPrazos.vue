@@ -242,142 +242,127 @@ const calculatePrazos = async () => {
             }
         } else {
             // Se houver 2 ou mais itens na região
-            // Selecionar os 2 primeiros itens para simular
-            const refItem1 = regionItems[0];
-            const refItem2 = regionItems[1];
+            // Selecionar até 4 itens para simular como referência
+            const maxRefs = Math.min(regionItems.length, 4);
+            const refItems = regionItems.slice(0, maxRefs);
 
             // Colocar todos os itens da região como LOADING para feedback visual
             regionItems.forEach(item => item.status = 'LOADING');
 
-            // Simular o primeiro item
-            let success1 = false;
-            let retries1 = 3;
-            while (!success1 && retries1 > 0) {
-                try {
-                    const res = await safeFetch('/api/freight/simulate-cnpj', {
-                        method: 'POST',
-                        body: JSON.stringify({ cnpj: refItem1.cnpj }),
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                    if (res.ok && res.data && Array.isArray(res.data.options)) {
-                        refItem1.options = res.data.options;
-                        refItem1.status = 'SUCCESS';
-                        success1 = true;
-                    } else {
-                        throw new Error("Erro na simulação");
-                    }
-                } catch (err: any) {
-                    if (err.message.includes('fetch') || err.message.includes('Network')) {
-                        retries1--;
-                        if (retries1 > 0) {
-                            await delay(2000);
-                            continue;
+            // Disparar todas as simulações de referência em paralelo! (Velocidade astronômica)
+            const promises = refItems.map(async (item) => {
+                let success = false;
+                let retries = 3;
+                while (!success && retries > 0) {
+                    try {
+                        const res = await safeFetch('/api/freight/simulate-cnpj', {
+                            method: 'POST',
+                            body: JSON.stringify({ cnpj: item.cnpj }),
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        if (res.ok && res.data && Array.isArray(res.data.options)) {
+                            item.options = res.data.options;
+                            item.status = 'SUCCESS';
+                            success = true;
+                        } else {
+                            throw new Error("Erro na simulação");
                         }
-                        refItem1.status = 'ERROR';
-                        refItem1.message = "Erro de rede";
-                    } else {
-                        refItem1.status = 'ERROR';
-                        refItem1.message = err.message;
-                        break;
+                    } catch (err: any) {
+                        if (err.message.includes('fetch') || err.message.includes('Network')) {
+                            retries--;
+                            if (retries > 0) {
+                                await delay(1000);
+                                continue;
+                            }
+                            item.status = 'ERROR';
+                            item.message = "Erro de rede";
+                        } else {
+                            item.status = 'ERROR';
+                            item.message = err.message;
+                            break;
+                        }
                     }
                 }
-            }
+                return success;
+            });
 
-            // Pequeno delay entre simulações na mesma região para evitar 429
-            await delay(400);
+            // Aguarda a resolução paralela de todas as simulações de referência
+            const resultsSuccess = await Promise.all(promises);
+            
+            // Filtrar os itens de referência que obtiveram sucesso
+            const successfulRefs = refItems.filter((_, idx) => resultsSuccess[idx]);
 
-            // Simular o segundo item
-            let success2 = false;
-            let retries2 = 3;
-            while (!success2 && retries2 > 0) {
-                try {
-                    const res = await safeFetch('/api/freight/simulate-cnpj', {
-                        method: 'POST',
-                        body: JSON.stringify({ cnpj: refItem2.cnpj }),
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                    if (res.ok && res.data && Array.isArray(res.data.options)) {
-                        refItem2.options = res.data.options;
-                        refItem2.status = 'SUCCESS';
-                        success2 = true;
-                    } else {
-                        throw new Error("Erro na simulação");
-                    }
-                } catch (err: any) {
-                    if (err.message.includes('fetch') || err.message.includes('Network')) {
-                        retries2--;
-                        if (retries2 > 0) {
-                            await delay(2000);
-                            continue;
+            if (successfulRefs.length > 0) {
+                // Extrair prazos de todos os bem-sucedidos
+                const deadlines = successfulRefs.map(item => getBestDeadlineNumber(item.options)).filter(d => d > 0);
+
+                if (deadlines.length > 0) {
+                    // Verificar se todos os prazos obtidos são iguais
+                    const allEqual = deadlines.every(d => d === deadlines[0]);
+                    
+                    if (allEqual) {
+                        // Mesmo prazo, replica as opções da primeira referência bem-sucedida para o resto
+                        const optionsToCopy = successfulRefs[0].options;
+                        
+                        // Atualizar também os itens de referência que falharam
+                        refItems.forEach(item => {
+                            if (item.status !== 'SUCCESS') {
+                                item.options = JSON.parse(JSON.stringify(optionsToCopy));
+                                item.status = 'SUCCESS';
+                            }
+                        });
+
+                        // Replicar para os outros itens restantes na região (a partir do índice maxRefs)
+                        for (let k = maxRefs; k < regionItems.length; k++) {
+                            regionItems[k].options = JSON.parse(JSON.stringify(optionsToCopy));
+                            regionItems[k].status = 'SUCCESS';
                         }
-                        refItem2.status = 'ERROR';
-                        refItem2.message = "Erro de rede";
                     } else {
-                        refItem2.status = 'ERROR';
-                        refItem2.message = err.message;
-                        break;
-                    }
-                }
-            }
+                        // Prazos diferentes, calcula a média aritmética de todos eles
+                        const sum = deadlines.reduce((acc, curr) => acc + curr, 0);
+                        const media = Math.round(sum / deadlines.length);
 
-            // Agora analisamos os prazos das duas simulações e aplicamos aos demais
-            if (success1 && success2) {
-                const d1 = getBestDeadlineNumber(refItem1.options);
-                const d2 = getBestDeadlineNumber(refItem2.options);
+                        // Ajustar opções com o prazo médio baseado no primeiro que funcionou
+                        const baseOptions = successfulRefs[0].options;
+                        const adjustedOptions = JSON.parse(JSON.stringify(baseOptions)).map((o: any) => ({
+                            ...o,
+                            deadline: media
+                        }));
 
-                if (d1 === d2) {
-                    // Mesmo prazo, replica as opções do refItem1 para os outros
-                    const optionsToCopy = refItem1.options;
-                    for (let k = 2; k < regionItems.length; k++) {
-                        regionItems[k].options = JSON.parse(JSON.stringify(optionsToCopy));
-                        regionItems[k].status = 'SUCCESS';
+                        // Replicar a média para as referências que falharam
+                        refItems.forEach(item => {
+                            if (item.status !== 'SUCCESS') {
+                                item.options = JSON.parse(JSON.stringify(adjustedOptions));
+                                item.status = 'SUCCESS';
+                            }
+                        });
+
+                        // Replicar a média para o resto dos itens da região (a partir do índice maxRefs)
+                        for (let k = maxRefs; k < regionItems.length; k++) {
+                            regionItems[k].options = JSON.parse(JSON.stringify(adjustedOptions));
+                            regionItems[k].status = 'SUCCESS';
+                        }
                     }
                 } else {
-                    // Prazos diferentes, faz a média e replica com deadline ajustado
-                    const media = Math.round((d1 + d2) / 2);
-                    const adjustedOptions = JSON.parse(JSON.stringify(refItem1.options)).map((o: any) => ({
-                        ...o,
-                        deadline: media
-                    }));
-                    for (let k = 2; k < regionItems.length; k++) {
-                        regionItems[k].options = JSON.parse(JSON.stringify(adjustedOptions));
-                        regionItems[k].status = 'SUCCESS';
-                    }
-                }
-            } else if (success1) {
-                // Apenas refItem1 funcionou, replica para toda a região
-                const optionsToCopy = refItem1.options;
-                refItem2.options = JSON.parse(JSON.stringify(optionsToCopy));
-                refItem2.status = 'SUCCESS';
-                for (let k = 2; k < regionItems.length; k++) {
-                    regionItems[k].options = JSON.parse(JSON.stringify(optionsToCopy));
-                    regionItems[k].status = 'SUCCESS';
-                }
-            } else if (success2) {
-                // Apenas refItem2 funcionou, replica para toda a região
-                const optionsToCopy = refItem2.options;
-                refItem1.options = JSON.parse(JSON.stringify(optionsToCopy));
-                refItem1.status = 'SUCCESS';
-                for (let k = 2; k < regionItems.length; k++) {
-                    regionItems[k].options = JSON.parse(JSON.stringify(optionsToCopy));
-                    regionItems[k].status = 'SUCCESS';
+                    regionItems.forEach(item => {
+                        item.status = 'ERROR';
+                        item.message = "Prazos válidos não encontrados nas referências";
+                    });
                 }
             } else {
-                // Ambas falharam
-                refItem1.status = 'ERROR';
-                refItem2.status = 'ERROR';
-                for (let k = 2; k < regionItems.length; k++) {
-                    regionItems[k].status = 'ERROR';
-                    regionItems[k].message = "Falha nas simulações de referência da região";
-                }
+                // Todas as simulações de referência falharam
+                regionItems.forEach(item => {
+                    item.status = 'ERROR';
+                    item.message = "Falha nas simulações de referência da região";
+                });
             }
 
             // Conta todos os itens da região como concluídos
             progress.value.current += regionItems.length;
 
-            // Delay de segurança entre regiões
+            // Delay ultra curto de segurança entre regiões
             if (rIndex < regionKeys.length - 1) {
-                await delay(400);
+                await delay(150);
             }
         }
     }
