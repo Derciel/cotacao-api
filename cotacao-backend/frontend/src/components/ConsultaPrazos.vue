@@ -25,6 +25,7 @@ const timePrazos = ref(0);
 let timerInterval: any = null;
 const results = ref<PrazoResult[]>([]);
 const progress = ref({ current: 0, total: 0 });
+const cancelProcessing = ref(false);
 
 const extractCnpj = (text: string) => {
     const match = text.match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/);
@@ -85,6 +86,7 @@ const fetchCities = async () => {
     if (list.length === 0) return window.showToast("Nenhum CNPJ válido encontrado no texto.", "warning");
 
     isProcessingCities.value = true;
+    cancelProcessing.value = false;
     timeCities.value = 0;
     
     timerInterval = setInterval(() => timeCities.value++, 1000);
@@ -104,6 +106,9 @@ const fetchCities = async () => {
     // Processar de 5 em 5 CNPJs em paralelo para altíssima performance
     const chunks = chunkArray(results.value, 5);
     for (let c = 0; c < chunks.length; c++) {
+        if (cancelProcessing.value) {
+            break;
+        }
         const currentChunk = chunks[c];
         
         await Promise.all(currentChunk.map(async (item) => {
@@ -160,6 +165,19 @@ const fetchCities = async () => {
         }
     }
 
+    if (cancelProcessing.value) {
+        results.value.forEach(item => {
+            if (item.status === 'LOADING' || item.status === 'PENDING') {
+                item.status = 'ERROR';
+                item.message = "Cancelado pelo usuário";
+            }
+        });
+        clearInterval(timerInterval);
+        isProcessingCities.value = false;
+        window.showToast("Busca de cidades cancelada!", "warning");
+        return;
+    }
+
     clearInterval(timerInterval);
     isProcessingCities.value = false;
     window.showToast(`Cidades buscadas em ${formatTime(timeCities.value)}!`, "success");
@@ -170,6 +188,7 @@ const calculatePrazos = async () => {
     if (itemsToProcess.length === 0) return;
 
     isProcessingPrazos.value = true;
+    cancelProcessing.value = false;
     timePrazos.value = 0;
     progress.value = { current: 0, total: itemsToProcess.length };
     
@@ -205,6 +224,9 @@ const calculatePrazos = async () => {
     const regionChunks = chunkArray(regionKeys, 5);
     
     for (let c = 0; c < regionChunks.length; c++) {
+        if (cancelProcessing.value) {
+            break;
+        }
         const currentChunk = regionChunks[c];
         
         await Promise.all(currentChunk.map(async (regionKey) => {
@@ -379,6 +401,19 @@ const calculatePrazos = async () => {
         }
     }
 
+    if (cancelProcessing.value) {
+        itemsToProcess.forEach(item => {
+            if (item.status === 'LOADING' || item.status === 'READY') {
+                item.status = 'ERROR';
+                item.message = "Cancelado pelo usuário";
+            }
+        });
+        clearInterval(timerInterval);
+        isProcessingPrazos.value = false;
+        window.showToast("Cálculo de prazos cancelado!", "warning");
+        return;
+    }
+
     clearInterval(timerInterval);
     isProcessingPrazos.value = false;
     window.showToast(`Prazos calculados em ${formatTime(timePrazos.value)}!`, "success");
@@ -460,6 +495,10 @@ const formatCNPJ = (v: string) => v?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2
                 <button v-if="canCalculatePrazos" @click="calculatePrazos" class="btn-giant" style="background-color: #0284c7;" :disabled="isProcessingPrazos || isProcessingCities">
                     <span v-if="isProcessingPrazos" class="btn-spinner"></span>
                     {{ isProcessingPrazos ? `CALCULANDO PRAZOS (${progress.current}/${progress.total}) - ${formatTime(timePrazos)}` : '2. CALCULAR PRAZOS' }}
+                </button>
+
+                <button v-if="isProcessingCities || isProcessingPrazos" @click="cancelProcessing = true" class="btn-giant" style="background-color: #ef4444; border-color: #ef4444; color: white;" :disabled="cancelProcessing">
+                    <i class="fas fa-ban"></i> {{ cancelProcessing ? 'CANCELANDO...' : 'CANCELAR PROCESSAMENTO' }}
                 </button>
             </div>
         </div>
