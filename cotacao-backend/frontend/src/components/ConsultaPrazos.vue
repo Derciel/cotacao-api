@@ -161,49 +161,224 @@ const calculatePrazos = async () => {
     
     timerInterval = setInterval(() => timePrazos.value++, 1000);
 
-    for (let i = 0; i < itemsToProcess.length; i++) {
-        const item = itemsToProcess[i];
-        item.status = 'LOADING';
-        
-        let success = false;
-        let retries = 3;
-        
-        while (!success && retries > 0) {
-            try {
-                const res = await safeFetch('/api/freight/simulate', {
-                    method: 'POST',
-                    body: JSON.stringify({ cep: item.cep, cidade: item.cidade }),
-                    headers: { 'Content-Type': 'application/json' }
-                });
+    // 1. Agrupar itens por região (Cidade - UF)
+    const regions: { [key: string]: PrazoResult[] } = {};
+    for (const item of itemsToProcess) {
+        const key = `${(item.cidade || '').trim().toUpperCase()} - ${(item.uf || '').trim().toUpperCase()}`;
+        if (!regions[key]) {
+            regions[key] = [];
+        }
+        regions[key].push(item);
+    }
 
-                if (res.ok && Array.isArray(res.data)) {
-                    item.options = res.data;
-                    item.status = 'SUCCESS';
-                    success = true;
-                } else {
-                    throw new Error("Erro na simulação");
-                }
-            } catch (err: any) {
-                if (err.message.includes('fetch') || err.message.includes('Network')) {
-                    retries--;
-                    if (retries > 0) {
-                        await delay(2000);
-                        continue;
+    const regionKeys = Object.keys(regions);
+    
+    // Função auxiliar para extrair o melhor prazo em número
+    const getBestDeadlineNumber = (options: any[]) => {
+        if (!options || options.length === 0) return 0;
+        const validOptions = options.filter(o => 
+            !o.carrier.toLowerCase().includes('correio') && 
+            !o.carrier.toLowerCase().includes('pac') && 
+            !o.carrier.toLowerCase().includes('sedex')
+        );
+        if (validOptions.length === 0) return 0;
+        const sorted = validOptions.sort((a, b) => a.deadline - b.deadline);
+        const best = sorted.find(o => o.deadline > 0) || sorted[0];
+        return best.deadline;
+    };
+
+    // Processar cada região
+    for (let rIndex = 0; rIndex < regionKeys.length; rIndex++) {
+        const regionKey = regionKeys[rIndex];
+        const regionItems = regions[regionKey];
+
+        if (regionItems.length === 0) continue;
+
+        // Se houver apenas 1 item na região
+        if (regionItems.length === 1) {
+            const item = regionItems[0];
+            item.status = 'LOADING';
+            
+            let success = false;
+            let retries = 3;
+            
+            while (!success && retries > 0) {
+                try {
+                    const res = await safeFetch('/api/freight/simulate-cnpj', {
+                        method: 'POST',
+                        body: JSON.stringify({ cnpj: item.cnpj }),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    if (res.ok && res.data && Array.isArray(res.data.options)) {
+                        item.options = res.data.options;
+                        item.status = 'SUCCESS';
+                        success = true;
+                    } else {
+                        throw new Error("Erro na simulação");
                     }
-                    item.status = 'ERROR';
-                    item.message = "Erro de rede";
-                } else {
-                    item.status = 'ERROR';
-                    item.message = err.message;
-                    break;
+                } catch (err: any) {
+                    if (err.message.includes('fetch') || err.message.includes('Network')) {
+                        retries--;
+                        if (retries > 0) {
+                            await delay(2000);
+                            continue;
+                        }
+                        item.status = 'ERROR';
+                        item.message = "Erro de rede";
+                    } else {
+                        item.status = 'ERROR';
+                        item.message = err.message;
+                        break;
+                    }
                 }
             }
-        }
-        
-        progress.value.current++;
-        
-        if (i < itemsToProcess.length - 1) {
+            
+            progress.value.current++;
+            
+            // Delay de segurança entre requisições
+            if (rIndex < regionKeys.length - 1) {
+                await delay(400);
+            }
+        } else {
+            // Se houver 2 ou mais itens na região
+            // Selecionar os 2 primeiros itens para simular
+            const refItem1 = regionItems[0];
+            const refItem2 = regionItems[1];
+
+            // Colocar todos os itens da região como LOADING para feedback visual
+            regionItems.forEach(item => item.status = 'LOADING');
+
+            // Simular o primeiro item
+            let success1 = false;
+            let retries1 = 3;
+            while (!success1 && retries1 > 0) {
+                try {
+                    const res = await safeFetch('/api/freight/simulate-cnpj', {
+                        method: 'POST',
+                        body: JSON.stringify({ cnpj: refItem1.cnpj }),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    if (res.ok && res.data && Array.isArray(res.data.options)) {
+                        refItem1.options = res.data.options;
+                        refItem1.status = 'SUCCESS';
+                        success1 = true;
+                    } else {
+                        throw new Error("Erro na simulação");
+                    }
+                } catch (err: any) {
+                    if (err.message.includes('fetch') || err.message.includes('Network')) {
+                        retries1--;
+                        if (retries1 > 0) {
+                            await delay(2000);
+                            continue;
+                        }
+                        refItem1.status = 'ERROR';
+                        refItem1.message = "Erro de rede";
+                    } else {
+                        refItem1.status = 'ERROR';
+                        refItem1.message = err.message;
+                        break;
+                    }
+                }
+            }
+
+            // Pequeno delay entre simulações na mesma região para evitar 429
             await delay(400);
+
+            // Simular o segundo item
+            let success2 = false;
+            let retries2 = 3;
+            while (!success2 && retries2 > 0) {
+                try {
+                    const res = await safeFetch('/api/freight/simulate-cnpj', {
+                        method: 'POST',
+                        body: JSON.stringify({ cnpj: refItem2.cnpj }),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    if (res.ok && res.data && Array.isArray(res.data.options)) {
+                        refItem2.options = res.data.options;
+                        refItem2.status = 'SUCCESS';
+                        success2 = true;
+                    } else {
+                        throw new Error("Erro na simulação");
+                    }
+                } catch (err: any) {
+                    if (err.message.includes('fetch') || err.message.includes('Network')) {
+                        retries2--;
+                        if (retries2 > 0) {
+                            await delay(2000);
+                            continue;
+                        }
+                        refItem2.status = 'ERROR';
+                        refItem2.message = "Erro de rede";
+                    } else {
+                        refItem2.status = 'ERROR';
+                        refItem2.message = err.message;
+                        break;
+                    }
+                }
+            }
+
+            // Agora analisamos os prazos das duas simulações e aplicamos aos demais
+            if (success1 && success2) {
+                const d1 = getBestDeadlineNumber(refItem1.options);
+                const d2 = getBestDeadlineNumber(refItem2.options);
+
+                if (d1 === d2) {
+                    // Mesmo prazo, replica as opções do refItem1 para os outros
+                    const optionsToCopy = refItem1.options;
+                    for (let k = 2; k < regionItems.length; k++) {
+                        regionItems[k].options = JSON.parse(JSON.stringify(optionsToCopy));
+                        regionItems[k].status = 'SUCCESS';
+                    }
+                } else {
+                    // Prazos diferentes, faz a média e replica com deadline ajustado
+                    const media = Math.round((d1 + d2) / 2);
+                    const adjustedOptions = JSON.parse(JSON.stringify(refItem1.options)).map((o: any) => ({
+                        ...o,
+                        deadline: media
+                    }));
+                    for (let k = 2; k < regionItems.length; k++) {
+                        regionItems[k].options = JSON.parse(JSON.stringify(adjustedOptions));
+                        regionItems[k].status = 'SUCCESS';
+                    }
+                }
+            } else if (success1) {
+                // Apenas refItem1 funcionou, replica para toda a região
+                const optionsToCopy = refItem1.options;
+                refItem2.options = JSON.parse(JSON.stringify(optionsToCopy));
+                refItem2.status = 'SUCCESS';
+                for (let k = 2; k < regionItems.length; k++) {
+                    regionItems[k].options = JSON.parse(JSON.stringify(optionsToCopy));
+                    regionItems[k].status = 'SUCCESS';
+                }
+            } else if (success2) {
+                // Apenas refItem2 funcionou, replica para toda a região
+                const optionsToCopy = refItem2.options;
+                refItem1.options = JSON.parse(JSON.stringify(optionsToCopy));
+                refItem1.status = 'SUCCESS';
+                for (let k = 2; k < regionItems.length; k++) {
+                    regionItems[k].options = JSON.parse(JSON.stringify(optionsToCopy));
+                    regionItems[k].status = 'SUCCESS';
+                }
+            } else {
+                // Ambas falharam
+                refItem1.status = 'ERROR';
+                refItem2.status = 'ERROR';
+                for (let k = 2; k < regionItems.length; k++) {
+                    regionItems[k].status = 'ERROR';
+                    regionItems[k].message = "Falha nas simulações de referência da região";
+                }
+            }
+
+            // Conta todos os itens da região como concluídos
+            progress.value.current += regionItems.length;
+
+            // Delay de segurança entre regiões
+            if (rIndex < regionKeys.length - 1) {
+                await delay(400);
+            }
         }
     }
 

@@ -9,11 +9,12 @@ import { FreightController } from './freight.controller.js';
 // CORREÇÃO: Troque 'src/quotations/...' por '../quotations/...'
 import { Quotation } from '../quotations/entities/quotation.entity.js';
 import { Client } from '../clients/entities/client.entity.js';
+import { RegionDeadline } from './entities/region-deadline.entity.js';
 
 @Module({
   imports: [
     HttpModule,
-    TypeOrmModule.forFeature([Quotation, Client]),
+    TypeOrmModule.forFeature([Quotation, Client, RegionDeadline]),
   ],
   providers: [FrenetService, VipFreightService, RodonavesService, SswService],
   controllers: [FreightController],

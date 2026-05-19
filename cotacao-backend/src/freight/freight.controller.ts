@@ -5,6 +5,7 @@ import { FrenetService } from './frenet.service.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Client } from '../clients/entities/client.entity.js';
+import { RegionDeadline } from './entities/region-deadline.entity.js';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 
@@ -16,6 +17,8 @@ export class FreightController {
     private readonly frenetService: FrenetService,
     @InjectRepository(Client)
     private readonly clientRepository: Repository<Client>,
+    @InjectRepository(RegionDeadline)
+    private readonly regionDeadlineRepository: Repository<RegionDeadline>,
     private readonly httpService: HttpService,
   ) { }
 
@@ -108,8 +111,77 @@ export class FreightController {
       }
     }
 
+    // 1. Tentar buscar da tabela region_deadlines (cache/prazos salvos)
+    const cidadeUpper = (client.cidade || '').trim().toUpperCase();
+    const ufUpper = (client.estado || '').trim().toUpperCase();
+
+    if (cidadeUpper && ufUpper) {
+      const cachedDeadlines = await this.regionDeadlineRepository.find({
+        where: {
+          cidade: cidadeUpper,
+          uf: ufUpper
+        }
+      });
+
+      if (cachedDeadlines && cachedDeadlines.length > 0) {
+        console.log(`[FreightController] Usando prazos do banco de dados (cache) para a região: ${cidadeUpper} - ${ufUpper}`);
+        const cachedOptions = cachedDeadlines.map(cd => ({
+          carrier: cd.carrier,
+          service_description: cd.carrier,
+          price: 0,
+          deadline: cd.deadline,
+          percentage: 0,
+          recommendation: 'normal' as const
+        }));
+
+        return {
+          cliente: client.razao_social || client.fantasia,
+          cidade: client.cidade,
+          uf: client.estado,
+          cep: client.cep,
+          options: cachedOptions
+        };
+      }
+    }
+
+    // 2. Se não houver no banco, realiza a simulação na API externa
     const options = await this.frenetService.simulateDeadline(client.cep, client.cidade);
     
+    // 3. Salvar as opções simuladas no banco de dados para consultas futuras
+    if (options && options.length > 0 && cidadeUpper && ufUpper) {
+      for (const opt of options) {
+        if (opt.deadline > 0) {
+          try {
+            const carrierUpper = (opt.carrier || '').trim().toUpperCase();
+            let regionDeadline = await this.regionDeadlineRepository.findOne({
+              where: {
+                cidade: cidadeUpper,
+                uf: ufUpper,
+                carrier: carrierUpper
+              }
+            });
+
+            if (regionDeadline) {
+              regionDeadline.deadline = opt.deadline;
+              regionDeadline.cep_prefix = client.cep ? client.cep.replace(/\D/g, '').substring(0, 5) : '';
+              await this.regionDeadlineRepository.save(regionDeadline);
+            } else {
+              const newRd = this.regionDeadlineRepository.create({
+                cidade: cidadeUpper,
+                uf: ufUpper,
+                carrier: carrierUpper,
+                deadline: opt.deadline,
+                cep_prefix: client.cep ? client.cep.replace(/\D/g, '').substring(0, 5) : ''
+              });
+              await this.regionDeadlineRepository.save(newRd);
+            }
+          } catch (e: any) {
+            console.warn(`[FreightController] Falha ao salvar prazo no banco de dados para ${cidadeUpper}:`, e.message);
+          }
+        }
+      }
+    }
+
     return {
       cliente: client.razao_social || client.fantasia,
       cidade: client.cidade,
