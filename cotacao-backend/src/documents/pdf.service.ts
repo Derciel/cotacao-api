@@ -106,6 +106,11 @@ export class PdfService {
   }
 
   private _registerHandlebarsHelpers(): void {
+    handlebars.registerHelper('formatInteger', (v) => {
+      if (v === undefined || v === null) return '0';
+      return Math.round(Number(v)).toString();
+    });
+
     handlebars.registerHelper('formatCurrency', (v) =>
       new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0));
 

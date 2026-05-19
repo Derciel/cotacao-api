@@ -182,7 +182,7 @@
             <tbody>
                 {{#each quotation.items}}
                 <tr>
-                    <td class="text-center">{{this.quantidade}}</td>
+                    <td class="text-center">{{formatInteger this.quantidade}}</td>
                     <td>{{this.product.nome}}</td>
                     <td class="text-center">{{calculateVolume this.product.unidades_caixa this.quantidade}}</td>
                     <td class="text-center">{{calculateWeight this.product.peso_caixa_kg this.quantidade
