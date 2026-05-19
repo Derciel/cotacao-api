@@ -44,28 +44,20 @@ export class FreightController {
     let client = await this.clientRepository.findOne({ where: { cnpj: cleanCnpj } });
     
     if (!client) {
-      // Busca na Brasil API se não existir no banco
-      const res = await firstValueFrom(
-        this.httpService.get(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`)
-      ).catch((err) => {
-        if (err.response?.status === 429) throw new HttpException('RATE_LIMIT', 429);
-        return null;
-      });
-      
-      if (res && res.data) {
-        const d = res.data;
+      const cnpjData = await this.fetchCnpjFallback(cleanCnpj);
+      if (cnpjData) {
         client = this.clientRepository.create({
           cnpj: cleanCnpj,
-          razao_social: d.nome_fantasia || d.razao_social || 'Desconhecido',
-          fantasia: d.nome_fantasia || d.razao_social || '',
-          cep: (d.cep || '').replace(/\D/g, ''),
-          cidade: d.municipio || '',
-          estado: d.uf || '',
+          razao_social: cnpjData.razao_social,
+          fantasia: cnpjData.fantasia,
+          cep: cnpjData.cep,
+          cidade: cnpjData.cidade,
+          estado: cnpjData.estado,
           empresa_faturamento: 'NICOPEL'
         });
         await this.clientRepository.save(client);
       } else {
-        throw new HttpException('CNPJ não encontrado na Brasil API', 404);
+        throw new HttpException('CNPJ não encontrado nas fontes disponíveis', 404);
       }
     }
 
@@ -86,28 +78,20 @@ export class FreightController {
     let client = await this.clientRepository.findOne({ where: { cnpj: cleanCnpj } });
     
     if (!client) {
-      // Busca na Brasil API se não existir no banco
-      const res = await firstValueFrom(
-        this.httpService.get(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`)
-      ).catch((err) => {
-        if (err.response?.status === 429) throw new HttpException('RATE_LIMIT', 429);
-        return null;
-      });
-      
-      if (res && res.data) {
-        const d = res.data;
+      const cnpjData = await this.fetchCnpjFallback(cleanCnpj);
+      if (cnpjData) {
         client = this.clientRepository.create({
           cnpj: cleanCnpj,
-          razao_social: d.nome_fantasia || d.razao_social || 'Desconhecido',
-          fantasia: d.nome_fantasia || d.razao_social || '',
-          cep: (d.cep || '').replace(/\D/g, ''),
-          cidade: d.municipio || '',
-          estado: d.uf || '',
+          razao_social: cnpjData.razao_social,
+          fantasia: cnpjData.fantasia,
+          cep: cnpjData.cep,
+          cidade: cnpjData.cidade,
+          estado: cnpjData.estado,
           empresa_faturamento: 'NICOPEL'
         });
         await this.clientRepository.save(client);
       } else {
-        throw new HttpException('CNPJ não encontrado na Brasil API', 404);
+        throw new HttpException('CNPJ não encontrado nas fontes disponíveis', 404);
       }
     }
 
@@ -189,5 +173,77 @@ export class FreightController {
       cep: client.cep,
       options
     };
+  }
+
+  private async fetchCnpjFallback(cnpj: string): Promise<{
+    razao_social: string;
+    fantasia: string;
+    cep: string;
+    cidade: string;
+    estado: string;
+  } | null> {
+    const cleanCnpj = cnpj.replace(/\D/g, '');
+
+    // 1. Tenta a Brasil API
+    try {
+      console.log(`[CNPJ Fetch] Tentando Brasil API para o CNPJ: ${cleanCnpj}`);
+      const res = await firstValueFrom(
+        this.httpService.get(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`, { timeout: 8000 })
+      );
+      if (res && res.data) {
+        const d = res.data;
+        return {
+          razao_social: d.razao_social || 'Desconhecido',
+          fantasia: d.nome_fantasia || d.razao_social || '',
+          cep: (d.cep || '').replace(/\D/g, ''),
+          cidade: d.municipio || '',
+          estado: d.uf || ''
+        };
+      }
+    } catch (e: any) {
+      console.warn(`[CNPJ Fetch] Falha na Brasil API: ${e.message}. Tentando fallback 1 (Minha Receita)...`);
+    }
+
+    // 2. Tenta Minha Receita (Fallback 1)
+    try {
+      console.log(`[CNPJ Fetch] Tentando Minha Receita para o CNPJ: ${cleanCnpj}`);
+      const res = await firstValueFrom(
+        this.httpService.get(`https://minhareceita.org/${cleanCnpj}`, { timeout: 8000 })
+      );
+      if (res && res.data) {
+        const d = res.data;
+        return {
+          razao_social: d.razao_social || 'Desconhecido',
+          fantasia: d.nome_fantasia || d.razao_social || '',
+          cep: (d.cep || '').replace(/\D/g, ''),
+          cidade: d.municipio || '',
+          estado: d.uf || ''
+        };
+      }
+    } catch (e: any) {
+      console.warn(`[CNPJ Fetch] Falha na Minha Receita: ${e.message}. Tentando fallback 2 (ReceitaWS)...`);
+    }
+
+    // 3. Tenta ReceitaWS (Fallback 2)
+    try {
+      console.log(`[CNPJ Fetch] Tentando ReceitaWS para o CNPJ: ${cleanCnpj}`);
+      const res = await firstValueFrom(
+        this.httpService.get(`https://receitaws.com.br/v1/cnpj/${cleanCnpj}`, { timeout: 8000 })
+      );
+      if (res && res.data && res.data.status !== 'ERROR') {
+        const d = res.data;
+        return {
+          razao_social: d.nome || 'Desconhecido',
+          fantasia: d.fantasia || d.nome || '',
+          cep: (d.cep || '').replace(/\D/g, ''),
+          cidade: d.municipio || '',
+          estado: d.uf || ''
+        };
+      }
+    } catch (e: any) {
+      console.warn(`[CNPJ Fetch] Falha na ReceitaWS: ${e.message}. Sem mais fallbacks disponíveis.`);
+    }
+
+    return null;
   }
 }
