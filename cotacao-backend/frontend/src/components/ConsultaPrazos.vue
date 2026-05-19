@@ -66,6 +66,14 @@ const getBestDeadline = (options: any[], uf: string) => {
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
+const chunkArray = <T>(array: T[], size: number): T[][] => {
+    const chunked: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+        chunked.push(array.slice(i, i + size));
+    }
+    return chunked;
+};
+
 const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
     const s = (seconds % 60).toString().padStart(2, '0');
@@ -93,56 +101,62 @@ const fetchCities = async () => {
 
     progress.value = { current: 0, total: results.value.length };
 
-    for (let i = 0; i < results.value.length; i++) {
-        const item = results.value[i];
-        item.status = 'LOADING';
+    // Processar de 5 em 5 CNPJs em paralelo para altíssima performance
+    const chunks = chunkArray(results.value, 5);
+    for (let c = 0; c < chunks.length; c++) {
+        const currentChunk = chunks[c];
         
-        let success = false;
-        let retries = 3;
-        
-        while (!success && retries > 0) {
-            try {
-                const res = await safeFetch('/api/freight/resolve-cnpj', {
-                    method: 'POST',
-                    body: JSON.stringify({ cnpj: item.cnpj }),
-                    headers: { 'Content-Type': 'application/json' }
-                });
+        await Promise.all(currentChunk.map(async (item) => {
+            item.status = 'LOADING';
+            
+            let success = false;
+            let retries = 3;
+            
+            while (!success && retries > 0) {
+                try {
+                    const res = await safeFetch('/api/freight/resolve-cnpj', {
+                        method: 'POST',
+                        body: JSON.stringify({ cnpj: item.cnpj }),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
 
-                if (res.status === 429) {
-                    throw new Error("RATE_LIMIT");
-                }
-                
-                if (res.ok && res.data) {
-                    item.razaoSocial = res.data.cliente || 'Desconhecido';
-                    item.cidade = res.data.cidade || '---';
-                    item.uf = res.data.uf || '---';
-                    item.cep = res.data.cep || '---';
-                    item.status = 'READY';
-                    success = true;
-                } else {
-                    throw new Error(res.data?.message || "Erro na consulta");
-                }
-            } catch (err: any) {
-                if (err.message === "RATE_LIMIT" || err.message.includes('fetch') || err.message.includes('Network')) {
-                    retries--;
-                    if (retries > 0) {
-                        await delay(2000);
-                        continue;
+                    if (res.status === 429) {
+                        throw new Error("RATE_LIMIT");
                     }
-                    item.status = 'ERROR';
-                    item.message = "Erro de rede";
-                } else {
-                    item.status = 'ERROR';
-                    item.message = err.message;
-                    break;
+                    
+                    if (res.ok && res.data) {
+                        item.razaoSocial = res.data.cliente || 'Desconhecido';
+                        item.cidade = res.data.cidade || '---';
+                        item.uf = res.data.uf || '---';
+                        item.cep = res.data.cep || '---';
+                        item.status = 'READY';
+                        success = true;
+                    } else {
+                        throw new Error(res.data?.message || "Erro na consulta");
+                    }
+                } catch (err: any) {
+                    if (err.message === "RATE_LIMIT" || err.message.includes('fetch') || err.message.includes('Network')) {
+                        retries--;
+                        if (retries > 0) {
+                            await delay(1500);
+                            continue;
+                        }
+                        item.status = 'ERROR';
+                        item.message = "Erro de rede";
+                    } else {
+                        item.status = 'ERROR';
+                        item.message = err.message;
+                        break;
+                    }
                 }
             }
-        }
+            
+            progress.value.current++;
+        }));
         
-        progress.value.current++;
-        
-        if (i < results.value.length - 1) {
-            await delay(400); 
+        // Pequeno delay entre blocos de 5 CNPJs para proteger a estabilidade
+        if (c < chunks.length - 1) {
+            await delay(300);
         }
     }
 
@@ -187,72 +201,24 @@ const calculatePrazos = async () => {
         return best.deadline;
     };
 
-    // Processar cada região
-    for (let rIndex = 0; rIndex < regionKeys.length; rIndex++) {
-        const regionKey = regionKeys[rIndex];
-        const regionItems = regions[regionKey];
+    // Processar de 5 em 5 regiões em paralelo para altíssima performance
+    const regionChunks = chunkArray(regionKeys, 5);
+    
+    for (let c = 0; c < regionChunks.length; c++) {
+        const currentChunk = regionChunks[c];
+        
+        await Promise.all(currentChunk.map(async (regionKey) => {
+            const regionItems = regions[regionKey];
+            if (regionItems.length === 0) return;
 
-        if (regionItems.length === 0) continue;
-
-        // Se houver apenas 1 item na região
-        if (regionItems.length === 1) {
-            const item = regionItems[0];
-            item.status = 'LOADING';
-            
-            let success = false;
-            let retries = 3;
-            
-            while (!success && retries > 0) {
-                try {
-                    const res = await safeFetch('/api/freight/simulate-cnpj', {
-                        method: 'POST',
-                        body: JSON.stringify({ cnpj: item.cnpj }),
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-
-                    if (res.ok && res.data && Array.isArray(res.data.options)) {
-                        item.options = res.data.options;
-                        item.status = 'SUCCESS';
-                        success = true;
-                    } else {
-                        throw new Error("Erro na simulação");
-                    }
-                } catch (err: any) {
-                    if (err.message.includes('fetch') || err.message.includes('Network')) {
-                        retries--;
-                        if (retries > 0) {
-                            await delay(2000);
-                            continue;
-                        }
-                        item.status = 'ERROR';
-                        item.message = "Erro de rede";
-                    } else {
-                        item.status = 'ERROR';
-                        item.message = err.message;
-                        break;
-                    }
-                }
-            }
-            
-            progress.value.current++;
-            
-            // Delay de segurança entre requisições
-            if (rIndex < regionKeys.length - 1) {
-                await delay(400);
-            }
-        } else {
-            // Se houver 2 ou mais itens na região
-            // Selecionar até 4 itens para simular como referência
-            const maxRefs = Math.min(regionItems.length, 4);
-            const refItems = regionItems.slice(0, maxRefs);
-
-            // Colocar todos os itens da região como LOADING para feedback visual
-            regionItems.forEach(item => item.status = 'LOADING');
-
-            // Disparar todas as simulações de referência em paralelo! (Velocidade astronômica)
-            const promises = refItems.map(async (item) => {
+            // Se houver apenas 1 item na região
+            if (regionItems.length === 1) {
+                const item = regionItems[0];
+                item.status = 'LOADING';
+                
                 let success = false;
                 let retries = 3;
+                
                 while (!success && retries > 0) {
                     try {
                         const res = await safeFetch('/api/freight/simulate-cnpj', {
@@ -260,6 +226,7 @@ const calculatePrazos = async () => {
                             body: JSON.stringify({ cnpj: item.cnpj }),
                             headers: { 'Content-Type': 'application/json' }
                         });
+
                         if (res.ok && res.data && Array.isArray(res.data.options)) {
                             item.options = res.data.options;
                             item.status = 'SUCCESS';
@@ -271,7 +238,7 @@ const calculatePrazos = async () => {
                         if (err.message.includes('fetch') || err.message.includes('Network')) {
                             retries--;
                             if (retries > 0) {
-                                await delay(1000);
+                                await delay(1500);
                                 continue;
                             }
                             item.status = 'ERROR';
@@ -283,87 +250,132 @@ const calculatePrazos = async () => {
                         }
                     }
                 }
-                return success;
-            });
+                
+                progress.value.current++;
+            } else {
+                // Se houver 2 ou mais itens na região
+                // Selecionar até 4 itens para simular como referência
+                const maxRefs = Math.min(regionItems.length, 4);
+                const refItems = regionItems.slice(0, maxRefs);
 
-            // Aguarda a resolução paralela de todas as simulações de referência
-            const resultsSuccess = await Promise.all(promises);
-            
-            // Filtrar os itens de referência que obtiveram sucesso
-            const successfulRefs = refItems.filter((_, idx) => resultsSuccess[idx]);
+                // Colocar todos os itens da região como LOADING para feedback visual
+                regionItems.forEach(item => item.status = 'LOADING');
 
-            if (successfulRefs.length > 0) {
-                // Extrair prazos de todos os bem-sucedidos
-                const deadlines = successfulRefs.map(item => getBestDeadlineNumber(item.options)).filter(d => d > 0);
-
-                if (deadlines.length > 0) {
-                    // Verificar se todos os prazos obtidos são iguais
-                    const allEqual = deadlines.every(d => d === deadlines[0]);
-                    
-                    if (allEqual) {
-                        // Mesmo prazo, replica as opções da primeira referência bem-sucedida para o resto
-                        const optionsToCopy = successfulRefs[0].options;
-                        
-                        // Atualizar também os itens de referência que falharam
-                        refItems.forEach(item => {
-                            if (item.status !== 'SUCCESS') {
-                                item.options = JSON.parse(JSON.stringify(optionsToCopy));
+                // Disparar todas as simulações de referência em paralelo! (Velocidade astronômica)
+                const promises = refItems.map(async (item) => {
+                    let success = false;
+                    let retries = 3;
+                    while (!success && retries > 0) {
+                        try {
+                            const res = await safeFetch('/api/freight/simulate-cnpj', {
+                                method: 'POST',
+                                body: JSON.stringify({ cnpj: item.cnpj }),
+                                headers: { 'Content-Type': 'application/json' }
+                            });
+                            if (res.ok && res.data && Array.isArray(res.data.options)) {
+                                item.options = res.data.options;
                                 item.status = 'SUCCESS';
+                                success = true;
+                            } else {
+                                throw new Error("Erro na simulação");
                             }
-                        });
-
-                        // Replicar para os outros itens restantes na região (a partir do índice maxRefs)
-                        for (let k = maxRefs; k < regionItems.length; k++) {
-                            regionItems[k].options = JSON.parse(JSON.stringify(optionsToCopy));
-                            regionItems[k].status = 'SUCCESS';
-                        }
-                    } else {
-                        // Prazos diferentes, calcula a média aritmética de todos eles
-                        const sum = deadlines.reduce((acc, curr) => acc + curr, 0);
-                        const media = Math.round(sum / deadlines.length);
-
-                        // Ajustar opções com o prazo médio baseado no primeiro que funcionou
-                        const baseOptions = successfulRefs[0].options;
-                        const adjustedOptions = JSON.parse(JSON.stringify(baseOptions)).map((o: any) => ({
-                            ...o,
-                            deadline: media
-                        }));
-
-                        // Replicar a média para as referências que falharam
-                        refItems.forEach(item => {
-                            if (item.status !== 'SUCCESS') {
-                                item.options = JSON.parse(JSON.stringify(adjustedOptions));
-                                item.status = 'SUCCESS';
+                        } catch (err: any) {
+                            if (err.message.includes('fetch') || err.message.includes('Network')) {
+                                retries--;
+                                if (retries > 0) {
+                                    await delay(1000);
+                                    continue;
+                                }
+                                item.status = 'ERROR';
+                                item.message = "Erro de rede";
+                            } else {
+                                item.status = 'ERROR';
+                                item.message = err.message;
+                                break;
                             }
-                        });
-
-                        // Replicar a média para o resto dos itens da região (a partir do índice maxRefs)
-                        for (let k = maxRefs; k < regionItems.length; k++) {
-                            regionItems[k].options = JSON.parse(JSON.stringify(adjustedOptions));
-                            regionItems[k].status = 'SUCCESS';
                         }
                     }
+                    return success;
+                });
+
+                // Aguarda a resolução paralela de todas as simulações de referência
+                const resultsSuccess = await Promise.all(promises);
+                
+                // Filtrar os itens de referência que obtiveram sucesso
+                const successfulRefs = refItems.filter((_, idx) => resultsSuccess[idx]);
+
+                if (successfulRefs.length > 0) {
+                    // Extrair prazos de todos os bem-sucedidos
+                    const deadlines = successfulRefs.map(item => getBestDeadlineNumber(item.options)).filter(d => d > 0);
+
+                    if (deadlines.length > 0) {
+                        // Verificar se todos os prazos obtidos são iguais
+                        const allEqual = deadlines.every(d => d === deadlines[0]);
+                        
+                        if (allEqual) {
+                            // Mesmo prazo, replica as opções da primeira referência bem-sucedida para o resto
+                            const optionsToCopy = successfulRefs[0].options;
+                            
+                            // Atualizar também os itens de referência que falharam
+                            refItems.forEach(item => {
+                                if (item.status !== 'SUCCESS') {
+                                    item.options = JSON.parse(JSON.stringify(optionsToCopy));
+                                    item.status = 'SUCCESS';
+                                }
+                            });
+
+                            // Replicar para os outros itens restantes na região (a partir do índice maxRefs)
+                            for (let k = maxRefs; k < regionItems.length; k++) {
+                                regionItems[k].options = JSON.parse(JSON.stringify(optionsToCopy));
+                                regionItems[k].status = 'SUCCESS';
+                            }
+                        } else {
+                            // Prazos diferentes, calcula a média aritmética de todos eles
+                            const sum = deadlines.reduce((acc, curr) => acc + curr, 0);
+                            const media = Math.round(sum / deadlines.length);
+
+                            // Ajustar opções com o prazo médio baseado no primeiro que funcionou
+                            const baseOptions = successfulRefs[0].options;
+                            const adjustedOptions = JSON.parse(JSON.stringify(baseOptions)).map((o: any) => ({
+                                ...o,
+                                deadline: media
+                            }));
+
+                            // Replicar a média para as referências que falharam
+                            refItems.forEach(item => {
+                                if (item.status !== 'SUCCESS') {
+                                    item.options = JSON.parse(JSON.stringify(adjustedOptions));
+                                    item.status = 'SUCCESS';
+                                }
+                            });
+
+                            // Replicar a média para o resto dos itens da região (a partir do índice maxRefs)
+                            for (let k = maxRefs; k < regionItems.length; k++) {
+                                regionItems[k].options = JSON.parse(JSON.stringify(adjustedOptions));
+                                regionItems[k].status = 'SUCCESS';
+                            }
+                        }
+                    } else {
+                        regionItems.forEach(item => {
+                            item.status = 'ERROR';
+                            item.message = "Prazos válidos não encontrados nas referências";
+                        });
+                    }
                 } else {
+                    // Todas as simulações de referência falharam
                     regionItems.forEach(item => {
                         item.status = 'ERROR';
-                        item.message = "Prazos válidos não encontrados nas referências";
+                        item.message = "Falha nas simulações de referência da região";
                     });
                 }
-            } else {
-                // Todas as simulações de referência falharam
-                regionItems.forEach(item => {
-                    item.status = 'ERROR';
-                    item.message = "Falha nas simulações de referência da região";
-                });
-            }
 
-            // Conta todos os itens da região como concluídos
-            progress.value.current += regionItems.length;
-
-            // Delay ultra curto de segurança entre regiões
-            if (rIndex < regionKeys.length - 1) {
-                await delay(150);
+                progress.value.current += regionItems.length;
             }
+        }));
+
+        // Delay curto de respiro entre chunks de 5 regiões
+        if (c < regionChunks.length - 1) {
+            await delay(250);
         }
     }
 
