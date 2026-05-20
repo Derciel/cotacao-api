@@ -158,7 +158,7 @@ const loadData = async (forceRefresh = false) => {
 };
 
 // --- CRUZA PRODUTO E PEGA PESOS E VOLUMES ---
-function getProductSpecs(description: string, category: string) {
+function getProductSpecs(description: string, category: string, qtde = 1) {
   if (!description) return { unidades_caixa: 1, peso_caixa_kg: 0.1, source: 'default' };
 
   // Se o usuário já ajustou manualmente nesta sessão, respeitamos o ajuste
@@ -166,7 +166,52 @@ function getProductSpecs(description: string, category: string) {
     return { ...manualMappings.value[description], source: 'manual' };
   }
 
-  // 1. Busca exata ou parcial de produto cadastrado no banco local
+  const descUpper = description.toUpperCase().trim();
+
+  // 1. Regra Especial para PETIT GATEAU + WAFFLE (Tampa, Base e Embalagens de Cartão)
+  if (descUpper.includes('PETIT GATEAU') && descUpper.includes('WAFFLE')) {
+    return {
+      unidades_caixa: qtde > 0 ? qtde : 1, // volume fixo = 1
+      peso_caixa_kg: 6.4,
+      source: 'intelligent'
+    };
+  }
+
+  // 2. Regra Especial para Potes / Sorvete / Açaí 500ML THE BEST
+  if (descUpper.includes('THE BEST') && descUpper.includes('500ML')) {
+    if (qtde <= 400) {
+      return {
+        unidades_caixa: 400,
+        peso_caixa_kg: (descUpper.includes('SORVETE') || descUpper.includes('AÇAI')) ? 5.0 : 5.2,
+        source: 'intelligent'
+      };
+    } else {
+      return {
+        unidades_caixa: 600,
+        peso_caixa_kg: 7.6,
+        source: 'intelligent'
+      };
+    }
+  }
+
+  // 3. Regra Especial para Potes / Sorvete / Açaí 240ML THE BEST
+  if (descUpper.includes('THE BEST') && descUpper.includes('240ML')) {
+    if (qtde <= 200) {
+      return {
+        unidades_caixa: 200,
+        peso_caixa_kg: (descUpper.includes('SORVETE') || descUpper.includes('AÇAI')) ? 1.7 : 1.79,
+        source: 'intelligent'
+      };
+    } else {
+      return {
+        unidades_caixa: 400,
+        peso_caixa_kg: 3.37,
+        source: 'intelligent'
+      };
+    }
+  }
+
+  // 4. Busca exata ou parcial de produto cadastrado no banco local
   const desc = description.toLowerCase();
   let bestMatch: any = null;
   let maxScore = 0;
@@ -190,7 +235,7 @@ function getProductSpecs(description: string, category: string) {
     };
   }
 
-  // 2. Fallbacks inteligentes baseados em texto e categoria
+  // 5. Fallbacks inteligentes baseados em texto e categoria
   const cat = (category || '').toLowerCase();
   if (desc.includes('copo') || cat.includes('copo')) {
     return { unidades_caixa: 1000, peso_caixa_kg: 3.5, source: 'intelligent' };
@@ -210,7 +255,7 @@ const updateItemSpecs = (description: string, field: 'unidades_caixa' | 'peso_ca
   if (!description) return;
   
   if (!manualMappings.value[description]) {
-    const current = getProductSpecs(description, '');
+    const current = getProductSpecs(description, '', 1);
     manualMappings.value[description] = {
       unidades_caixa: current.unidades_caixa,
       peso_caixa_kg: current.peso_caixa_kg
@@ -307,6 +352,7 @@ const groupedByClient = computed(() => {
     if (!client.orders[orderId]) {
       client.orders[orderId] = {
         idPedido: orderId,
+        idFaturamento: item.vw_pedidos_id_faturamento || '',
         data: item.vw_pedidos_data_inclusao || '',
         dataEntrega: item.vw_pedidos_data_entrega || '',
         situacao: item.vw_pedidos_situacao_pedidos || '',
@@ -318,8 +364,8 @@ const groupedByClient = computed(() => {
     const order = client.orders[orderId];
 
     // Calcula Peso e Volumes do Item com base nas specs cruzadas/manuais
-    const specs = getProductSpecs(item.vw_pedidos_completos_descricao_item_pedido, item.vw_pedidos_completos_descricao_categoria);
     const qtde = parseFloat(item.vw_pedidos_completos_quantidade) || 0;
+    const specs = getProductSpecs(item.vw_pedidos_completos_descricao_item_pedido, item.vw_pedidos_completos_descricao_categoria, qtde);
     
     const volumes = specs.unidades_caixa > 0 ? (qtde / specs.unidades_caixa) : 0;
     const peso = volumes * specs.peso_caixa_kg;
@@ -383,8 +429,8 @@ const globalTotals = computed(() => {
     if (item.vw_pedidos_id_pedido) ordersCount.add(item.vw_pedidos_id_pedido);
     if (item.vw_pedidos_completos_cnpj_cliente) clientsCount.add(item.vw_pedidos_completos_cnpj_cliente);
 
-    const specs = getProductSpecs(item.vw_pedidos_completos_descricao_item_pedido, item.vw_pedidos_completos_descricao_categoria);
     const qtde = parseFloat(item.vw_pedidos_completos_quantidade) || 0;
+    const specs = getProductSpecs(item.vw_pedidos_completos_descricao_item_pedido, item.vw_pedidos_completos_descricao_categoria, qtde);
     const volumes = specs.unidades_caixa > 0 ? (qtde / specs.unidades_caixa) : 0;
     const peso = volumes * specs.peso_caixa_kg;
 
@@ -619,7 +665,8 @@ const formatCNPJ = (v: string) => {
                     <div class="orders-accordion-wrapper">
                       <div v-for="order in client.orders" :key="order.idPedido" class="order-block mb-15">
                         <div class="order-header-info">
-                          <span><i class="fas fa-file-invoice"></i> Pedido: <strong>#{{ order.idPedido }}</strong></span>
+                          <span><i class="fas fa-file-invoice"></i> Pedido ERP: <strong>#{{ order.idPedido }}</strong></span>
+                          <span>Faturamento ID: <strong>#{{ order.idFaturamento || order.idPedido }}</strong></span>
                           <span>Data Inclusão: <strong>{{ order.data }}</strong></span>
                           <span>Data Entrega: <strong>{{ order.dataEntrega || 'A combinar' }}</strong></span>
                           <span>Situação: <span class="badge-status" :class="order.situacao.toLowerCase()">{{ order.situacao }}</span></span>
