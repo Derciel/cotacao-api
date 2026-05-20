@@ -478,29 +478,51 @@ const exportToExcel = () => {
     'CNPJ',
     'CIDADE',
     'ESTADO',
-    'Nº PEDIDOS',
-    'TOTAL VOLUMES (CXS)',
-    'PESO TOTAL (KG)',
-    'VALOR PRODUTOS R$',
-    'VALOR FRETE R$'
+    'PEDIDO ERP',
+    'FATURAMENTO ID',
+    'SITUAÇÃO',
+    'VOLUMES PEDIDO (CXS)',
+    'PESO PEDIDO (KG)',
+    'VALOR PEDIDO R$',
+    'FRETE PEDIDO R$',
+    'TOTAL PEDIDOS DO CLIENTE'
   ];
 
-  const rows = groupedByClient.value.map(c => [
-    c.razao,
-    c.fantasia,
-    c.cnpj,
-    c.cidade,
-    c.estado,
-    c.orders.length,
-    Math.round(c.totalVol),
-    c.totalWeight.toFixed(2),
-    c.totalValue.toFixed(2),
-    c.totalFreight.toFixed(2)
-  ].join('\t'));
+  const rows: string[] = [];
+
+  groupedByClient.value.forEach(c => {
+    c.orders.forEach((order: any) => {
+      let orderVol = 0;
+      let orderWeight = 0;
+      let orderValue = 0;
+
+      order.items.forEach((it: any) => {
+        orderVol += it.volumes;
+        orderWeight += it.peso;
+        orderValue += it.valorItem;
+      });
+
+      rows.push([
+        c.razao,
+        c.fantasia,
+        c.cnpj,
+        c.cidade,
+        c.estado,
+        order.idPedido,
+        order.idFaturamento || order.idPedido,
+        order.situacao,
+        Math.round(orderVol),
+        orderWeight.toFixed(2),
+        orderValue.toFixed(2),
+        order.frete.toFixed(2),
+        c.orders.length
+      ].join('\t'));
+    });
+  });
 
   const tsv = [headers.join('\t'), ...rows].join('\n');
   navigator.clipboard.writeText(tsv).then(() => {
-    (window as any).showToast('Planilha consolidada copiada! Cole direto no Excel (Ctrl+V).', 'success');
+    (window as any).showToast('Planilha detalhada copiada! Cole direto no Excel (Ctrl+V).', 'success');
   }).catch(() => {
     (window as any).showToast('Erro ao copiar dados para a área de transferência.', 'error');
   });
