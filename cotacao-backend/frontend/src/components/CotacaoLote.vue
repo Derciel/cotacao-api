@@ -32,7 +32,44 @@ const results = ref<BatchResult[]>([]);
 const isProductModalOpen = ref(false);
 const productSearch = ref("");
 const productList = ref<any[]>([]);
-const selectedProducts = ref<BatchProduct[]>([]);
+const selectedProducts = ref<BatchProduct[]>([
+    {
+        productId: 279,
+        nome: "TAMPA E BASE WAFFLE 225UND",
+        caixas: 1,
+        unidadesCaixa: 225,
+        valorUnitario: 1.5,
+        ipi: 3.25,
+        total: 348.47
+    },
+    {
+        productId: 261,
+        nome: "POTE 240 ML - COPA",
+        caixas: 1,
+        unidadesCaixa: 400,
+        valorUnitario: 0.39344,
+        ipi: 6.75,
+        total: 168.00
+    },
+    {
+        productId: 260,
+        nome: "POTE 500 ML - COPA 600 UND",
+        caixas: 1,
+        unidadesCaixa: 600,
+        valorUnitario: 0.44964,
+        ipi: 6.75,
+        total: 287.99
+    },
+    {
+        productId: 255,
+        nome: "POTE 500 ML - COPA",
+        caixas: 1,
+        unidadesCaixa: 400,
+        valorUnitario: 0.44964,
+        ipi: 6.75,
+        total: 192.00
+    }
+]);
 const isSearching = ref(false);
 const isAdmin = computed(() => {
     try {
