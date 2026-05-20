@@ -334,7 +334,7 @@ const groupedByClient = computed(() => {
         razao: item.vw_pedidos_completos_razao_cliente || 'NÃO INFORMADO',
         fantasia: item.vw_pedidos_completos_fantasia_cliente || 'NÃO INFORMADO',
         cnpj: item.vw_pedidos_completos_cnpj_cliente || '',
-        cidade: item.vw_pedidos_completos_cidade || item.vw_cad_end_cli_cidade || '',
+        cidade: item.vw_cad_end_cli_cidade || item.vw_pedidos_completos_cidade || '',
         estado: item.vw_cad_end_cli_estado || '',
         totalItens: 0,
         totalVol: 0,
