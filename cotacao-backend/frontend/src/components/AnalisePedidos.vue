@@ -363,23 +363,14 @@ const groupedByClient = computed(() => {
 
     const order = client.orders[orderId];
 
-    // Calcula Peso e Volumes do Item com base nas specs cruzadas/manuais
+    // Guarda informações brutas para consolidação inteligente por tipo de pote depois
     const qtde = parseFloat(item.vw_pedidos_completos_quantidade) || 0;
-    const specs = getProductSpecs(item.vw_pedidos_completos_descricao_item_pedido, item.vw_pedidos_completos_descricao_categoria, qtde);
-    
-    const volumes = specs.unidades_caixa > 0 ? (qtde / specs.unidades_caixa) : 0;
-    const peso = volumes * specs.peso_caixa_kg;
     const valorItem = parseFloat(item.vw_pedidos_completos_valor_total) || 0;
 
     order.items.push({
       ...item,
       qtde,
-      unidades_caixa: specs.unidades_caixa,
-      peso_caixa_kg: specs.peso_caixa_kg,
-      volumes,
-      peso,
-      valorItem,
-      source: specs.source
+      valorItem
     });
   });
 
@@ -395,6 +386,55 @@ const groupedByClient = computed(() => {
 
     ordersArray.forEach((order: any) => {
       clientFreight += order.frete;
+
+      // 1. Somar todas as quantidades de potes de 500ML e de 240ML do The Best neste pedido (independente do país)
+      let totalPotes500 = 0;
+      let totalPotes240 = 0;
+
+      order.items.forEach((it: any) => {
+        const descUpper = (it.vw_pedidos_completos_descricao_item_pedido || '').toUpperCase();
+        if (descUpper.includes('THE BEST')) {
+          if (descUpper.includes('500ML')) {
+            totalPotes500 += it.qtde;
+          } else if (descUpper.includes('240ML')) {
+            totalPotes240 += it.qtde;
+          }
+        }
+      });
+
+      // 2. Agora aplica a regra de volumes/pesos proporcional com base nas quantidades consolidadas do tipo de pote
+      order.items = order.items.map((it: any) => {
+        const descUpper = (it.vw_pedidos_completos_descricao_item_pedido || '').toUpperCase();
+        
+        let qtyRef = it.qtde;
+        if (descUpper.includes('THE BEST')) {
+          if (descUpper.includes('500ML')) {
+            qtyRef = totalPotes500;
+          } else if (descUpper.includes('240ML')) {
+            qtyRef = totalPotes240;
+          }
+        }
+
+        const specs = getProductSpecs(
+          it.vw_pedidos_completos_descricao_item_pedido, 
+          it.vw_pedidos_completos_descricao_categoria, 
+          qtyRef
+        );
+
+        const volumes = specs.unidades_caixa > 0 ? (it.qtde / specs.unidades_caixa) : 0;
+        const peso = volumes * specs.peso_caixa_kg;
+
+        return {
+          ...it,
+          unidades_caixa: specs.unidades_caixa,
+          peso_caixa_kg: specs.peso_caixa_kg,
+          volumes,
+          peso,
+          source: specs.source
+        };
+      });
+
+      // 3. Consolida nos totais
       order.items.forEach((it: any) => {
         clientVol += it.volumes;
         clientWeight += it.peso;
@@ -425,28 +465,16 @@ const globalTotals = computed(() => {
   let value = 0;
   let freight = 0;
 
-  processedOrders.value.forEach(item => {
-    if (item.vw_pedidos_id_pedido) ordersCount.add(item.vw_pedidos_id_pedido);
-    if (item.vw_pedidos_completos_cnpj_cliente) clientsCount.add(item.vw_pedidos_completos_cnpj_cliente);
+  groupedByClient.value.forEach(c => {
+    if (c.cnpj) clientsCount.add(c.cnpj);
+    vol += c.totalVol;
+    weight += c.totalWeight;
+    value += c.totalValue;
+    freight += c.totalFreight;
 
-    const qtde = parseFloat(item.vw_pedidos_completos_quantidade) || 0;
-    const specs = getProductSpecs(item.vw_pedidos_completos_descricao_item_pedido, item.vw_pedidos_completos_descricao_categoria, qtde);
-    const volumes = specs.unidades_caixa > 0 ? (qtde / specs.unidades_caixa) : 0;
-    const peso = volumes * specs.peso_caixa_kg;
-
-    vol += volumes;
-    weight += peso;
-    value += parseFloat(item.vw_pedidos_completos_valor_total) || 0;
-  });
-
-  // Somatório único do frete de cada pedido distinto para não duplicar fretes de itens do mesmo pedido
-  const processedOrdersFreight = new Set<number>();
-  processedOrders.value.forEach(item => {
-    const oId = item.vw_pedidos_id_pedido;
-    if (oId && !processedOrdersFreight.has(oId)) {
-      processedOrdersFreight.add(oId);
-      freight += parseFloat(item.vw_pedidos_valor_frete) || 0;
-    }
+    c.orders.forEach((order: any) => {
+      if (order.idPedido) ordersCount.add(order.idPedido);
+    });
   });
 
   return {
