@@ -28,6 +28,7 @@ interface BatchProduct {
 
 const cnpjs = ref("");
 const isProcessing = ref(false);
+const isDownloadingZip = ref(false);
 const results = ref<BatchResult[]>([]);
 
 // Variáveis para rastreamento de progresso do lote
@@ -239,6 +240,7 @@ const downloadZip = async () => {
     const ids = results.value.filter(r => r.status === 'SUCCESS').map(r => r.id);
     if (ids.length === 0) return window.showToast("Nenhuma cotação de sucesso para baixar.", "warning");
 
+    isDownloadingZip.value = true;
     try {
         const res = await fetch(getBackendUrl() + '/api/quotations/batch/zip', {
             method: 'POST',
@@ -258,9 +260,16 @@ const downloadZip = async () => {
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
+            window.showToast("Download do ZIP iniciado com sucesso!", "success");
+        } else {
+            const errorText = await res.text();
+            window.showToast(`Erro ao gerar ZIP no servidor (${res.status}): ${errorText || res.statusText}`, "error");
         }
-    } catch (e) {
-        window.showToast("Erro ao baixar ZIP", "error");
+    } catch (e: any) {
+        console.error("Erro ao baixar ZIP:", e);
+        window.showToast("Erro ao baixar ZIP: " + e.message, "error");
+    } finally {
+        isDownloadingZip.value = false;
     }
 };
 
@@ -394,8 +403,10 @@ const formatCurrency = (val?: number) => Number(val || 0).toLocaleString('pt-BR'
         <div v-if="results.length > 0" class="glass-card mt-20 fade-in">
             <div class="card-title flex-between">
                 <span><i class="fas fa-list-check"></i> RESULTADOS</span>
-                <button @click="downloadZip" class="btn-zip">
-                    <i class="fas fa-file-archive"></i> BAIXAR TUDO (ZIP) ({{ results.filter(r => r.status === 'SUCCESS').length }} cotações prontas)
+                <button @click="downloadZip" class="btn-zip" :disabled="isDownloadingZip || isProcessing">
+                    <span v-if="isDownloadingZip" class="btn-spinner"></span>
+                    <i v-else class="fas fa-file-archive"></i> 
+                    {{ isDownloadingZip ? 'GERANDO ZIP...' : `BAIXAR TUDO (ZIP) (${results.filter(r => r.status === 'SUCCESS').length} cotações prontas)` }}
                 </button>
             </div>
 
