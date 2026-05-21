@@ -395,7 +395,7 @@ const formatCurrency = (val?: number) => Number(val || 0).toLocaleString('pt-BR'
             <div class="card-title flex-between">
                 <span><i class="fas fa-list-check"></i> RESULTADOS</span>
                 <button @click="downloadZip" class="btn-zip">
-                    <i class="fas fa-file-archive"></i> BAIXAR TUDO (ZIP)
+                    <i class="fas fa-file-archive"></i> BAIXAR TUDO (ZIP) ({{ results.filter(r => r.status === 'SUCCESS').length }} cotações prontas)
                 </button>
             </div>
 
