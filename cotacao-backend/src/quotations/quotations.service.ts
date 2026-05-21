@@ -589,10 +589,15 @@ export class QuotationsService {
         // 3. Calcular Fretes
         const options = await this.frenetService.calculateForQuotation(quotation.id);
         
-        // 4. Escolher o melhor (mais barato > 0)
+        // 4. Escolher o melhor (priorizando o menor prazo de entrega, depois o menor preço)
         const bestOption = options
           .filter(o => o.price > 0 && o.recommendation !== 'manual_quote')
-          .sort((a, b) => a.price - b.price)[0];
+          .sort((a, b) => {
+            if (a.deadline !== b.deadline) {
+              return a.deadline - b.deadline;
+            }
+            return a.price - b.price;
+          })[0];
 
         if (bestOption) {
           // 5. Finalizar
