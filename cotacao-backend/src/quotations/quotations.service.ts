@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import type archiver from 'archiver';
-import { PassThrough } from 'node:stream';
+import { PassThrough, Writable } from 'node:stream';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, MoreThanOrEqual } from 'typeorm';
 import { Quotation, QuotationStatus, EmpresaFaturamento } from './entities/quotation.entity.js';
@@ -647,9 +647,14 @@ export class QuotationsService {
         const archive = archiverFn('zip', { zlib: { level: 9 } });
         const chunks: Buffer[] = [];
         
-        const stream = new PassThrough();
-        stream.on('data', chunk => chunks.push(chunk));
-        stream.on('end', () => resolve(Buffer.concat(chunks)));
+        const stream = new Writable({
+          write(chunk, encoding, callback) {
+            chunks.push(chunk);
+            callback();
+          }
+        });
+        
+        stream.on('finish', () => resolve(Buffer.concat(chunks)));
         stream.on('error', reject);
         
         archive.pipe(stream);

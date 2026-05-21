@@ -131,15 +131,20 @@ export class QuotationsController {
       return res.status(400).send('Nenhum ID informado.');
     }
     
-    const zipBuffer = await this.quotationsService.generateZipBuffer(ids);
-    
-    res.set({
-      'Content-Type': 'application/zip',
-      'Content-Length': zipBuffer.length,
-      'Content-Disposition': 'attachment; filename=cotacoes-em-lote.zip',
-    });
-    
-    res.end(zipBuffer);
+    try {
+      const zipBuffer = await this.quotationsService.generateZipBuffer(ids);
+      
+      res.set({
+        'Content-Type': 'application/zip',
+        'Content-Length': zipBuffer.length,
+        'Content-Disposition': 'attachment; filename=cotacoes-em-lote.zip',
+      });
+      
+      res.end(zipBuffer);
+    } catch (err: any) {
+      console.error('Erro ao gerar ZIP no controller:', err);
+      res.status(500).send('Erro ao gerar o arquivo ZIP: ' + err.message);
+    }
   }
 
   @Delete(':id')
