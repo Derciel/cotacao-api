@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
-import archiver from 'archiver';
+import * as archiverModule from 'archiver';
+const archiver = (archiverModule.default || archiverModule) as any;
 import { PassThrough, Writable } from 'node:stream';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, MoreThanOrEqual } from 'typeorm';
