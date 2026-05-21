@@ -28,6 +28,61 @@ export class PdfService {
     return this._generatePdfFromHtml(finalHtml);
   }
 
+  async generateMultipleQuotationsPdf(quotationIds: number[]): Promise<{ name: string, buffer: Buffer }[]> {
+    let browser: any;
+    const results: { name: string, buffer: Buffer }[] = [];
+    
+    try {
+      browser = await puppeteer.launch({
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--single-process',
+          '--no-zygote'
+        ],
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+        headless: true
+      });
+
+      for (const id of quotationIds) {
+        try {
+          const quotation = await this.quotationsService.findOne(id);
+          if (!quotation) continue;
+
+          const finalHtml = await this._compileHtmlTemplate(quotation as any);
+          
+          const page = await browser.newPage();
+          await page.setContent(finalHtml, { waitUntil: 'networkidle0' });
+
+          const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: { top: '1cm', right: '1cm', bottom: '1cm', left: '1cm' }
+          });
+
+          await page.close();
+
+          let clientName = quotation.client?.fantasia || quotation.client?.razao_social || 'cliente';
+          clientName = clientName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+          results.push({
+            name: `${clientName}_orcamento-${id}.pdf`,
+            buffer: Buffer.from(pdfBuffer)
+          });
+        } catch (err) {
+          console.error(`Erro ao gerar PDF para cotação ${id} em lote:`, err);
+        }
+      }
+    } catch (err: any) {
+      console.error('Erro ao iniciar Puppeteer em lote:', err.message);
+    } finally {
+      if (browser) await browser.close();
+    }
+    
+    return results;
+  }
+
   private async _compileHtmlTemplate(quotation: Quotation): Promise<string> {
     const templateHtml = await fs.readFile(this.templatePath, 'utf8');
     const template = handlebars.compile(templateHtml);

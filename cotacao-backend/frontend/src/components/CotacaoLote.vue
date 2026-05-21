@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { safeFetch } from '../utils/api-utils';
+import { safeFetch, getBackendUrl } from '../utils/api-utils';
 
 interface BatchResult {
     id?: number;
@@ -240,7 +240,7 @@ const downloadZip = async () => {
     if (ids.length === 0) return window.showToast("Nenhuma cotação de sucesso para baixar.", "warning");
 
     try {
-        const res = await fetch(`${window.PUBLIC_API_URL || ''}/api/quotations/batch/zip`, {
+        const res = await fetch(getBackendUrl() + '/api/quotations/batch/zip', {
             method: 'POST',
             body: JSON.stringify({ ids }),
             headers: { 

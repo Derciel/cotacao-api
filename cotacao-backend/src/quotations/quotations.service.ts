@@ -14,7 +14,7 @@ import { Client } from '../clients/entities/client.entity.js';
 import { PdfService } from '../documents/pdf.service.js';
 import { FrenetService } from '../freight/frenet.service.js';
 
-type PdfServicePort = Pick<PdfService, 'generateQuotationPdf'>;
+type PdfServicePort = Pick<PdfService, 'generateQuotationPdf' | 'generateMultipleQuotationsPdf'>;
 
 @Injectable()
 export class QuotationsService {
@@ -641,35 +641,30 @@ export class QuotationsService {
 
   async generateZipBuffer(quotationIds: number[]): Promise<Buffer> {
     return new Promise(async (resolve, reject) => {
-      type ZipArchiveConstructor = new (options?: archiver.ArchiverOptions) => archiver.Archiver;
-      const { ZipArchive } = await import('archiver') as unknown as {
-        ZipArchive: ZipArchiveConstructor;
-      };
-      const archive = new ZipArchive({ zlib: { level: 9 } });
-      const chunks: Buffer[] = [];
-      
-      const stream = new PassThrough();
-      stream.on('data', chunk => chunks.push(chunk));
-      stream.on('end', () => resolve(Buffer.concat(chunks)));
-      stream.on('error', reject);
-      
-      archive.pipe(stream);
-      
-      for (const id of quotationIds) {
-        try {
-          const quotation = await this.findOne(id);
-          const pdfBuffer = await this.pdfService.generateQuotationPdf(id);
-          
-          let clientName = quotation.client?.fantasia || quotation.client?.razao_social || 'cliente';
-          clientName = clientName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-          
-          archive.append(pdfBuffer, { name: `${clientName}_orcamento-${id}.pdf` });
-        } catch (e) {
-          console.error(`Erro ao gerar PDF para cotação ${id} no ZIP:`, e);
+      try {
+        const archiverModule = await import('archiver');
+        const archiverFn = (archiverModule.default || archiverModule) as any;
+        const archive = archiverFn('zip', { zlib: { level: 9 } });
+        const chunks: Buffer[] = [];
+        
+        const stream = new PassThrough();
+        stream.on('data', chunk => chunks.push(chunk));
+        stream.on('end', () => resolve(Buffer.concat(chunks)));
+        stream.on('error', reject);
+        
+        archive.pipe(stream);
+        
+        // Gera todos os PDFs de forma ultra-otimizada
+        const pdfFiles = await this.pdfService.generateMultipleQuotationsPdf(quotationIds);
+        
+        for (const file of pdfFiles) {
+          archive.append(file.buffer, { name: file.name });
         }
+        
+        await archive.finalize();
+      } catch (err) {
+        reject(err);
       }
-      
-      await archive.finalize();
     });
   }
 }
