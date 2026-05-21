@@ -29,6 +29,22 @@ interface BatchProduct {
 const cnpjs = ref("");
 const isProcessing = ref(false);
 const results = ref<BatchResult[]>([]);
+
+// Variáveis para rastreamento de progresso do lote
+const currentProgressIndex = ref(0);
+const totalProgressCount = ref(0);
+const estimatedTimeRemaining = ref("");
+const startTime = ref<number | null>(null);
+
+const formatTime = (seconds: number): string => {
+    if (seconds <= 0) return "0s";
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    if (m > 0) {
+        return `${m}m ${s}s`;
+    }
+    return `${s}s`;
+};
 const isProductModalOpen = ref(false);
 const productSearch = ref("");
 const productList = ref<any[]>([]);
@@ -153,32 +169,65 @@ const processBatch = async () => {
 
     isProcessing.value = true;
     results.value = [];
+    currentProgressIndex.value = 0;
+    totalProgressCount.value = list.length;
+    estimatedTimeRemaining.value = "Calculando...";
+    startTime.value = Date.now();
 
     try {
-        const payload = {
-            requests: list.map(cnpj => ({
-                cnpj: cnpj.replace(/\D/g, ''),
-                items: selectedProducts.value.map(p => ({
-                    productId: p.productId,
-                    quantidade: (Number(p.caixas) || 0) * p.unidadesCaixa,
-                    valorUnitario: (Number(p.valorUnitario) || 0) * (1 + ((Number(p.ipi) || 0) / 100)),
-                    percentualIpi: Number(p.ipi) || 0
-                }))
-            }))
-        };
+        for (let i = 0; i < list.length; i++) {
+            const cnpj = list[i];
+            currentProgressIndex.value = i;
+            
+            // Estima o tempo restante
+            if (i > 0 && startTime.value) {
+                const elapsedMs = Date.now() - startTime.value;
+                const avgTimePerCnpj = elapsedMs / i; // ms por CNPJ
+                const remainingCnpjs = list.length - i;
+                const remainingMs = avgTimePerCnpj * remainingCnpjs;
+                estimatedTimeRemaining.value = formatTime(remainingMs / 1000);
+            }
 
-        const res = await safeFetch('/api/quotations/batch', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-            headers: { 'Content-Type': 'application/json' }
-        });
+            const payload = {
+                requests: [{
+                    cnpj: cnpj.replace(/\D/g, ''),
+                    items: selectedProducts.value.map(p => ({
+                        productId: p.productId,
+                        quantidade: (Number(p.caixas) || 0) * p.unidadesCaixa,
+                        valorUnitario: (Number(p.valorUnitario) || 0) * (1 + ((Number(p.ipi) || 0) / 100)),
+                        percentualIpi: Number(p.ipi) || 0
+                    }))
+                }]
+            };
 
-        if (res.ok) {
-            results.value = res.data;
-            window.showToast("Processamento em lote concluído!", "success");
-        } else {
-            throw new Error("Erro ao processar lote");
+            try {
+                const res = await safeFetch('/api/quotations/batch', {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
+                    results.value.push(res.data[0]);
+                } else {
+                    results.value.push({
+                        cnpj: cnpj,
+                        status: 'ERROR',
+                        message: res.data?.message || 'Erro na resposta do processamento individual'
+                    });
+                }
+            } catch (err: any) {
+                results.value.push({
+                    cnpj: cnpj,
+                    status: 'ERROR',
+                    message: err.message || 'Erro de conexão'
+                });
+            }
         }
+        
+        currentProgressIndex.value = list.length;
+        estimatedTimeRemaining.value = "Concluído";
+        window.showToast("Processamento em lote concluído!", "success");
     } catch (e: any) {
         window.showToast(e.message, "error");
     } finally {
@@ -310,6 +359,27 @@ const formatCurrency = (val?: number) => Number(val || 0).toLocaleString('pt-BR'
                             </tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <div v-if="isProcessing || (results.length > 0 && currentProgressIndex < totalProgressCount)" class="progress-panel mt-20">
+                <div class="progress-info flex-between mb-10">
+                    <span>
+                        <i class="fas fa-spinner fa-spin mr-5"></i>
+                        Processando lote: <strong>{{ currentProgressIndex }} de {{ totalProgressCount }}</strong>
+                    </span>
+                    <span>
+                        Tempo Restante Estimado: <strong>{{ estimatedTimeRemaining }}</strong>
+                    </span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" :style="{ width: `${(currentProgressIndex / totalProgressCount) * 100}%` }"></div>
+                </div>
+                <div class="progress-stats mt-10 flex-between">
+                    <small>Pendentes: <strong>{{ totalProgressCount - currentProgressIndex }}</strong></small>
+                    <small>Sucessos: <strong>{{ results.filter(r => r.status === 'SUCCESS').length }}</strong></small>
+                    <small>Atenção Manual: <strong>{{ results.filter(r => r.status === 'MANUAL_REQUIRED').length }}</strong></small>
+                    <small>Erros: <strong>{{ results.filter(r => r.status === 'ERROR').length }}</strong></small>
                 </div>
             </div>
 
@@ -1066,5 +1136,56 @@ tr.ERROR { background: rgba(239, 68, 68, 0.02); }
     .modal-header h3 {
         font-size: 1.15rem;
     }
+}
+
+.progress-panel {
+    background: rgba(0, 74, 153, 0.05);
+    border: 1px solid rgba(0, 74, 153, 0.15);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    color: var(--text-main);
+}
+
+.progress-info strong {
+    color: var(--primary);
+}
+
+.progress-bar-bg {
+    width: 100%;
+    height: 10px;
+    background: var(--bg-input);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), #00a8ff);
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}
+
+.progress-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.progress-stats strong {
+    color: var(--text-main);
+}
+
+.mr-5 {
+    margin-right: 5px;
 }
 </style>
