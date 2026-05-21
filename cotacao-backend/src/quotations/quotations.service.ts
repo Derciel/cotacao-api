@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
-import type archiver from 'archiver';
+import archiver from 'archiver';
 import { PassThrough, Writable } from 'node:stream';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, MoreThanOrEqual } from 'typeorm';
@@ -642,9 +642,7 @@ export class QuotationsService {
   async generateZipBuffer(quotationIds: number[]): Promise<Buffer> {
     return new Promise(async (resolve, reject) => {
       try {
-        const archiverModule = await import('archiver');
-        const archiverFn = (archiverModule.default || archiverModule) as any;
-        const archive = archiverFn('zip', { zlib: { level: 9 } });
+        const archive = archiver('zip', { zlib: { level: 9 } });
         const chunks: Buffer[] = [];
         
         const stream = new Writable({
