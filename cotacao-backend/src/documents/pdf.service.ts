@@ -83,6 +83,103 @@ export class PdfService {
     return results;
   }
 
+  async generateBatchQuotationsPdf(quotationIds: number[]): Promise<Buffer> {
+    const quotations: any[] = [];
+    
+    for (const id of quotationIds) {
+      try {
+        const quotation = await this.quotationsService.findOne(id);
+        if (!quotation) continue;
+
+        const cleaned = JSON.parse(JSON.stringify(quotation));
+
+        // Lógica de Isenção de Frete Visual no PDF
+        const isExento = this.quotationsService.isFreightExempt(quotation.client.razao_social, quotation.client.fantasia);
+        if (isExento) {
+          cleaned.valor_frete = 0;
+        }
+
+        const themes: Record<string, string> = {
+          [EmpresaFaturamento.NICOPEL]: '#F2F2F2',
+          [EmpresaFaturamento.FLEXOBOX]: '#BDD7EE',
+          [EmpresaFaturamento.L_LOG]: '#F2F2F2',
+        };
+
+        const logos: Record<string, string> = {
+          [EmpresaFaturamento.NICOPEL]: 'https://i.ibb.co/zWJstk81/logo-nicopel-8.png',
+          [EmpresaFaturamento.L_LOG]: 'https://i.ibb.co/HLh2RFHP/logo-l-log.png',
+          [EmpresaFaturamento.FLEXOBOX]: 'https://i.ibb.co/WtrW9Qf/FLEXOBOX.png',
+        };
+
+        let totalVol = 0, totalWeight = 0;
+        cleaned.items?.forEach((item: any) => {
+          item.quantidade = Number(item.quantidade);
+          if (item.product?.unidades_caixa > 0) {
+            const caixas = item.quantidade / item.product.unidades_caixa;
+            totalVol += caixas;
+            totalWeight += caixas * (parseFloat(item.product.peso_caixa_kg) || 0);
+          }
+        });
+
+        cleaned.themeColor = themes[cleaned.empresa_faturamento as keyof typeof themes] || '#F2F2F2';
+        cleaned.logoUrl = logos[cleaned.empresa_faturamento as keyof typeof logos] || '';
+        cleaned.formattedDate = new Date(cleaned.data_cotacao).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+        cleaned.cityState = `${cleaned.client.cidade} - ${cleaned.client.estado || 'PR'}`;
+        cleaned.totalVolume = totalVol.toFixed(0);
+        cleaned.totalWeight = totalWeight.toFixed(2);
+
+        quotations.push(cleaned);
+      } catch (err) {
+        console.error(`Erro ao carregar dados para cotação ${id} no lote unificado:`, err);
+      }
+    }
+
+    // Agrupa em pares de cotações para cada página
+    const pagePairs: any[][] = [];
+    for (let i = 0; i < quotations.length; i += 2) {
+      pagePairs.push(quotations.slice(i, i + 2));
+    }
+
+    const templateHtml = await fs.readFile(path.resolve(process.cwd(), 'src/documents/templates/quotation_batch.html'), 'utf8');
+    const template = handlebars.compile(templateHtml);
+    const finalHtml = template({ pagePairs });
+
+    return this._generatePdfFromHtmlForBatch(finalHtml);
+  }
+
+  private async _generatePdfFromHtmlForBatch(html: string): Promise<Buffer> {
+    let browser;
+    try {
+      browser = await puppeteer.launch({
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--single-process',
+          '--no-zygote'
+        ],
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+        headless: true
+      });
+
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' }
+      });
+
+      await browser.close();
+      return Buffer.from(pdfBuffer);
+    } catch (error: any) {
+      if (browser) await browser.close();
+      console.error('Erro no Puppeteer em lote:', error.message);
+      throw new InternalServerErrorException(`Falha ao gerar PDF em lote: ${error.message}`);
+    }
+  }
+
   private async _compileHtmlTemplate(quotation: Quotation): Promise<string> {
     const templateHtml = await fs.readFile(this.templatePath, 'utf8');
     const template = handlebars.compile(templateHtml);

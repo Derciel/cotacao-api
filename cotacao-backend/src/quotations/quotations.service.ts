@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef, Logger } from '@nestjs/common';
 import * as archiverModule from 'archiver';
 const ZipArchive = (archiverModule as any).ZipArchive;
 import { PassThrough, Writable } from 'node:stream';
@@ -14,11 +14,14 @@ import { BatchQuotationDto } from './dto/batch-quotation.dto.js';
 import { Client } from '../clients/entities/client.entity.js';
 import { PdfService } from '../documents/pdf.service.js';
 import { FrenetService } from '../freight/frenet.service.js';
+import { ClientsService } from '../clients/clients.service.js';
 
 type PdfServicePort = Pick<PdfService, 'generateQuotationPdf' | 'generateMultipleQuotationsPdf'>;
 
 @Injectable()
 export class QuotationsService {
+  private readonly logger = new Logger(QuotationsService.name);
+
   constructor(
     @InjectRepository(Quotation)
     private quotationRepository: Repository<Quotation>,
@@ -32,6 +35,8 @@ export class QuotationsService {
     @Inject(forwardRef(() => PdfService))
     private pdfService: PdfServicePort,
     private frenetService: FrenetService,
+    @Inject(forwardRef(() => ClientsService))
+    private clientsService: ClientsService,
   ) { }
 
   async create(createDto: CreateQuotationDto, user?: any): Promise<Quotation> {
@@ -567,14 +572,44 @@ export class QuotationsService {
     
     for (const req of batchDto.requests) {
       try {
-        // 1. Encontrar ou buscar cliente por CNPJ
-        let client = await this.clientRepository.findOne({ where: { cnpj: req.cnpj.replace(/\D/g, '') } });
+        // 1. Encontrar ou buscar/enriquecer cliente por CNPJ de forma resiliente
+        let client: Client | null = null;
+        const cnpjLimpo = req.cnpj.replace(/\D/g, '');
         
+        try {
+          // Tenta obter/enriquecer os dados cadastrais diretamente da Brasil API
+          const externalResult = await this.clientsService.findCnpjExternal(cnpjLimpo);
+          
+          if (externalResult) {
+            if (externalResult.isAlreadyRegistered && externalResult.registeredId) {
+              // Cliente já cadastrado, vamos buscar a entidade no banco de dados local
+              client = await this.clientRepository.findOne({ where: { id: externalResult.registeredId } });
+            } else {
+              // Cliente não cadastrado na base local. Vamos cadastrar agora com os dados da Brasil API de forma resiliente!
+              const empresaFaturamentoStr = req.empresaFaturamento || EmpresaFaturamento.NICOPEL;
+              client = await this.clientsService.create({
+                razao_social: externalResult.data.razao_social || 'Cliente Sem Razão Social',
+                fantasia: externalResult.data.fantasia || '',
+                cnpj: cnpjLimpo,
+                cep: externalResult.data.cep || '',
+                cidade: externalResult.data.cidade || 'Não Informada',
+                estado: externalResult.data.estado || 'PR',
+                empresa_faturamento: empresaFaturamentoStr as any
+              });
+            }
+          }
+        } catch (err: any) {
+          this.logger.warn(`Falha ao obter dados da Brasil API para o CNPJ ${req.cnpj}: ${err.message}`);
+        }
+
+        // Se falhar a busca externa ou der algum problema, tenta buscar diretamente na base local pelo CNPJ
         if (!client) {
-          // Se não achar, tenta buscar na Brasil API ou algo do tipo? 
-          // Por simplicidade, vamos assumir que o frontend já validou ou vamos jogar erro
-          // Na verdade, podemos usar o repositório para salvar um "Pendente" ou buscar
-          throw new Error(`Cliente com CNPJ ${req.cnpj} não encontrado. Cadastre-o primeiro.`);
+          client = await this.clientRepository.findOne({ where: { cnpj: cnpjLimpo } });
+        }
+
+        // Se ainda assim não existir o cliente, lançamos erro para este item do lote
+        if (!client) {
+          throw new Error(`CNPJ ${req.cnpj} não cadastrado localmente e não pôde ser consultado externamente.`);
         }
 
         // 2. Criar Cotação Base

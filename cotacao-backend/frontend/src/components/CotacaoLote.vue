@@ -276,6 +276,31 @@ const downloadZip = async () => {
 const formatCNPJ = (v: string) => v?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') || v;
 const formatCurrency = (val?: number) => Number(val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+const isPrintModalOpen = ref(false);
+const printPdfUrl = ref('');
+
+const openPrintModal = () => {
+    const successIds = results.value.filter(r => r.status === 'SUCCESS').map(r => r.id);
+    if (successIds.length === 0) return window.showToast("Nenhuma cotação de sucesso para imprimir.", "warning");
+    
+    const token = localStorage.getItem('auth_token');
+    printPdfUrl.value = `${getBackendUrl()}/api/quotations/batch/pdf?ids=${successIds.join(',')}&token=${token}`;
+    isPrintModalOpen.value = true;
+};
+
+const closePrintModal = () => {
+    isPrintModalOpen.value = false;
+    printPdfUrl.value = '';
+};
+
+const printBatch = () => {
+    const iframe = document.getElementById('print-iframe') as HTMLIFrameElement;
+    if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+    }
+};
+
 </script>
 
 <template>
@@ -403,11 +428,17 @@ const formatCurrency = (val?: number) => Number(val || 0).toLocaleString('pt-BR'
         <div v-if="results.length > 0" class="glass-card mt-20 fade-in">
             <div class="card-title flex-between">
                 <span><i class="fas fa-list-check"></i> RESULTADOS</span>
-                <button @click="downloadZip" class="btn-zip" :disabled="isDownloadingZip || isProcessing">
-                    <span v-if="isDownloadingZip" class="btn-spinner"></span>
-                    <i v-else class="fas fa-file-archive"></i> 
-                    {{ isDownloadingZip ? 'GERANDO ZIP...' : `BAIXAR TUDO (ZIP) (${results.filter(r => r.status === 'SUCCESS').length} cotações prontas)` }}
-                </button>
+                <div class="action-buttons-group">
+                    <button @click="downloadZip" class="btn-zip" :disabled="isDownloadingZip || isProcessing" style="margin-bottom: 0;">
+                        <span v-if="isDownloadingZip" class="btn-spinner"></span>
+                        <i v-else class="fas fa-file-archive"></i> 
+                        {{ isDownloadingZip ? 'ZIP...' : `ZIP (${results.filter(r => r.status === 'SUCCESS').length})` }}
+                    </button>
+                    <button @click="openPrintModal" class="btn-print-all" :disabled="isProcessing || results.filter(r => r.status === 'SUCCESS').length === 0">
+                        <i class="fas fa-print"></i>
+                        VISUALIZAR / IMPRIMIR TODOS
+                    </button>
+                </div>
             </div>
 
             <div class="results-table-wrapper mt-10">
@@ -468,6 +499,37 @@ const formatCurrency = (val?: number) => Number(val || 0).toLocaleString('pt-BR'
                         <i class="fas fa-chevron-right text-light"></i>
                     </div>
                     <div v-if="!isSearching && productList.length === 0" class="empty-msg">Nenhum produto encontrado.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Visualização e Impressão de Lote -->
+        <div v-if="isPrintModalOpen" class="modal-overlay" @click.self="closePrintModal">
+            <div class="modal-box pdf-modal-box animate-pop">
+                <div class="modal-header">
+                    <div>
+                        <h3>Visualizar Cotações em Lote</h3>
+                        <p>Total de {{ results.filter(r => r.status === 'SUCCESS').length }} cotações consolidadas no arquivo de impressão.</p>
+                    </div>
+                    <button @click="closePrintModal" class="modal-close" title="Fechar">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="modal-content-pdf">
+                    <iframe id="print-iframe" :src="printPdfUrl" class="pdf-iframe"></iframe>
+                </div>
+
+                <div class="modal-actions-pdf mt-20">
+                    <button @click="closePrintModal" class="btn-secondary-modal">Fechar</button>
+                    <div class="right-actions">
+                        <a :href="printPdfUrl" target="_blank" class="btn-primary-modal btn-download">
+                            <i class="fas fa-download"></i> Baixar PDF Unificado
+                        </a>
+                        <button @click="printBatch" class="btn-primary-modal">
+                            <i class="fas fa-print"></i> Imprimir Todas
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1198,5 +1260,129 @@ tr.ERROR { background: rgba(239, 68, 68, 0.02); }
 
 .mr-5 {
     margin-right: 5px;
+}
+
+.action-buttons-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.btn-print-all {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 10px rgba(0, 74, 153, 0.15);
+}
+
+.btn-print-all:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(0, 74, 153, 0.25);
+    filter: brightness(1.1);
+}
+
+.btn-print-all:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.pdf-modal-box {
+    width: min(1000px, 95%) !important;
+    height: 90vh;
+}
+
+.modal-content-pdf {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin-top: 15px;
+    background: #525659;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    min-height: 50vh;
+}
+
+.pdf-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.modal-actions-pdf {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.right-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.btn-primary-modal {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 11px 22px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+    text-decoration: none;
+    box-shadow: 0 4px 10px rgba(0, 74, 153, 0.15);
+}
+
+.btn-primary-modal:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+
+.btn-primary-modal.btn-download {
+    background: #059669;
+    box-shadow: 0 4px 10px rgba(5, 150, 105, 0.15);
+}
+
+.btn-primary-modal.btn-download:hover {
+    background: #047857;
+}
+
+.btn-secondary-modal {
+    background: var(--bg-input);
+    color: var(--text-main);
+    border: 1px solid var(--border);
+    padding: 11px 22px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-secondary-modal:hover {
+    background: var(--border);
+}
+
+.animate-pop {
+    animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes popIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
 }
 </style>

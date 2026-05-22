@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 // Caminhos relativos com .js para evitar erro TS2307 no Render
 import { DocumentsModule } from '../documents/documents.module.js';
 import { FreightModule } from '../freight/freight.module.js';
+import { ClientsModule } from '../clients/clients.module.js';
 import { Client } from '../clients/entities/client.entity.js';
 import { Product } from '../products/entities/product.entity.js';
 import { QuotationItem } from './entities/quotation-item.entity.js';
@@ -15,6 +16,7 @@ import { QuotationsService } from './quotations.service.js';
     // Uso de forwardRef para evitar dependência circular
     forwardRef(() => DocumentsModule),
     FreightModule,
+    ClientsModule,
     TypeOrmModule.forFeature([Quotation, QuotationItem, Client, Product])
   ],
   controllers: [QuotationsController],

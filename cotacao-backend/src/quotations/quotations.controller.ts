@@ -147,6 +147,33 @@ export class QuotationsController {
     }
   }
 
+  @Get('batch/pdf')
+  @ApiOperation({ summary: 'Gera um único PDF contendo todas as cotações informadas, formatadas 2 por página' })
+  async getBatchPdf(@Query('ids') idsString: string, @Res() res: Response) {
+    if (!idsString) {
+      return res.status(400).send('Nenhum ID informado.');
+    }
+    const ids = idsString.split(',').map(id => +id).filter(id => !isNaN(id));
+    if (ids.length === 0) {
+      return res.status(400).send('IDs inválidos.');
+    }
+
+    try {
+      const pdfBuffer = await this.pdfService.generateBatchQuotationsPdf(ids);
+
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Length': pdfBuffer.length,
+        'Content-Disposition': `inline; filename=cotacoes-em-lote.pdf`,
+      });
+
+      res.end(pdfBuffer);
+    } catch (err: any) {
+      console.error('Erro ao gerar PDF unificado em lote:', err);
+      res.status(500).send('Erro ao gerar o PDF consolidado em lote: ' + err.message);
+    }
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Remove uma cotação' })
   @ApiResponse({ status: 200, description: 'Cotação removida com sucesso.' })
