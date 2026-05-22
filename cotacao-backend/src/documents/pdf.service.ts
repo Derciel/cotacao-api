@@ -124,14 +124,17 @@ export class PdfService {
           }
         });
 
-        cleaned.themeColor = themes[cleaned.empresa_faturamento as keyof typeof themes] || '#F2F2F2';
-        cleaned.logoUrl = logos[cleaned.empresa_faturamento as keyof typeof logos] || '';
-        cleaned.formattedDate = new Date(cleaned.data_cotacao).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-        cleaned.cityState = `${cleaned.client.cidade} - ${cleaned.client.estado || 'PR'}`;
-        cleaned.totalVolume = totalVol.toFixed(0);
-        cleaned.totalWeight = totalWeight.toFixed(2);
+        const quotationItem = {
+          quotation: cleaned,
+          themeColor: themes[cleaned.empresa_faturamento as keyof typeof themes] || '#F2F2F2',
+          logoUrl: logos[cleaned.empresa_faturamento as keyof typeof logos] || '',
+          formattedDate: new Date(cleaned.data_cotacao).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+          cityState: `${cleaned.client.cidade} - ${cleaned.client.estado || 'PR'}`,
+          totalVolume: totalVol.toFixed(0),
+          totalWeight: totalWeight.toFixed(2),
+        };
 
-        quotations.push(cleaned);
+        quotations.push(quotationItem);
       } catch (err) {
         console.error(`Erro ao carregar dados para cotação ${id} no lote unificado:`, err);
       }
