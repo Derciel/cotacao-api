@@ -33,14 +33,17 @@ export class PdfService {
     const results: { name: string, buffer: Buffer }[] = [];
     
     try {
+      const puppeteerArgs = [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage'
+      ];
+      if (process.platform !== 'win32') {
+        puppeteerArgs.push('--single-process', '--no-zygote');
+      }
+
       browser = await puppeteer.launch({
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--single-process',
-          '--no-zygote'
-        ],
+        args: puppeteerArgs,
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         headless: true
       });
@@ -150,14 +153,17 @@ export class PdfService {
   private async _generatePdfFromHtmlForBatch(html: string): Promise<Buffer> {
     let browser;
     try {
+      const puppeteerArgs = [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage'
+      ];
+      if (process.platform !== 'win32') {
+        puppeteerArgs.push('--single-process', '--no-zygote');
+      }
+
       browser = await puppeteer.launch({
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--single-process',
-          '--no-zygote'
-        ],
+        args: puppeteerArgs,
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         headless: true
       });
@@ -227,14 +233,17 @@ export class PdfService {
   private async _generatePdfFromHtml(html: string): Promise<Buffer> {
     let browser;
     try {
+      const puppeteerArgs = [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage'
+      ];
+      if (process.platform !== 'win32') {
+        puppeteerArgs.push('--single-process', '--no-zygote');
+      }
+
       browser = await puppeteer.launch({
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--single-process',
-          '--no-zygote'
-        ],
+        args: puppeteerArgs,
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         headless: true
       });
