@@ -509,9 +509,15 @@ const exportToExcel = () => {
     'PEDIDO ERP',
     'FATURAMENTO ID',
     'SITUAÇÃO',
-    'VOLUMES PEDIDO (CXS)',
-    'PESO PEDIDO (KG)',
-    'VALOR PEDIDO R$',
+    'PRODUTO / ITEM',
+    'CATEGORIA',
+    'QTDE (UN)',
+    'UNIDADES/CAIXA',
+    'VOLUMES (CXS)',
+    'PESO CAIXA (KG)',
+    'PESO TOTAL ITEM (KG)',
+    'VALOR UNITÁRIO R$',
+    'VALOR TOTAL ITEM R$',
     'FRETE PEDIDO R$',
     'TOTAL PEDIDOS DO CLIENTE'
   ];
@@ -520,31 +526,31 @@ const exportToExcel = () => {
 
   groupedByClient.value.forEach(c => {
     c.orders.forEach((order: any) => {
-      let orderVol = 0;
-      let orderWeight = 0;
-      let orderValue = 0;
-
       order.items.forEach((it: any) => {
-        orderVol += it.volumes;
-        orderWeight += it.peso;
-        orderValue += it.valorItem;
-      });
+        const valorUnitario = it.qtde > 0 ? (it.valorItem / it.qtde) : 0;
 
-      rows.push([
-        c.razao,
-        c.fantasia,
-        c.cnpj,
-        c.cidade,
-        c.estado,
-        order.idPedido,
-        order.idFaturamento || order.idPedido,
-        order.situacao,
-        Math.round(orderVol),
-        orderWeight.toFixed(2),
-        orderValue.toFixed(2),
-        order.frete.toFixed(2),
-        c.orders.length
-      ].join('\t'));
+        rows.push([
+          c.razao,
+          c.fantasia,
+          c.cnpj,
+          c.cidade,
+          c.estado,
+          order.idPedido,
+          order.idFaturamento || order.idPedido,
+          order.situacao,
+          it.vw_pedidos_completos_descricao_item_pedido || '',
+          it.vw_pedidos_completos_descricao_categoria || '',
+          Math.round(it.qtde),
+          it.unidades_caixa,
+          Math.round(it.volumes),
+          it.peso_caixa_kg.toFixed(2),
+          it.peso.toFixed(2),
+          valorUnitario.toFixed(2),
+          it.valorItem.toFixed(2),
+          order.frete.toFixed(2),
+          c.orders.length
+        ].join('\t'));
+      });
     });
   });
 
@@ -733,6 +739,7 @@ const formatCNPJ = (v: string) => {
                               <th class="text-center">Volume (Caixas)</th>
                               <th class="text-center" style="width: 140px;">Peso Caixa (KG)</th>
                               <th class="text-center">Peso Total</th>
+                              <th class="text-right">Valor Unitário</th>
                               <th class="text-right">Valor Total Item</th>
                               <th style="width: 120px;" class="text-center">Vínculo</th>
                             </tr>
@@ -771,6 +778,7 @@ const formatCNPJ = (v: string) => {
                               </td>
                               
                               <td class="text-center highlight-green">{{ item.peso.toFixed(2) }} kg</td>
+                              <td class="text-right">{{ formatCurrency(item.qtde > 0 ? (item.valorItem / item.qtde) : 0) }}</td>
                               <td class="text-right">{{ formatCurrency(item.valorItem) }}</td>
                               
                               <!-- Status do cruzamento inteligente -->
