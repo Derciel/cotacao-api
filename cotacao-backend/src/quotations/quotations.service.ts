@@ -625,9 +625,9 @@ export class QuotationsService {
         // 3. Calcular Fretes
         const options = await this.frenetService.calculateForQuotation(quotation.id);
         
-        // 4. Escolher o melhor (priorizando o menor preço de frete, depois o menor prazo de entrega)
+        // 4. Escolher o melhor (priorizando o menor preço de frete, depois o menor prazo de entrega e ignorando Total Express)
         const bestOption = options
-          .filter(o => o.price > 0 && o.recommendation !== 'manual_quote')
+          .filter(o => o.price > 0 && o.recommendation !== 'manual_quote' && o.carrier?.toUpperCase() !== 'TOTAL EXPRESS')
           .sort((a, b) => {
             if (a.price !== b.price) {
               return a.price - b.price;
