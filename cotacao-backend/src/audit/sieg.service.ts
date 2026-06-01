@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const XLSX = require('xlsx');
+const AdmZip = require('adm-zip');
 import { XMLParser } from 'fast-xml-parser';
 
 @Injectable()
@@ -14,8 +15,13 @@ export class SiegService {
   private readonly logger = new Logger(SiegService.name);
   private readonly apiKey: string;
   private readonly email: string;
+  private readonly clientId: string;
+  private readonly secretKey: string;
   private readonly cnpjNicopel = '09012538000190';
-  private readonly baseUrl = 'https://api.sieg.com/aws/service.svc/v2';
+  private readonly baseUrl = 'https://api.sieg.com';
+
+  private cachedJwtToken: string | null = null;
+  private tokenExpiration: Date | null = null;
 
   constructor(
     private readonly httpService: HttpService,
@@ -23,60 +29,129 @@ export class SiegService {
   ) {
     this.apiKey = this.configService.get<string>('SIEG_API_KEY') || '';
     this.email = this.configService.get<string>('SIEG_EMAIL') || '';
+    this.clientId = this.configService.get<string>('SIEG_CLIENT_ID') || '';
+    this.secretKey = this.configService.get<string>('SIEG_SECRET_KEY') || '';
   }
 
   /**
-   * Busca um CT-e que referencia uma NF-e específica
+   * Obtém o token JWT para autenticação na Nova API da SIEG (com cache em memória)
+   */
+  private async getJwtToken(): Promise<string> {
+    const now = new Date();
+    // Se o token estiver no cache e ainda for válido (expira em no mínimo 10 minutos)
+    if (this.cachedJwtToken && this.tokenExpiration && this.tokenExpiration.getTime() > now.getTime() + 600000) {
+      return this.cachedJwtToken;
+    }
+
+    try {
+      this.logger.log('Solicitando novo Token JWT para a API SIEG...');
+      const response = await firstValueFrom(
+        this.httpService.post(
+          `${this.baseUrl}/api/v1/create-jwt`,
+          {},
+          {
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'X-Client-Id': this.clientId,
+              'X-Secret-Key': this.secretKey,
+            },
+          }
+        )
+      );
+
+      let token = '';
+      if (response.data && typeof response.data === 'string') {
+        token = response.data.trim();
+      } else if (response.data && response.data.Token) {
+        token = response.data.Token.trim();
+      } else {
+        token = String(response.data).trim();
+      }
+
+      // Limpa aspas do início e fim caso venha encapsulado
+      token = token.replace(/^"|"$/g, '').trim();
+
+      if (!token || !token.startsWith('ey')) {
+        throw new Error(`Token inválido retornado pela API: ${token ? token.substring(0, 50) : 'vazio'}`);
+      }
+
+      this.cachedJwtToken = token;
+      // Define a expiração do cache para 12 horas no futuro (o token expira em 24 horas normalmente)
+      this.tokenExpiration = new Date(now.getTime() + 12 * 60 * 60 * 1000);
+      this.logger.log('Novo Token JWT da SIEG obtido e armazenado em cache com sucesso.');
+      return token;
+    } catch (error: any) {
+      this.logger.error(`Erro ao gerar Token JWT na SIEG: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Busca um CT-e que referencia uma NF-e específica na Nova API da SIEG
    */
   async findCteByNf(nfNumber: string, context?: any): Promise<any> {
     try {
-      this.logger.log(`Iniciando busca real na SIEG para NF: ${nfNumber}`);
+      this.logger.log(`Iniciando busca real na Nova API da SIEG para NF: ${nfNumber}`);
       
-      const filterOptions = [
-          { cnpjtomador: this.cnpjNicopel },
-          { cnpjremetente: this.cnpjNicopel },
-          { cnpjdestinatario: this.cnpjNicopel }
-      ];
-      
-      let docs: any[] = [];
-
-      for (const filter of filterOptions) {
-          const payload: any = {
-            apikey: this.apiKey,
-            type: 'cte',
-            ...filter
-          };
-          
-          if (this.email) {
-            payload.email = this.email;
-          }
-
-          const response = await firstValueFrom(
-            this.httpService.post(`${this.baseUrl}/getdocs`, payload)
-          );
-
-          if (response.data && Array.isArray(response.data)) {
-              this.logger.log(`Busca SIEG com filtro ${JSON.stringify(filter)} retornou ${response.data.length} documentos.`);
-              docs = [...docs, ...response.data];
-              if (docs.length > 0) break;
-          }
+      if (!this.clientId || !this.secretKey || !this.apiKey) {
+        this.logger.warn('Credenciais da SIEG não configuradas completamente no .env. Pulando para fallbacks locais.');
+        throw new Error('Credenciais incompletas');
       }
 
-      if (docs.length === 0) {
-        this.logger.warn(`Nenhum documento retornado pela SIEG em nenhum papel fiscal (Tom/Rem/Des).`);
-      } else {
-        const uniqueDocs = Array.from(new Map(docs.map(item => [item.XmlKey, item])).values())
-                                .sort((a: any, b: any) => b.Date.localeCompare(a.Date))
-                                .slice(0, 15);
+      // 1. Obter o JWT Token
+      const token = await this.getJwtToken();
+
+      // 2. Definir datas (90 dias atrás até hoje)
+      const now = new Date();
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(now.getDate() - 90);
+
+      const payload = {
+        TipoXml: 2, // CTe
+        Take: 50,
+        Skip: 0,
+        DataEmissaoInicio: ninetyDaysAgo.toISOString(),
+        DataEmissaoFim: now.toISOString()
+      };
+
+      this.logger.log(`Consultando download em lote na SIEG (/api/v1/baixar-xmls) de ${ninetyDaysAgo.toLocaleDateString()} a ${now.toLocaleDateString()}`);
+
+      // 3. Fazer requisição de lote binário
+      const response = await firstValueFrom(
+        this.httpService.post(
+          `${this.baseUrl}/api/v1/baixar-xmls`,
+          payload,
+          {
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+              'X-API-Key': this.apiKey
+            },
+            responseType: 'arraybuffer'
+          }
+        )
+      );
+
+      const buffer = Buffer.from(response.data);
+      let docsFound = 0;
+
+      // 4. Se a resposta for um arquivo ZIP, processamos
+      if (buffer.length > 4 && buffer.toString('utf8', 0, 2) === 'PK') {
+        const zip = new AdmZip(buffer);
+        const zipEntries = zip.getEntries();
+        docsFound = zipEntries.length;
         
-        for (const doc of uniqueDocs) {
-            const xml = await this.getXml(doc.XmlKey, 'cte');
-            if (!xml) continue;
+        this.logger.log(`Busca SIEG retornou pacote ZIP com ${docsFound} documentos de CT-e.`);
 
-            const dataFromXml = this.extractDataFromXml(xml, doc.XmlKey);
-            if (!dataFromXml) continue;
+        for (const entry of zipEntries) {
+          try {
+            const xmlContent = entry.getData().toString('utf8');
+            const cte = this.parseXmlToObj(xmlContent);
+            if (!cte) continue;
 
-            const chavesNf = this.extractNfChaves(this.parseXmlToObj(xml));
+            const chavesNf = this.extractNfChaves(cte);
             const targetNf = nfNumber.replace(/^0+/, '');
             
             const hasNfMatch = chavesNf.some(ch => {
@@ -88,13 +163,23 @@ export class SiegService {
             });
 
             if (hasNfMatch) {
-                this.logger.log(`CT-e validado com sucesso via API SIEG! Chave: ${doc.XmlKey}`);
-                return dataFromXml;
+                const key = entry.entryName.replace(/\.xml$/i, '');
+                this.logger.log(`CT-e validado com sucesso via Nova API SIEG! Chave: ${key}`);
+                const dataFromXml = this.extractDataFromXml(xmlContent, key);
+                if (dataFromXml) return dataFromXml;
             }
+          } catch (e: any) {
+            this.logger.warn(`Erro ao analisar XML individual do ZIP: ${e.message}`);
+          }
         }
+      } else {
+        const textResponse = buffer.toString('utf8');
+        this.logger.warn(`API da SIEG não retornou pacote ZIP. Resposta: ${textResponse.substring(0, 200)}`);
       }
 
-      // Se nada na API, tenta local
+      this.logger.warn(`Nenhum CT-e correspondente à NF ${nfNumber} foi localizado no lote de ${docsFound} documentos.`);
+
+      // Se não achou na API, vai para fallbacks locais
       this.logger.log('Iniciando fallback para busca em arquivos XML locais...');
       const xmlData = await this.findCteByXmlFolder(nfNumber, context);
       if (xmlData) return xmlData;
@@ -103,7 +188,11 @@ export class SiegService {
       return this.findCteByExcel(nfNumber, context);
 
     } catch (error: any) {
-      this.logger.error(`Erro ao buscar dados na SIEG (API): ${error.message}`);
+      if (error.response && error.response.status === 404) {
+        this.logger.log('SIEG reportou 404 (Nenhum arquivo XML localizado no período). Partindo para fallbacks locais...');
+      } else {
+        this.logger.error(`Erro ao buscar dados na SIEG (Nova API): ${error.message}`);
+      }
       return this.findCteByXmlFolder(nfNumber, context);
     }
   }
@@ -255,13 +344,11 @@ export class SiegService {
           const rowNf = String(row.Numero || '').replace(/^0+/, '');
           const rowChave = String(row.Chave || '');
           
-          // Prioridade para extração via Chave (44 dígitos)
           let match = false;
           if (rowChave.length === 44) {
             const nfFromKey = rowChave.substring(25, 34).replace(/^0+/, '');
             match = (nfFromKey === target);
           } else {
-            // Fallback apenas se o número coincidir EXATAMENTE e não tiver cara de número de pedido (opcional)
             match = (rowNf === target);
           }
 
@@ -308,17 +395,95 @@ export class SiegService {
     };
   }
 
+  /**
+   * Baixa um XML individual na Nova API do SIEG
+   */
   async getXml(xmlKey: string, type: 'nfe' | 'cte'): Promise<string | null> {
     try {
-      const response = await firstValueFrom(this.httpService.post(`${this.baseUrl}/getxml`, { apikey: this.apiKey, email: this.email, type, xmlkey: xmlKey }));
-      return response.data;
-    } catch (e) { return null; }
+      const token = await this.getJwtToken();
+      const payload = {
+        ChaveXml: xmlKey,
+        TipoXml: type === 'cte' ? 2 : 1,
+        BaixarEventos: false
+      };
+
+      const response = await firstValueFrom(
+        this.httpService.post(
+          `${this.baseUrl}/api/v1/baixar-xml`,
+          payload,
+          {
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+              'X-API-Key': this.apiKey
+            }
+          }
+        )
+      );
+
+      if (response.data && response.data.IsSuccess && response.data.Data) {
+        return response.data.Data;
+      }
+      return null;
+    } catch (e: any) {
+      this.logger.error(`Erro ao baixar XML individual da SIEG: ${e.message}`);
+      return null;
+    }
   }
 
+  /**
+   * Valida a conexão e credenciais com a Nova API do SIEG
+   */
   async testConnection(): Promise<any> {
     try {
-      const res = await firstValueFrom(this.httpService.post(`${this.baseUrl}/getdocs`, { apikey: this.apiKey, email: this.email, type: 'cte' }));
-      return { success: true, docsCount: Array.isArray(res.data) ? res.data.length : 0 };
-    } catch (e: any) { return { success: false, message: e.message }; }
+      if (!this.clientId || !this.secretKey || !this.apiKey) {
+        return { success: false, message: 'Credenciais incompletas no .env (SIEG_CLIENT_ID, SIEG_SECRET_KEY ou SIEG_API_KEY).' };
+      }
+
+      this.logger.log('Testando conexão e autenticação com a Nova API da SIEG...');
+      const token = await this.getJwtToken();
+
+      // Busca 1 registro leve de teste (último 1 dia)
+      const now = new Date();
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(now.getDate() - 1);
+
+      const payload = {
+        TipoXml: 2,
+        Take: 1,
+        Skip: 0,
+        DataEmissaoInicio: oneDayAgo.toISOString(),
+        DataEmissaoFim: now.toISOString()
+      };
+
+      const response = await firstValueFrom(
+        this.httpService.post(
+          `${this.baseUrl}/api/v1/baixar-xmls`,
+          payload,
+          {
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+              'X-API-Key': this.apiKey
+            },
+            responseType: 'arraybuffer'
+          }
+        )
+      );
+
+      const buffer = Buffer.from(response.data);
+      let isZip = buffer.length > 4 && buffer.toString('utf8', 0, 2) === 'PK';
+
+      return {
+        success: true,
+        message: 'Conexão e autenticação com a Nova API realizadas com sucesso absoluta!',
+        details: isZip ? 'Pacote de dados ZIP retornado' : 'Canal ativado (resposta sem dados)'
+      };
+    } catch (e: any) {
+      this.logger.error(`Erro no teste de conexão da SIEG: ${e.message}`);
+      return { success: false, message: e.message };
+    }
   }
 }
