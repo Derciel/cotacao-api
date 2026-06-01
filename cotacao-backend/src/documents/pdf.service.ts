@@ -100,6 +100,7 @@ export class PdfService {
         const isExento = this.quotationsService.isFreightExempt(quotation.client.razao_social, quotation.client.fantasia);
         if (isExento) {
           cleaned.valor_frete = 0;
+          cleaned.valor_total_nota = Number((Number(cleaned.valor_total_produtos || 0) + Number(cleaned.valor_ipi || 0)).toFixed(2));
         }
 
         const themes: Record<string, string> = {
@@ -198,6 +199,7 @@ export class PdfService {
     const isExento = this.quotationsService.isFreightExempt(quotation.client.razao_social, quotation.client.fantasia);
     if (isExento) {
       cleaned.valor_frete = 0;
+      cleaned.valor_total_nota = Number((Number(cleaned.valor_total_produtos || 0) + Number(cleaned.valor_ipi || 0)).toFixed(2));
     }
 
     const themes: Record<string, string> = {

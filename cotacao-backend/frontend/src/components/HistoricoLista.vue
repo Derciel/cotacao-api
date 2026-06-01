@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { safeFetch, getAuthToken, getAuthenticatedBlobUrl } from '../utils/api-utils';
+import * as XLSX from 'xlsx';
 
 const quotations = ref<any[]>([]);
 const isLoading = ref(true);
@@ -168,6 +169,53 @@ const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('pt-BR');
 };
 
+const exportToExcel = () => {
+    if (filteredQuotations.value.length === 0) {
+        return window.showToast('Nenhum dado disponível para exportação.', 'warning');
+    }
+
+    try {
+        const dataToExport = filteredQuotations.value.map(q => ({
+            'ID Cotação': q.numero_pedido_manual || q.id,
+            'Cliente (Razão Social)': q.client?.razao_social || 'Desconhecido',
+            'CNPJ Cliente': q.client?.cnpj || 'Não Informado',
+            'Cidade': q.client?.cidade || 'Não Informada',
+            'Estado': q.client?.estado || 'PR',
+            'CEP Destino': q.client?.cep || 'Não Informado',
+            'Origem (CEP)': q.origem_cep || '86087350',
+            'Transportadora': q.transportadora_escolhida || '---',
+            'Vl. Frete (R$)': Number(q.valor_frete || 0),
+            'Vl. Produtos (R$)': Number(q.valor_total_produtos || 0),
+            'Vl. IPI (R$)': Number(q.valor_ipi || 0),
+            'Vl. Total Geral (R$)': Number(q.valor_total_nota || (Number(q.valor_total_produtos || 0) + Number(q.valor_ipi || 0) + Number(q.valor_frete || 0))),
+            'Status': q.status || 'PENDENTE',
+            'Usuário Criador': q.user?.username || 'Sistema',
+            'Data de Criação': formatDate(q.created_at)
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Histórico Cotações");
+
+        // Ajustar largura automática das colunas para visualização premium no Excel
+        const maxLens = Object.keys(dataToExport[0] || {}).map(key => {
+            let max = key.length;
+            dataToExport.forEach(row => {
+                const val = String((row as any)[key] || '');
+                if (val.length > max) max = val.length;
+            });
+            return { wch: max + 3 };
+        });
+        worksheet['!cols'] = maxLens;
+
+        XLSX.writeFile(workbook, `Relatorio_Cotacoes_${new Date().toISOString().split('T')[0]}.xlsx`);
+        window.showToast('Planilha Excel (.xlsx) baixada com sucesso!', 'success');
+    } catch (err) {
+        console.error('Erro ao exportar Excel:', err);
+        window.showToast('Falha ao gerar arquivo Excel.', 'error');
+    }
+};
+
 const getPdfLink = (id: number) => {
     const token = getAuthToken();
     return `/api/quotations/${id}/pdf?token=${token}`;
@@ -218,11 +266,15 @@ onMounted(() => {
                 <p>Gerenciamento completo de cotações e documentos.</p>
             </div>
             
-            <div class="header-right">
+            <div class="header-right actions-header-grid">
                 <div class="search-bar">
                     <i class="fas fa-search"></i>
                     <input v-model="searchTerm" type="text" placeholder="Buscar cliente ou cotação...">
                 </div>
+                <button type="button" class="btn-export-excel" @click="exportToExcel" title="Exportar para Excel (.xlsx)">
+                    <i class="fas fa-file-excel"></i>
+                    <span>Exportar Excel</span>
+                </button>
             </div>
         </header>
 
@@ -614,5 +666,63 @@ select.pill-input-small {
     
     .status-pill { width: 100%; justify-content: center; padding: 10px; font-size: 0.8rem; }
     .pagination-controls { flex-direction: column; gap: 15px; }
+}
+
+.actions-header-grid {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.btn-export-excel {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    font-weight: 800;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.05);
+}
+
+.btn-export-excel:hover {
+    background: #10b981;
+    color: white;
+    border-color: #10b981;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3);
+}
+
+.btn-export-excel i {
+    font-size: 1.1rem;
+}
+
+[data-theme='dark'] .btn-export-excel {
+    color: #34d399;
+    background: rgba(52, 211, 153, 0.1);
+    border-color: rgba(52, 211, 153, 0.2);
+}
+
+[data-theme='dark'] .btn-export-excel:hover {
+    background: #34d399;
+    color: #111;
+    border-color: #34d399;
+}
+
+@media (max-width: 1024px) {
+    .actions-header-grid {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        gap: 10px;
+    }
+    .search-bar {
+        width: 100% !important;
+    }
 }
 </style>

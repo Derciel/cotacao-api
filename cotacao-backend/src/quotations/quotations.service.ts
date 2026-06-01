@@ -270,17 +270,8 @@ export class QuotationsService {
       quotation.valor_total_produtos = Number(novoValorTotalProdutos.toFixed(2));
       quotation.valor_ipi = Number(valorIpiTotalGeral.toFixed(2));
 
-      // Lógica de Isenção de Frete para o cliente
-      const isExento = this.isFreightExempt(quotation.client.razao_social, quotation.client.fantasia);
-      
-      // Se for isento, força o valor do frete salvo a 0
-      if (isExento) {
-        quotation.valor_frete = 0;
-      }
-
-      const freteAplicado = isExento ? 0 : (quotation.valor_frete || 0);
-
-      quotation.valor_total_nota = Number((quotation.valor_total_produtos + quotation.valor_ipi + freteAplicado).toFixed(2));
+      // O valor total da nota no banco de dados passará a incluir o frete calculado para fins de histórico e auditoria
+      quotation.valor_total_nota = Number((quotation.valor_total_produtos + quotation.valor_ipi + (quotation.valor_frete || 0)).toFixed(2));
 
       if (quotation.transportadora_escolhida.includes('WHATSAPP')) {
         quotation.status = QuotationStatus.PENDENTE;
@@ -328,12 +319,6 @@ export class QuotationsService {
     await this.quotationRepository.update(id, updateDto);
 
     const q = await this.findOne(id);
-    const isExento = q.client ? this.isFreightExempt(q.client.razao_social, q.client.fantasia) : false;
-    
-    if (isExento) {
-       q.valor_frete = 0;
-    }
-
     q.valor_total_nota = Number((Number(q.valor_total_produtos || 0) + Number(q.valor_ipi || 0) + Number(q.valor_frete || 0)).toFixed(2));
     await this.quotationRepository.save(q);
 
