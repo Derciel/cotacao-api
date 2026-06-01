@@ -7,6 +7,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ClientsService } from './clients.service.js';
 import { CreateClientDto } from './dto/create-client.dto.js';
 import { UpdateClientDto } from './dto/update-client.dto.js';
+import { ClientsResolveBatchDto } from './dto/clients-resolve-batch.dto.js';
 import {
   ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiQuery
 } from '@nestjs/swagger';
@@ -31,6 +32,13 @@ export class ClientsController {
   async getExternalCnpj(@Param('cnpj') cnpj: string) {
     // Nova funcionalidade integrada
     return await this.clientsService.findCnpjExternal(cnpj);
+  }
+
+  @Post('resolve-batch')
+  @ApiOperation({ summary: 'Resolve e cadastra em lote uma lista de CNPJs usando banco local e Brasil API' })
+  @ApiResponse({ status: 200, description: 'Clientes resolvidos com sucesso.' })
+  async resolveBatch(@Body() body: ClientsResolveBatchDto) {
+    return await this.clientsService.resolveCnpjsBatch(body.cnpjs);
   }
 
   @Post('import')

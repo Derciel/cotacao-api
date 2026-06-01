@@ -274,6 +274,61 @@ export class ClientsService {
     }
   }
 
+  /**
+   * RESOLUÇÃO EM BATCH: Recebe lista de CNPJs, consulta e cadastra os novos automaticamente.
+   */
+  async resolveCnpjsBatch(cnpjs: string[]): Promise<Client[]> {
+    const uniqueCnpjs = Array.from(new Set(cnpjs.map(c => c.replace(/\D/g, '')))).filter(c => c.length === 14);
+    this.logger.log(`Resolvendo lote de ${uniqueCnpjs.length} CNPJs...`);
+
+    const resolvedClients: Client[] = [];
+    if (uniqueCnpjs.length === 0) return resolvedClients;
+
+    // Busca os clientes já cadastrados de uma vez só
+    const existingClients = await this.clientsRepository.find({
+      where: uniqueCnpjs.map(cnpj => ({ cnpj }))
+    });
+
+    const existingMap = new Map<string, Client>();
+    existingClients.forEach(c => {
+      existingMap.set(c.cnpj, c);
+    });
+
+    resolvedClients.push(...Array.from(existingMap.values()));
+
+    const missingCnpjs = uniqueCnpjs.filter(cnpj => !existingMap.has(cnpj));
+    this.logger.log(`${missingCnpjs.length} CNPJs precisam ser pesquisados na Brasil API / externa...`);
+
+    // Processa os faltantes de forma paralela limitada para evitar rate limit
+    const batchSize = 3;
+    for (let i = 0; i < missingCnpjs.length; i += batchSize) {
+      const chunk = missingCnpjs.slice(i, i + batchSize);
+      await Promise.all(chunk.map(async (cnpj) => {
+        try {
+          const ext = await this.findCnpjExternal(cnpj);
+          if (ext && ext.data) {
+            // Cria no banco de dados
+            const newClient = await this.create({
+              razao_social: ext.data.razao_social || 'Cliente Importado',
+              fantasia: ext.data.fantasia || '',
+              cnpj: cnpj,
+              cep: ext.data.cep || '',
+              cidade: ext.data.cidade || 'Não Informada',
+              estado: ext.data.estado || 'PR',
+              empresa_faturamento: 'NICOPEL'
+            });
+            resolvedClients.push(newClient);
+            this.logger.log(`Cliente CNPJ ${cnpj} cadastrado automaticamente via batch.`);
+          }
+        } catch (e: any) {
+          this.logger.warn(`Não foi possível cadastrar cliente CNPJ ${cnpj}: ${e.message}`);
+        }
+      }));
+    }
+
+    return resolvedClients;
+  }
+
   // --- MÉTODOS CRUD PADRÃO ---
 
   async findOne(id: number): Promise<Client> {
