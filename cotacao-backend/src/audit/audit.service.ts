@@ -341,6 +341,11 @@ export class AuditService {
       return result;
     } catch (e: any) {
       this.logger.error(`Erro geral no querySiegCtes: ${e.message}`, e.stack);
+      try {
+        const fs = await import('fs');
+        const errorContent = `[${new Date().toISOString()}] Erro geral no querySiegCtes: ${e.message}\nStack:\n${e.stack}\n\n`;
+        fs.appendFileSync('e:/Projetos Finalizados/projeto-cotacao-2025/cotacao-backend/sieg-error.log', errorContent);
+      } catch (logErr) {}
       throw e;
     }
   }

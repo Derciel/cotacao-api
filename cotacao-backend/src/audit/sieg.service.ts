@@ -462,6 +462,11 @@ export class SiegService {
 
     } catch (error: any) {
       this.logger.error(`Erro ao buscar CT-es no período do SIEG: ${error.message}`);
+      try {
+        const fs = await import('fs');
+        const errorContent = `[${new Date().toISOString()}] Erro no queryAllCtesInPeriod: ${error.message}\nStack:\n${error.stack}\n\n`;
+        fs.appendFileSync('e:/Projetos Finalizados/projeto-cotacao-2025/cotacao-backend/sieg-error.log', errorContent);
+      } catch (logErr) {}
     }
 
     return ctes;
