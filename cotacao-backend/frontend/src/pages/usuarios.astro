@@ -136,6 +136,46 @@ import Layout from '../layouts/MainLayout.astro';
                 </div>
               </label>
               <label class="permission-card">
+                <input type="checkbox" name="permissions" value="/lote"> 
+                <div class="perm-card-content">
+                  <div class="perm-icon"><i class="fas fa-layer-group"></i></div>
+                  <div class="perm-info">
+                    <span class="perm-name">Lote</span>
+                    <span class="perm-desc">Cotação em Lote</span>
+                  </div>
+                </div>
+              </label>
+              <label class="permission-card">
+                <input type="checkbox" name="permissions" value="/prazos"> 
+                <div class="perm-card-content">
+                  <div class="perm-icon"><i class="fas fa-clock"></i></div>
+                  <div class="perm-info">
+                    <span class="perm-name">Prazos</span>
+                    <span class="perm-desc">Ver Tempos</span>
+                  </div>
+                </div>
+              </label>
+              <label class="permission-card">
+                <input type="checkbox" name="permissions" value="/analise-pedidos"> 
+                <div class="perm-card-content">
+                  <div class="perm-icon"><i class="fas fa-chart-pie"></i></div>
+                  <div class="perm-info">
+                    <span class="perm-name">Pedidos</span>
+                    <span class="perm-desc">Análise de Itens</span>
+                  </div>
+                </div>
+              </label>
+              <label class="permission-card">
+                <input type="checkbox" name="permissions" value="/programacao-rota"> 
+                <div class="perm-card-content">
+                  <div class="perm-icon"><i class="fas fa-map-marked-alt"></i></div>
+                  <div class="perm-info">
+                    <span class="perm-name">Rotas</span>
+                    <span class="perm-desc">Programação</span>
+                  </div>
+                </div>
+              </label>
+              <label class="permission-card">
                 <input type="checkbox" name="permissions" value="/produtos"> 
                 <div class="perm-card-content">
                   <div class="perm-icon"><i class="fas fa-boxes"></i></div>
@@ -185,10 +225,14 @@ import Layout from '../layouts/MainLayout.astro';
     const PERM_NAMES = { 
       '/': 'Dashboard', 
       '/nova-cotacao': 'Cotação', 
+      '/lote': 'Cotação em Lote',
+      '/prazos': 'Prazos',
       '/historico': 'Histórico', 
       '/rastreio': 'Rastreio',
       '/conferencia-frete': 'Conferência',
+      '/analise-pedidos': 'Análise de Pedidos',
       '/coletas': 'Coletas',
+      '/programacao-rota': 'Programação de Rota',
       '/relatorios': 'Analytics',
       '/produtos': 'Estoque',
       '/usuarios': 'Usuários',
@@ -276,10 +320,28 @@ import Layout from '../layouts/MainLayout.astro';
       `;
     }
 
+    // Mapeamento de ícones das permissões
+    const PERM_ICONS = {
+      '/': 'fas fa-home',
+      '/nova-cotacao': 'fas fa-plus-circle',
+      '/lote': 'fas fa-layer-group',
+      '/prazos': 'fas fa-clock',
+      '/historico': 'fas fa-history',
+      '/rastreio': 'fas fa-truck-loading',
+      '/conferencia-frete': 'fas fa-file-invoice-dollar',
+      '/analise-pedidos': 'fas fa-chart-pie',
+      '/coletas': 'fas fa-truck-pickup',
+      '/programacao-rota': 'fas fa-map-marked-alt',
+      '/relatorios': 'fas fa-chart-line',
+      '/produtos': 'fas fa-boxes',
+      '/usuarios': 'fas fa-users-cog',
+      'quota_restricted': 'fas fa-user-lock'
+    };
+
     window.handleViewUser = (user) => {
       const perms = (user.permissions || []).map(p => `
         <div class="view-perm-card ux-square-mini ${p === 'quota_restricted' ? 'restriction-active' : ''}">
-          <div class="perm-icon-small"><i class="${p === '/' ? 'fas fa-home' : p === '/nova-cotacao' ? 'fas fa-plus-circle' : p === '/historico' ? 'fas fa-history' : p === '/rastreio' ? 'fas fa-truck-loading' : p === '/conferencia-frete' ? 'fas fa-file-invoice-dollar' : p === '/coletas' ? 'fas fa-truck-pickup' : p === '/relatorios' ? 'fas fa-chart-line' : p === '/produtos' ? 'fas fa-boxes' : p === 'quota_restricted' ? 'fas fa-user-lock' : 'fas fa-users-cog'}"></i></div>
+          <div class="perm-icon-small"><i class="${PERM_ICONS[p] || 'fas fa-key'}"></i></div>
           <span>${PERM_NAMES[p] || p}</span>
         </div>
       `).join('') || '<p class="tag-none">Sem permissões específicas atribuídas.</p>';
