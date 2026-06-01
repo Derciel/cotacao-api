@@ -564,9 +564,9 @@ const handleCheck = async (id, isFromSiegLive = false) => {
 const fetchClients = async () => {
   loadingClients.value = true;
   try {
-    const res = await window.safeFetch('/api/clients');
+    const res = await window.safeFetch('/api/clients?limit=200');
     if (res.ok) {
-      clientsList.value = res.data;
+      clientsList.value = res.data.data || [];
     }
   } catch (e) {
     console.error('Erro ao buscar clientes:', e);
