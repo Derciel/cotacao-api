@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, UseGuards, Request, Body } from '@nestjs/common';
 import { AuditService } from './audit.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
@@ -25,6 +25,13 @@ export class AuditController {
   @ApiOperation({ summary: 'Realiza o check manual de uma divergência' })
   async check(@Param('auditId') auditId: string, @Request() req) {
     return this.auditService.checkManual(+auditId, req.user.userId);
+  }
+  @Post('sieg-query')
+  @ApiOperation({ summary: 'Pesquisa CT-es no SIEG e cruza com cotações locais baseado em CNPJs e datas' })
+  async querySieg(
+    @Body() body: { cnpjs: string[]; startDate: string; endDate: string }
+  ) {
+    return this.auditService.querySiegCtes(body.cnpjs, body.startDate, body.endDate);
   }
 
   @Get('summary')

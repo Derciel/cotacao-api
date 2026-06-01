@@ -396,6 +396,170 @@ export class SiegService {
   }
 
   /**
+   * Baixa todos os CT-es emitidos no período do SIEG (sem restrição de NF individual)
+   */
+  async queryAllCtesInPeriod(startDate: Date, endDate: Date): Promise<any[]> {
+    const ctes: any[] = [];
+    try {
+      this.logger.log(`Consultando CT-es no SIEG no período de ${startDate.toLocaleDateString()} a ${endDate.toLocaleDateString()}...`);
+      
+      if (!this.clientId || !this.secretKey || !this.apiKey) {
+        this.logger.warn('Credenciais do SIEG não configuradas no .env. Retornando lista vazia.');
+        return [];
+      }
+
+      const token = await this.getJwtToken();
+
+      const payload = {
+        TipoXml: 2, // CTe
+        Take: 100, // Limite padrão
+        Skip: 0,
+        DataEmissaoInicio: startDate.toISOString(),
+        DataEmissaoFim: endDate.toISOString()
+      };
+
+      const response = await firstValueFrom(
+        this.httpService.post(
+          `${this.baseUrl}/api/v1/baixar-xmls`,
+          payload,
+          {
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+              'X-API-Key': this.apiKey
+            },
+            responseType: 'arraybuffer'
+          }
+        )
+      );
+
+      const buffer = Buffer.from(response.data);
+
+      if (buffer.length > 4 && buffer.toString('utf8', 0, 2) === 'PK') {
+        const zip = new AdmZip(buffer);
+        const zipEntries = zip.getEntries();
+        this.logger.log(`SIEG retornou ZIP com ${zipEntries.length} documentos no período.`);
+
+        for (const entry of zipEntries) {
+          try {
+            const xmlContent = entry.getData().toString('utf8');
+            const cteObj = this.parseXmlToObj(xmlContent);
+            if (!cteObj) continue;
+
+            const parsedCte = this.parseCteDetails(cteObj, xmlContent, entry.entryName);
+            if (parsedCte) {
+              ctes.push(parsedCte);
+            }
+          } catch (e: any) {
+            this.logger.warn(`Erro ao processar CT-e individual do ZIP: ${e.message}`);
+          }
+        }
+      } else {
+        const textResponse = buffer.toString('utf8');
+        this.logger.warn(`SIEG não retornou pacote ZIP no período. Resposta: ${textResponse.substring(0, 200)}`);
+      }
+
+    } catch (error: any) {
+      this.logger.error(`Erro ao buscar CT-es no período do SIEG: ${error.message}`);
+    }
+
+    return ctes;
+  }
+
+  /**
+   * Realiza o parse detalhado do objeto XML de CT-e de forma resiliente
+   */
+  private parseCteDetails(cte: any, xmlContent: string, filename: string): any {
+    try {
+      const infQ = cte.infCTeNorm?.infCarga?.infQ;
+      const getQ = (type: string) => {
+        if (Array.isArray(infQ)) return infQ.find(q => String(q.tpMed).toUpperCase().includes(type))?.qCarga;
+        return infQ?.qCarga;
+      };
+
+      const chaveCte = filename.replace(/\.xml$/i, '');
+      const numeroCte = cte.ide?.nCT || chaveCte;
+      const dataEmissao = cte.ide?.dhEmi || new Date().toISOString();
+      const valorFrete = Number(cte.vPrest?.vTPrest || 0);
+      const peso = Number(getQ('PESO') || 0);
+      const volumes = Number(getQ('VOLUME') || 1);
+
+      // Participantes
+      const cnpjEmitente = String(cte.emit?.CNPJ || '').replace(/\D/g, '');
+      const nomeEmitente = cte.emit?.xNome || 'Emitente Desconhecido';
+      
+      const cnpjRemetente = String(cte.rem?.CNPJ || '').replace(/\D/g, '');
+      const nomeRemetente = cte.rem?.xNome || 'Remetente Desconhecido';
+      
+      const cnpjDestinatario = String(cte.dest?.CNPJ || '').replace(/\D/g, '');
+      const nomeDestinatario = cte.dest?.xNome || 'Destinatário Desconhecido';
+
+      // Identifica o Tomador
+      let cnpjTomador = '';
+      let nomeTomador = '';
+      if (cte.toma3) {
+        const tomaVal = Number(cte.toma3.toma);
+        if (tomaVal === 0) {
+          cnpjTomador = cnpjRemetente;
+          nomeTomador = nomeRemetente;
+        } else if (tomaVal === 3) {
+          cnpjTomador = cnpjDestinatario;
+          nomeTomador = nomeDestinatario;
+        } else if (cte.toma3.CNPJ) {
+          cnpjTomador = String(cte.toma3.CNPJ).replace(/\D/g, '');
+          nomeTomador = cte.toma3.xNome || '';
+        }
+      } else if (cte.toma4) {
+        cnpjTomador = String(cte.toma4.CNPJ || cte.toma4.toma?.CNPJ || '').replace(/\D/g, '');
+        nomeTomador = cte.toma4.xNome || cte.toma4.toma?.xNome || '';
+      }
+
+      // Extrai NF-es referenciadas
+      const chavesNfe = this.extractNfChaves(cte);
+      const nfeChavePrincipal = chavesNfe.find(c => c.length === 44) || '';
+      let nfeNumero = '';
+      if (nfeChavePrincipal) {
+        nfeNumero = nfeChavePrincipal.substring(25, 34).replace(/^0+/, '');
+      } else if (chavesNfe.length > 0) {
+        nfeNumero = chavesNfe[0].replace(/^0+/, '');
+      }
+
+      return {
+        chave: chaveCte,
+        numero_cte: numeroCte,
+        data_emissao: dataEmissao,
+        valor_frete: valorFrete,
+        peso: peso,
+        volumes: volumes,
+        emitente: {
+          cnpj: cnpjEmitente,
+          nome: nomeEmitente
+        },
+        remetente: {
+          cnpj: cnpjRemetente,
+          nome: nomeRemetente
+        },
+        destinatario: {
+          cnpj: cnpjDestinatario,
+          nome: nomeDestinatario
+        },
+        tomador: {
+          cnpj: cnpjTomador,
+          nome: nomeTomador
+        },
+        nfe_chave: nfeChavePrincipal,
+        nfe_numero: nfeNumero,
+        xml_content: xmlContent,
+        xml_filename: filename
+      };
+    } catch (e: any) {
+      this.logger.warn(`Erro no parse de detalhes do CT-e: ${e.message}`);
+      return null;
+    }
+  }
+
+  /**
    * Baixa um XML individual na Nova API do SIEG
    */
   async getXml(xmlKey: string, type: 'nfe' | 'cte'): Promise<string | null> {
