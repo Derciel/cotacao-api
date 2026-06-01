@@ -196,118 +196,153 @@ export class AuditService {
    * Consulta os CT-es no SIEG em um período e cruza com as cotações locais
    */
   async querySiegCtes(cnpjs: string[], startDateStr: string, endDateStr: string): Promise<any[]> {
-    const startDate = new Date(startDateStr);
-    const endDate = new Date(endDateStr);
-    
-    // Se a data de fim for igual a início, ajusta para pegar o dia completo
-    if (endDateStr.length <= 10) {
-      endDate.setHours(23, 59, 59, 999);
-    }
-
-    // 1. Obter todos os CT-es do período no SIEG
-    const allCtes = await this.siegService.queryAllCtesInPeriod(startDate, endDate);
-
-    // 2. Normalizar os CNPJs para comparação
-    const cleanCnpjs = (cnpjs || []).map(c => String(c).replace(/\D/g, '')).filter(c => c.length > 0);
-
-    // 3. Filtrar pelo CNPJ participante se foi informado
-    const filteredCtes = allCtes.filter(cte => {
-      if (cleanCnpjs.length === 0) return true; // Se não passar CNPJ, traz tudo
+    try {
+      const startDate = new Date(startDateStr);
+      const endDate = new Date(endDateStr);
       
-      const participants = [
-        cte.remetente.cnpj,
-        cte.destinatario.cnpj,
-        cte.tomador.cnpj
-      ];
-      return participants.some(p => cleanCnpjs.includes(p));
-    });
-
-    const result: any[] = [];
-
-    // 4. Cruzar cada CT-e com as cotações do banco local
-    for (const cte of filteredCtes) {
-      let matchedQuotation: Quotation | null = null;
-      let matchedAudit: Audit | null = null;
-
-      // A) Se temos o número de NF-e, tentamos buscar a cotação local por NF-e e CNPJ
-      if (cte.nfe_numero) {
-        // Busca cotação pelo número da NF
-        const quotations = await this.quotationRepository.find({
-          where: { nf: cte.nfe_numero },
-          relations: ['client', 'items']
-        });
-
-        // Tenta refinar pelo cliente
-        if (quotations.length > 0) {
-          matchedQuotation = quotations.find(q => {
-            const clientCnpj = String(q.client?.cnpj || '').replace(/\D/g, '');
-            return clientCnpj === cte.remetente.cnpj || clientCnpj === cte.destinatario.cnpj || clientCnpj === cte.tomador.cnpj;
-          }) || quotations[0];
-        }
+      // Se a data de fim for igual a início, ajusta para pegar o dia completo
+      if (endDateStr && endDateStr.length <= 10) {
+        endDate.setHours(23, 59, 59, 999);
       }
 
-      // B) Se achou a cotação, verifica se já existe uma auditoria salva no banco
-      if (matchedQuotation) {
-        matchedAudit = await this.auditRepository.findOne({
-          where: { quotationId: matchedQuotation.id }
-        });
-      }
+      // 1. Obter todos os CT-es do período no SIEG
+      const allCtes = await this.siegService.queryAllCtesInPeriod(startDate, endDate);
 
-      // C) Monta os dados consolidados e calcula a auditoria caso não exista no banco
-      let status = 'SEM_COTACAO';
-      let valorFreteCotado = 0;
-      let divergenciaValor = 0;
-      let auditId: number | null = null;
+      // 2. Normalizar os CNPJs para comparação
+      const cleanCnpjs = (cnpjs || []).map(c => String(c).replace(/\D/g, '')).filter(c => c.length > 0);
 
-      if (matchedQuotation) {
-        valorFreteCotado = Number(matchedQuotation.valor_frete || 0);
-        divergenciaValor = Number(cte.valor_frete) - valorFreteCotado;
-
-        if (matchedAudit) {
-          status = matchedAudit.status;
-          auditId = matchedAudit.id;
-        } else {
-          // Calcula status dinâmico em memória para o frontend
-          status = Math.abs(divergenciaValor) <= this.TOLERANCIA_CENTAVOS ? 'OK' : 'DIVERGENTE';
-        }
-      }
-
-      result.push({
-        cte_chave: cte.chave,
-        cte_numero: cte.numero_cte,
-        data_emissao: cte.data_emissao,
-        valor_frete_sieg: cte.valor_frete,
-        peso_sieg: cte.peso,
-        volumes_sieg: cte.volumes,
-        transportadora: cte.emitente.nome,
-        transportadora_cnpj: cte.emitente.cnpj,
-        remetente: cte.remetente.nome,
-        remetente_cnpj: cte.remetente.cnpj,
-        destinatario: cte.destinatario.nome,
-        destinatario_cnpj: cte.destinatario.cnpj,
-        tomador: cte.tomador.nome,
-        tomador_cnpj: cte.tomador.cnpj,
-        nfe_numero: cte.nfe_numero,
-        nfe_chave: cte.nfe_chave,
-        xml_filename: cte.xml_filename,
-        xml_content: cte.xml_content,
-        // Dados de Cruzamento Local
-        status: status,
-        audit_id: auditId,
-        valor_frete_cotado: valorFreteCotado,
-        divergencia_valor: divergenciaValor,
-        cotacao: matchedQuotation ? {
-          id: matchedQuotation.id,
-          numero_pedido_manual: matchedQuotation.numero_pedido_manual,
-          cliente: matchedQuotation.client?.razao_social,
-          transportadora: matchedQuotation.transportadora_escolhida,
-          status: matchedQuotation.status,
-          nf: matchedQuotation.nf
-        } : null
+      // 3. Filtrar pelo CNPJ participante se foi informado
+      const filteredCtes = allCtes.filter(cte => {
+        if (cleanCnpjs.length === 0) return true; // Se não passar CNPJ, traz tudo
+        
+        const participants = [
+          cte.remetente?.cnpj,
+          cte.destinatario?.cnpj,
+          cte.tomador?.cnpj
+        ].filter(Boolean);
+        return participants.some(p => cleanCnpjs.includes(p));
       });
-    }
 
-    return result;
+      const result: any[] = [];
+
+      // 4. Cruzar cada CT-e com as cotações do banco local
+      for (const cte of filteredCtes) {
+        try {
+          let matchedQuotation: Quotation | null = null;
+          let matchedAudit: Audit | null = null;
+
+          // A) Se temos o número de NF-e, tentamos buscar a cotação local por NF-e e CNPJ
+          if (cte.nfe_numero && String(cte.nfe_numero).trim().length > 0) {
+            // Busca cotação pelo número da NF
+            const quotations = await this.quotationRepository.find({
+              where: { nf: cte.nfe_numero },
+              relations: ['client', 'items']
+            });
+
+            // Tenta refinar pelo cliente
+            if (quotations.length > 0) {
+              matchedQuotation = quotations.find(q => {
+                const clientCnpj = String(q.client?.cnpj || '').replace(/\D/g, '');
+                return clientCnpj === cte.remetente?.cnpj || clientCnpj === cte.destinatario?.cnpj || clientCnpj === cte.tomador?.cnpj;
+              }) || quotations[0];
+            }
+          }
+
+          // B) Se achou a cotação, verifica se já existe uma auditoria salva no banco
+          if (matchedQuotation) {
+            matchedAudit = await this.auditRepository.findOne({
+              where: { quotationId: matchedQuotation.id }
+            });
+          }
+
+          // C) Monta os dados consolidados e calcula a auditoria caso não exista no banco
+          let status = 'SEM_COTACAO';
+          let valorFreteCotado = 0;
+          let divergenciaValor = 0;
+          let auditId: number | null = null;
+
+          if (matchedQuotation) {
+            valorFreteCotado = Number(matchedQuotation.valor_frete || 0);
+            divergenciaValor = Number(cte.valor_frete) - valorFreteCotado;
+
+            if (matchedAudit) {
+              status = matchedAudit.status;
+              auditId = matchedAudit.id;
+            } else {
+              // Calcula status dinâmico em memória para o frontend
+              status = Math.abs(divergenciaValor) <= this.TOLERANCIA_CENTAVOS ? 'OK' : 'DIVERGENTE';
+            }
+          }
+
+          result.push({
+            cte_chave: cte.chave,
+            cte_numero: cte.numero_cte,
+            data_emissao: cte.data_emissao,
+            valor_frete_sieg: cte.valor_frete,
+            peso_sieg: cte.peso,
+            volumes_sieg: cte.volumes,
+            transportadora: cte.emitente?.nome || 'Transportadora Desconhecida',
+            transportadora_cnpj: cte.emitente?.cnpj || '',
+            remetente: cte.remetente?.nome || 'Remetente Desconhecido',
+            remetente_cnpj: cte.remetente?.cnpj || '',
+            destinatario: cte.destinatario?.nome || 'Destinatário Desconhecido',
+            destinatario_cnpj: cte.destinatario?.cnpj || '',
+            tomador: cte.tomador?.nome || 'Tomador Desconhecido',
+            tomador_cnpj: cte.tomador?.cnpj || '',
+            nfe_numero: cte.nfe_numero,
+            nfe_chave: cte.nfe_chave,
+            xml_filename: cte.xml_filename,
+            xml_content: cte.xml_content,
+            // Dados de Cruzamento Local
+            status: status,
+            audit_id: auditId,
+            valor_frete_cotado: valorFreteCotado,
+            divergencia_valor: divergenciaValor,
+            cotacao: matchedQuotation ? {
+              id: matchedQuotation.id,
+              numero_pedido_manual: matchedQuotation.numero_pedido_manual,
+              cliente: matchedQuotation.client?.razao_social,
+              transportadora: matchedQuotation.transportadora_escolhida,
+              status: matchedQuotation.status,
+              nf: matchedQuotation.nf
+            } : null
+          });
+        } catch (loopError: any) {
+          this.logger.error(`Erro ao cruzar CT-e individual do SIEG ${cte.numero_cte}: ${loopError.message}`);
+          // Fallback seguro por CT-e
+          result.push({
+            cte_chave: cte.chave,
+            cte_numero: cte.numero_cte,
+            data_emissao: cte.data_emissao,
+            valor_frete_sieg: cte.valor_frete,
+            peso_sieg: cte.peso,
+            volumes_sieg: cte.volumes,
+            transportadora: cte.emitente?.nome || 'Transportadora Desconhecida',
+            transportadora_cnpj: cte.emitente?.cnpj || '',
+            remetente: cte.remetente?.nome || 'Remetente Desconhecido',
+            remetente_cnpj: cte.remetente?.cnpj || '',
+            destinatario: cte.destinatario?.nome || 'Destinatário Desconhecido',
+            destinatario_cnpj: cte.destinatario?.cnpj || '',
+            tomador: cte.tomador?.nome || 'Tomador Desconhecido',
+            tomador_cnpj: cte.tomador?.cnpj || '',
+            nfe_numero: cte.nfe_numero,
+            nfe_chave: cte.nfe_chave,
+            xml_filename: cte.xml_filename,
+            xml_content: cte.xml_content,
+            status: 'SEM_COTACAO',
+            audit_id: null,
+            valor_frete_cotado: 0,
+            divergencia_valor: 0,
+            cotacao: null
+          });
+        }
+      }
+
+      return result;
+    } catch (e: any) {
+      this.logger.error(`Erro geral no querySiegCtes: ${e.message}`, e.stack);
+      throw e;
+    }
   }
 
   async testSieg() {

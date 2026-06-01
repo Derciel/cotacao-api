@@ -208,6 +208,21 @@
         </div>
       </div>
 
+      <!-- Alerta de Erro de Varredura Fiel -->
+      <div v-if="sQueryError" class="glass-card error-debug-card animate-fade-in">
+        <div class="error-debug-header">
+          <div class="error-title-group">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h4>Erro Interno Detectado no Servidor (Status 500)</h4>
+          </div>
+          <button @click="sQueryError = null" class="btn-close-error">&times;</button>
+        </div>
+        <p class="error-debug-desc">O servidor NestJS retornou o seguinte detalhamento técnico do erro. Você pode mandar essa informação para o suporte:</p>
+        <div class="error-debug-content">
+          <pre class="error-debug-code"><code>{{ typeof sQueryError === 'object' ? JSON.stringify(sQueryError, null, 2) : sQueryError }}</code></pre>
+        </div>
+      </div>
+
       <!-- Métricas em Destaque do SIEG Live -->
       <div v-if="siegCtes.length > 0" class="live-metrics-row animate-fade-in">
         <div class="metric-box glass-premium info">
@@ -459,6 +474,7 @@ const loading = ref(false);
 // Aba 2: SIEG Live
 const loadingSieg = ref(false);
 const siegCtes = ref([]);
+const sQueryError = ref(null);
 const loadingClients = ref(false);
 const clientsList = ref([]);
 const selectedClientCnpjs = ref([]);
@@ -579,6 +595,7 @@ const querySiegCtes = async () => {
   if (loadingSieg.value) return;
   loadingSieg.value = true;
   siegCtes.value = [];
+  sQueryError.value = null;
   try {
     const res = await window.safeFetch('/api/audit/sieg-query', {
       method: 'POST',
@@ -598,12 +615,14 @@ const querySiegCtes = async () => {
         window.showToast(`Cofre consultado! ${res.data.length} CT-es localizados no período.`, 'success');
       }
     } else {
+      sQueryError.value = res.data || { message: 'Erro interno desconhecido no servidor' };
       if (window.showToast) {
-        window.showToast(res.data.message || 'Erro ao realizar varredura no SIEG', 'error');
+        window.showToast(res.data?.message || 'Erro ao realizar varredura no SIEG', 'error');
       }
     }
   } catch (error) {
     console.error(error);
+    sQueryError.value = { message: error.message || 'Erro de conexão com a API do servidor' };
     if (window.showToast) window.showToast('Erro de conexão com a API do servidor', 'error');
   } finally {
     loadingSieg.value = false;
@@ -1903,5 +1922,71 @@ onMounted(() => {
   .premium-table th:nth-child(6), .premium-table td:nth-child(6) {
     display: none;
   }
+}
+
+/* Estilos de Debug de Erro do SIEG Live */
+.error-debug-card {
+  background: #fdf2f2 !important;
+  border: 1.5px solid #fecaca !important;
+  padding: 24px !important;
+  border-radius: 20px !important;
+  margin-bottom: 24px;
+}
+.error-debug-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.error-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #b91c1c;
+}
+.error-title-group i {
+  font-size: 1.3rem;
+}
+.error-title-group h4 {
+  font-size: 1.05rem;
+  font-weight: 850;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.btn-close-error {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #991b1b;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: 0.2s;
+  line-height: 1;
+}
+.btn-close-error:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+.error-debug-desc {
+  font-size: 0.85rem;
+  color: #7f1d1d;
+  margin-bottom: 15px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+.error-debug-content {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 15px;
+  max-height: 250px;
+  overflow: auto;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.error-debug-code {
+  margin: 0;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.8rem;
+  color: #f8fafc;
+  line-height: 1.5;
 }
 </style>
