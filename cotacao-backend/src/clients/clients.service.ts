@@ -278,7 +278,7 @@ export class ClientsService {
    * RESOLUÇÃO EM BATCH: Recebe lista de CNPJs, consulta e cadastra os novos automaticamente.
    */
   async resolveCnpjsBatch(cnpjs: string[]): Promise<Client[]> {
-    const uniqueCnpjs = Array.from(new Set(cnpjs.map(c => c.replace(/\D/g, '')))).filter(c => c.length === 14);
+    const uniqueCnpjs = Array.from(new Set(cnpjs.map(c => c.replace(/\D/g, '').padStart(14, '0')))).filter(c => c.length === 14);
     this.logger.log(`Resolvendo lote de ${uniqueCnpjs.length} CNPJs...`);
 
     const resolvedClients: Client[] = [];

@@ -44,6 +44,7 @@ const isExcelLoaded = ref(false);
 const cnpjsToResolve = ref<string[]>([]);
 const isResolvingClients = ref(false);
 const resolvedExcelStops = ref<ClientStop[]>([]);
+const excelRowsByCnpj = ref<Record<string, any[]>>({});
 
 // Estados Globais de Processamento
 const isSearching = ref(false);
@@ -367,6 +368,7 @@ const processExcelFile = (file: File) => {
   isExcelLoaded.value = false;
   excelRows.value = [];
   cnpjsToResolve.value = [];
+  excelRowsByCnpj.value = {};
 
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -391,8 +393,19 @@ const processExcelFile = (file: File) => {
       );
 
       if (cnpjKey) {
-        const cnpjs = rows.map(r => String(r[cnpjKey] || '').replace(/\D/g, '')).filter(c => c.length === 14);
-        cnpjsToResolve.value = Array.from(new Set(cnpjs));
+        // Agrupar linhas da planilha pelo CNPJ normalizado com zeros à esquerda
+        const rowsMap: Record<string, any[]> = {};
+        rows.forEach(r => {
+          const cnpjRaw = String(r[cnpjKey] || '').replace(/\D/g, '');
+          if (cnpjRaw) {
+            const cnpj = cnpjRaw.padStart(14, '0');
+            if (!rowsMap[cnpj]) rowsMap[cnpj] = [];
+            rowsMap[cnpj].push(r);
+          }
+        });
+
+        excelRowsByCnpj.value = rowsMap;
+        cnpjsToResolve.value = Object.keys(rowsMap);
         window.showToast(`Planilha processada! Encontrados ${rows.length} pedidos e ${cnpjsToResolve.value.length} CNPJs únicos.`, 'success');
       } else {
         window.showToast('Coluna de CNPJ do destinatário não encontrada no arquivo Excel. Mapeamento manual de clientes necessário.', 'warning');
@@ -424,16 +437,22 @@ const resolveBatchClients = async () => {
     if (res.ok && Array.isArray(res.data)) {
       const apiClients = res.data;
       
-      // Mapear clientes retornados para ClientStop
-      resolvedExcelStops.value = apiClients.map((c: any, index: number) => ({
-        id: c.id,
-        razao_social: c.razao_social,
-        cnpj: c.cnpj,
-        cep: c.cep,
-        cidade: c.cidade,
-        estado: c.estado,
-        sequence: index + 1
-      }));
+      // Mapear clientes retornados para ClientStop vinculando seus respectivos pedidos e itens da planilha
+      resolvedExcelStops.value = apiClients.map((c: any, index: number) => {
+        const items = excelRowsByCnpj.value[c.cnpj] || [];
+        const pedidos = Array.from(new Set(items.map(it => it['PEDIDO'] || it['Pedido'] || ''))).filter(Boolean);
+        return {
+          id: c.id,
+          razao_social: c.razao_social,
+          cnpj: c.cnpj,
+          cep: c.cep,
+          cidade: c.cidade,
+          estado: c.estado,
+          sequence: index + 1,
+          pedidosList: pedidos.map(p => String(p)),
+          itemsList: items
+        };
+      });
 
       window.showToast(`Sucesso! ${resolvedExcelStops.value.length} clientes resolvidos e cadastrados no banco de dados local!`, 'success');
     } else {
@@ -644,25 +663,64 @@ const exportOptimizedRoute = () => {
   }
 
   try {
-    const dataToExport = finalRouteStops.value.map(stop => ({
-      'Parada': stop.sequence,
-      'Razão Social': stop.razao_social,
-      'CNPJ': stop.cnpj,
-      'CEP': stop.cep,
-      'Cidade': stop.cidade,
-      'Estado': stop.estado,
-      'Latitude': stop.lat,
-      'Longitude': stop.lon,
-      'Assinatura Recebedor': ''
-    }));
+    const dataToExport: any[] = [];
+    finalRouteStops.value.forEach(stop => {
+      if (stop.itemsList && stop.itemsList.length > 0) {
+        stop.itemsList.forEach((it: any) => {
+          dataToExport.push({
+            'Parada': stop.sequence,
+            'Razão Social': stop.razao_social,
+            'CNPJ': stop.cnpj,
+            'CEP': stop.cep,
+            'Cidade': stop.cidade,
+            'Estado': stop.estado,
+            'Pedido ERP': it['PEDIDO'] || it['Pedido'] || '',
+            'Item / Produto': it['ITEM'] || it['Item'] || '',
+            'Quantidade': it['Quantidade'] || it['quantidade'] || it['QTDE'] || 1,
+            'Endereço': it['ENDEREÇO'] || it['Endereço'] || '',
+            'Número': it['NÚMERO'] || it['Número'] || '',
+            'Assinatura Recebedor': ''
+          });
+        });
+      } else {
+        dataToExport.push({
+          'Parada': stop.sequence,
+          'Razão Social': stop.razao_social,
+          'CNPJ': stop.cnpj,
+          'CEP': stop.cep,
+          'Cidade': stop.cidade,
+          'Estado': stop.estado,
+          'Pedido ERP': '',
+          'Item / Produto': 'Entrega Geral',
+          'Quantidade': 1,
+          'Endereço': '',
+          'Número': '',
+          'Assinatura Recebedor': ''
+        });
+      }
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Roteiro de Entregas');
 
     // Estilização simples de colunas
-    const max_width = dataToExport.reduce((w, r) => Math.max(w, r['Razão Social'].length), 15);
-    worksheet['!cols'] = [{ wch: 8 }, { wch: max_width + 5 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 25 }];
+    const max_width = dataToExport.reduce((w, r) => Math.max(w, String(r['Razão Social'] || '').length), 15);
+    const max_item_width = dataToExport.reduce((w, r) => Math.max(w, String(r['Item / Produto'] || '').length), 15);
+    worksheet['!cols'] = [
+      { wch: 8 }, 
+      { wch: max_width + 5 }, 
+      { wch: 18 }, 
+      { wch: 12 }, 
+      { wch: 18 }, 
+      { wch: 8 },
+      { wch: 15 },
+      { wch: max_item_width + 5 },
+      { wch: 12 },
+      { wch: 25 },
+      { wch: 10 },
+      { wch: 25 }
+    ];
 
     XLSX.writeFile(workbook, `Roteiro_Entregas_Londrina_${new Date().toISOString().split('T')[0]}.xlsx`);
     window.showToast('Relatório de Roteiro exportado com sucesso!', 'success');
@@ -847,8 +905,18 @@ const exportOptimizedRoute = () => {
                   <div v-for="stop in resolvedExcelStops" :key="stop.cnpj" class="stop-item-card readonly">
                     <div class="stop-number">{{ stop.sequence }}</div>
                     <div class="stop-details">
-                      <strong class="stop-name">{{ stop.razao_social }}</strong>
-                      <span class="stop-sub">{{ stop.cidade }} - {{ stop.estado }} | CEP: {{ stop.cep }}</span>
+                      <div class="stop-name-row">
+                        <strong class="stop-name">{{ stop.razao_social }}</strong>
+                        <span class="items-count-badge" v-if="stop.itemsList && stop.itemsList.length > 0">
+                          {{ stop.itemsList.length }} itens
+                        </span>
+                      </div>
+                      <span class="stop-sub">
+                        {{ stop.cidade }} - {{ stop.estado }} | CEP: {{ stop.cep }}
+                        <span v-if="stop.pedidosList && stop.pedidosList.length > 0">
+                          | Pedidos: {{ stop.pedidosList.join(', ') }}
+                        </span>
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -929,21 +997,48 @@ const exportOptimizedRoute = () => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="stop in finalRouteStops" :key="stop.cnpj">
-              <td class="text-center">
-                <span class="sequence-badge">{{ stop.sequence }}</span>
-              </td>
-              <td><strong>{{ stop.razao_social }}</strong></td>
-              <td><code>{{ stop.cnpj }}</code></td>
-              <td>{{ stop.cep }}</td>
-              <td>{{ stop.cidade }} - {{ stop.estado }}</td>
-              <td class="text-center text-muted text-xs">
-                <code>{{ stop.lat?.toFixed(5) }}, {{ stop.lon?.toFixed(5) }}</code>
-              </td>
-              <td class="text-center">
-                <span class="badge-resolved"><i class="fas fa-check-double"></i> Localizado</span>
-              </td>
-            </tr>
+            <template v-for="stop in finalRouteStops" :key="stop.cnpj">
+              <tr>
+                <td class="text-center">
+                  <span class="sequence-badge">{{ stop.sequence }}</span>
+                </td>
+                <td>
+                  <div class="client-name-cell">
+                    <strong>{{ stop.razao_social }}</strong>
+                    <span class="sub-items-desc" v-if="stop.itemsList && stop.itemsList.length > 0">
+                      ({{ stop.itemsList.length }} itens logísticos cadastrados)
+                    </span>
+                  </div>
+                </td>
+                <td><code>{{ stop.cnpj }}</code></td>
+                <td>{{ stop.cep }}</td>
+                <td>{{ stop.cidade }} - {{ stop.estado }}</td>
+                <td class="text-center text-muted text-xs">
+                  <code>{{ stop.lat?.toFixed(5) }}, {{ stop.lon?.toFixed(5) }}</code>
+                </td>
+                <td class="text-center">
+                  <span class="badge-resolved"><i class="fas fa-check-double"></i> Localizado</span>
+                </td>
+              </tr>
+              
+              <!-- Linha com os detalhes dos itens daquele cliente -->
+              <tr v-if="stop.itemsList && stop.itemsList.length > 0" class="items-detail-row">
+                <td colspan="7" class="items-detail-td">
+                  <div class="stop-items-accordion">
+                    <div class="accordion-header">
+                      <i class="fas fa-boxes-packing text-primary"></i> Itens para Entrega nesta parada:
+                    </div>
+                    <div class="accordion-items-grid">
+                      <div v-for="(it, idx) in stop.itemsList" :key="idx" class="accordion-item-pill">
+                        <span class="item-pill-desc" :title="it['ITEM'] || it['Item']">{{ it['ITEM'] || it['Item'] || 'Item Geral' }}</span>
+                        <span class="item-pill-qty">Qtd: <strong>{{ it['Quantidade'] || it['quantidade'] || it['QTDE'] || 1 }}</strong></span>
+                        <span class="item-pill-order" v-if="it['PEDIDO'] || it['Pedido']">Pedido: #{{ it['PEDIDO'] || it['Pedido'] }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -1688,5 +1783,106 @@ const exportOptimizedRoute = () => {
   .routing-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Estilos Adicionais para Detalhamento de Itens */
+.items-count-badge {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  margin-left: 8px;
+  text-transform: uppercase;
+}
+
+.stop-name-row {
+  display: flex;
+  align-items: center;
+}
+
+.client-name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sub-items-desc {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.items-detail-row {
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.items-detail-td {
+  padding: 0 14px 14px 14px !important;
+  border-bottom: 1px solid var(--border);
+}
+
+.stop-items-accordion {
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.accordion-header {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.accordion-items-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.accordion-item-pill {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+}
+
+.item-pill-desc {
+  color: var(--text-main);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
+}
+
+.item-pill-qty {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.item-pill-qty strong {
+  color: #10b981;
+}
+
+.item-pill-order {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--primary);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 0.65rem;
+  font-weight: 800;
 }
 </style>
