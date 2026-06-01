@@ -412,7 +412,7 @@ export class SiegService {
 
       const payload = {
         TipoXml: 2, // CTe
-        Take: 100, // Limite padrão
+        Take: 50, // Limite padrão de 50
         Skip: 0,
         DataEmissaoInicio: startDate.toISOString(),
         DataEmissaoFim: endDate.toISOString()
