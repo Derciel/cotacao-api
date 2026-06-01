@@ -15,6 +15,14 @@ export class AuditController {
     return this.auditService.findAll();
   }
 
+  @Post('sieg-query')
+  @ApiOperation({ summary: 'Pesquisa CT-es no SIEG e cruza com cotações locais baseado em CNPJs e datas' })
+  async querySieg(
+    @Body() body: { cnpjs: string[]; startDate: string; endDate: string }
+  ) {
+    return this.auditService.querySiegCtes(body.cnpjs, body.startDate, body.endDate);
+  }
+
   @Post(':quotationId')
   @ApiOperation({ summary: 'Realiza a auditoria de uma cotação via SIEG' })
   async audit(@Param('quotationId') quotationId: string) {
@@ -25,13 +33,6 @@ export class AuditController {
   @ApiOperation({ summary: 'Realiza o check manual de uma divergência' })
   async check(@Param('auditId') auditId: string, @Request() req) {
     return this.auditService.checkManual(+auditId, req.user.userId);
-  }
-  @Post('sieg-query')
-  @ApiOperation({ summary: 'Pesquisa CT-es no SIEG e cruza com cotações locais baseado em CNPJs e datas' })
-  async querySieg(
-    @Body() body: { cnpjs: string[]; startDate: string; endDate: string }
-  ) {
-    return this.auditService.querySiegCtes(body.cnpjs, body.startDate, body.endDate);
   }
 
   @Get('summary')
