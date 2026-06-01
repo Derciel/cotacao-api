@@ -46,6 +46,12 @@ export class AuditController {
     return this.auditService.getSummaryByCarrier(startDate, endDate);
   }
 
+  @Post('maintenance/reaudit-all')
+  @ApiOperation({ summary: 'Recalcula e limpa todo o histórico de auditorias com dados 100% reais' })
+  async reauditAll() {
+    return this.auditService.reauditAll();
+  }
+
   @Get('test-connection')
   @ApiOperation({ summary: 'Testa a conexão com a API da SIEG' })
   async testSieg() {

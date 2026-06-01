@@ -179,6 +179,30 @@ export class AuditService {
   }
 
   /**
+   * Recalcula e higieniza todas as auditorias salvando dados 100% reais do banco
+   */
+  async reauditAll() {
+    const audits = await this.auditRepository.find();
+    this.logger.log(`Iniciando higienização e re-auditoria de ${audits.length} registros...`);
+    let updatedCount = 0;
+    
+    for (const audit of audits) {
+      try {
+        await this.auditQuotation(audit.quotationId);
+        updatedCount++;
+      } catch (e: any) {
+        this.logger.error(`Erro ao re-auditar cotação ${audit.quotationId}: ${e.message}`);
+      }
+    }
+    
+    return {
+      message: `Higienização concluída com sucesso! ${updatedCount} de ${audits.length} auditorias foram re-auditadas com dados reais.`,
+      total: audits.length,
+      updated: updatedCount
+    };
+  }
+
+  /**
    * Aprovação manual de uma divergência
    */
   async checkManual(auditId: number, userId: number) {
