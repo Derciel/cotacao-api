@@ -97,8 +97,8 @@ export class PdfService {
         const cleaned = JSON.parse(JSON.stringify(quotation));
 
         // Lógica de Isenção de Frete Visual no PDF
-        const isExento = this.quotationsService.isFreightExempt(quotation.client.razao_social, quotation.client.fantasia);
-        if (isExento) {
+        const isExento = this.quotationsService.isFreightExempt(quotation.client.razao_social, quotation.client.fantasia, quotation.empresa_faturamento);
+        if (isExento && !quotation.exibir_frete_isento) {
           cleaned.valor_frete = 0;
           cleaned.valor_total_nota = Number((Number(cleaned.valor_total_produtos || 0) + Number(cleaned.valor_ipi || 0)).toFixed(2));
         }
@@ -196,8 +196,8 @@ export class PdfService {
     const cleaned = JSON.parse(JSON.stringify(quotation));
 
     // Lógica de Isenção de Frete Visual no PDF
-    const isExento = this.quotationsService.isFreightExempt(quotation.client.razao_social, quotation.client.fantasia);
-    if (isExento) {
+    const isExento = this.quotationsService.isFreightExempt(quotation.client.razao_social, quotation.client.fantasia, quotation.empresa_faturamento);
+    if (isExento && !quotation.exibir_frete_isento) {
       cleaned.valor_frete = 0;
       cleaned.valor_total_nota = Number((Number(cleaned.valor_total_produtos || 0) + Number(cleaned.valor_ipi || 0)).toFixed(2));
     }

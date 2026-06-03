@@ -409,22 +409,293 @@
     </div>
 
     <!-- ==================== MODAIS DE VISUALIZAÇÃO E PDF ==================== -->
-    <!-- Modal Visualizador XML -->
+    <!-- Modal Visualizador XML / DACTE -->
     <div v-if="selectedXmlAudit" class="modal-overlay" @click.self="selectedXmlAudit = null">
-      <div class="modal-box xml-viewer-modal animate-pop">
+      <div class="modal-box xml-viewer-modal animate-pop" :class="{ 'dacte-mode': modalTab === 'dacte' }">
         <div class="modal-header">
           <div>
-            <h3>Visualizador de XML</h3>
+            <h3>{{ modalTab === 'dacte' ? 'Visualizador de DACTE' : 'Visualizador de XML' }}</h3>
             <p>CT-e {{ selectedXmlAudit.cte_numero || selectedXmlAudit.cte_number }} | {{ selectedXmlAudit.xml_filename }}</p>
           </div>
+          
+          <!-- Controle de Abas do Modal -->
+          <div class="modal-tabs">
+            <button 
+              @click="modalTab = 'dacte'" 
+              :class="['modal-tab-btn', { active: modalTab === 'dacte' }]"
+            >
+              <i class="fas fa-file-invoice"></i> DACTE Visual
+            </button>
+            <button 
+              @click="modalTab = 'xml'" 
+              :class="['modal-tab-btn', { active: modalTab === 'xml' }]"
+            >
+              <i class="fas fa-code"></i> XML Bruto
+            </button>
+          </div>
+
           <button @click="selectedXmlAudit = null" class="btn-close">&times;</button>
         </div>
-        <div class="xml-content-area">
-          <pre><code>{{ selectedXmlAudit.xml_content }}</code></pre>
+
+        <div class="modal-body-wrapper">
+          <!-- ABA XML BRUTO -->
+          <div v-if="modalTab === 'xml'" class="xml-content-area">
+            <pre><code>{{ selectedXmlAudit.xml_content }}</code></pre>
+          </div>
+
+          <!-- ABA DACTE VISUAL -->
+          <div v-if="modalTab === 'dacte'" class="dacte-viewer-area">
+            <div v-if="!parsedDacte" class="dacte-error">
+              <i class="fas fa-exclamation-triangle"></i>
+              <p>Não foi possível processar o XML para gerar o DACTE.</p>
+            </div>
+            <div v-else id="dacte-print-area" class="dacte-container">
+              <!-- CABEÇALHO DACTE -->
+              <div class="dacte-row dacte-header-row">
+                <div class="dacte-col dacte-emitente">
+                  <div class="dacte-emit-name">{{ parsedDacte.emitente?.nome }}</div>
+                  <div class="dacte-emit-fant" v-if="parsedDacte.emitente?.fantasia">{{ parsedDacte.emitente?.fantasia }}</div>
+                  <div class="dacte-emit-addr">
+                    {{ parsedDacte.emitente?.endereco?.logradouro }}, {{ parsedDacte.emitente?.endereco?.numero }}
+                    <span v-if="parsedDacte.emitente?.endereco?.complemento"> - {{ parsedDacte.emitente?.endereco?.complemento }}</span>
+                  </div>
+                  <div class="dacte-emit-addr-sub">
+                    {{ parsedDacte.emitente?.endereco?.bairro }} - {{ parsedDacte.emitente?.endereco?.municipio }}/{{ parsedDacte.emitente?.endereco?.uf }}
+                  </div>
+                  <div class="dacte-emit-contact" v-if="parsedDacte.emitente?.endereco?.fone">Fone: {{ parsedDacte.emitente?.endereco?.fone }}</div>
+                </div>
+                
+                <div class="dacte-col dacte-title-block">
+                  <div class="dacte-doc-title">DACTE</div>
+                  <div class="dacte-doc-desc">Documento Auxiliar do Conhecimento de Transporte Eletrônico</div>
+                  <div class="dacte-doc-types">
+                    <div><strong>MOD:</strong> {{ parsedDacte.modelo }}</div>
+                    <div><strong>SÉRIE:</strong> {{ parsedDacte.serie }}</div>
+                    <div><strong>NÚMERO:</strong> {{ parsedDacte.numero }}</div>
+                  </div>
+                  <div class="dacte-doc-dh">
+                    <strong>Emissão:</strong> {{ formatDate(parsedDacte.dhEmi) }}
+                  </div>
+                </div>
+
+                <div class="dacte-col dacte-key-block">
+                  <div class="dacte-label">CHAVE DE ACESSO DO CT-e</div>
+                  <div class="dacte-key">{{ formatKey(parsedDacte.chave) }}</div>
+                  
+                  <div class="dacte-protocol-box">
+                    <div class="dacte-label">PROTOCOLO DE AUTORIZAÇÃO DE USO</div>
+                    <div class="dacte-val">
+                      {{ parsedDacte.protocolo || 'N/A' }} 
+                      <span v-if="parsedDacte.data_protocolo"> - {{ formatDate(parsedDacte.data_protocolo) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- DADOS ADICIONAIS CABEÇALHO -->
+              <div class="dacte-row dacte-border-top">
+                <div class="dacte-col size-4">
+                  <div class="dacte-label">NATUREZA DA OPERAÇÃO</div>
+                  <div class="dacte-val">{{ parsedDacte.natOp }}</div>
+                </div>
+                <div class="dacte-col size-1">
+                  <div class="dacte-label">CFOP</div>
+                  <div class="dacte-val">{{ parsedDacte.cfop }}</div>
+                </div>
+                <div class="dacte-col size-3">
+                  <div class="dacte-label">INSCRIÇÃO ESTADUAL DO EMITENTE</div>
+                  <div class="dacte-val">{{ parsedDacte.emitente?.ie }}</div>
+                </div>
+                <div class="dacte-col size-2">
+                  <div class="dacte-label">CNPJ DO EMITENTE</div>
+                  <div class="dacte-val">{{ formatCnpj(parsedDacte.emitente?.cnpj) }}</div>
+                </div>
+              </div>
+
+              <!-- PARTICIPANTES -->
+              <!-- REMETENTE -->
+              <div class="dacte-section-title">REMETENTE</div>
+              <div class="dacte-row dacte-border-top">
+                <div class="dacte-col size-5">
+                  <div class="dacte-label">RAZÃO SOCIAL</div>
+                  <div class="dacte-val bold">{{ parsedDacte.remetente?.nome }}</div>
+                </div>
+                <div class="dacte-col size-3">
+                  <div class="dacte-label">CNPJ/CPF</div>
+                  <div class="dacte-val">{{ formatCnpj(parsedDacte.remetente?.cnpj) }}</div>
+                </div>
+                <div class="dacte-col size-2">
+                  <div class="dacte-label">INSCRIÇÃO ESTADUAL</div>
+                  <div class="dacte-val">{{ parsedDacte.remetente?.ie || 'ISENTO' }}</div>
+                </div>
+              </div>
+              <div class="dacte-row">
+                <div class="dacte-col size-5">
+                  <div class="dacte-label">ENDEREÇO</div>
+                  <div class="dacte-val">
+                    {{ parsedDacte.remetente?.endereco?.logradouro }}, {{ parsedDacte.remetente?.endereco?.numero }}
+                    <span v-if="parsedDacte.remetente?.endereco?.bairro"> - {{ parsedDacte.remetente?.endereco?.bairro }}</span>
+                  </div>
+                </div>
+                <div class="dacte-col size-3">
+                  <div class="dacte-label">MUNICÍPIO / UF</div>
+                  <div class="dacte-val">{{ parsedDacte.remetente?.endereco?.municipio }} / {{ parsedDacte.remetente?.endereco?.uf }}</div>
+                </div>
+                <div class="dacte-col size-2">
+                  <div class="dacte-label">FONE / CEP</div>
+                  <div class="dacte-val">{{ parsedDacte.remetente?.endereco?.fone || 'N/A' }} - {{ parsedDacte.remetente?.endereco?.cep || '' }}</div>
+                </div>
+              </div>
+
+              <!-- DESTINATÁRIO -->
+              <div class="dacte-section-title">DESTINATÁRIO</div>
+              <div class="dacte-row dacte-border-top">
+                <div class="dacte-col size-5">
+                  <div class="dacte-label">RAZÃO SOCIAL</div>
+                  <div class="dacte-val bold">{{ parsedDacte.destinatario?.nome }}</div>
+                </div>
+                <div class="dacte-col size-3">
+                  <div class="dacte-label">CNPJ/CPF</div>
+                  <div class="dacte-val">{{ formatCnpj(parsedDacte.destinatario?.cnpj) }}</div>
+                </div>
+                <div class="dacte-col size-2">
+                  <div class="dacte-label">INSCRIÇÃO ESTADUAL</div>
+                  <div class="dacte-val">{{ parsedDacte.destinatario?.ie || 'ISENTO' }}</div>
+                </div>
+              </div>
+              <div class="dacte-row">
+                <div class="dacte-col size-5">
+                  <div class="dacte-label">ENDEREÇO</div>
+                  <div class="dacte-val">
+                    {{ parsedDacte.destinatario?.endereco?.logradouro }}, {{ parsedDacte.destinatario?.endereco?.numero }}
+                    <span v-if="parsedDacte.destinatario?.endereco?.bairro"> - {{ parsedDacte.destinatario?.endereco?.bairro }}</span>
+                  </div>
+                </div>
+                <div class="dacte-col size-3">
+                  <div class="dacte-label">MUNICÍPIO / UF</div>
+                  <div class="dacte-val">{{ parsedDacte.destinatario?.endereco?.municipio }} / {{ parsedDacte.destinatario?.endereco?.uf }}</div>
+                </div>
+                <div class="dacte-col size-2">
+                  <div class="dacte-label">FONE / CEP</div>
+                  <div class="dacte-val">{{ parsedDacte.destinatario?.endereco?.fone || 'N/A' }} - {{ parsedDacte.destinatario?.endereco?.cep || '' }}</div>
+                </div>
+              </div>
+
+              <!-- TOMADOR DO SERVIÇO -->
+              <div v-if="parsedDacte.tomador" class="dacte-section-title">TOMADOR DO SERVIÇO (RESPONSÁVEL PELO FRETE)</div>
+              <div v-if="parsedDacte.tomador" class="dacte-row dacte-border-top">
+                <div class="dacte-col size-5">
+                  <div class="dacte-label">RAZÃO SOCIAL (Papel: {{ parsedDacte.tomador.ref }})</div>
+                  <div class="dacte-val bold">{{ parsedDacte.tomador.nome }}</div>
+                </div>
+                <div class="dacte-col size-3">
+                  <div class="dacte-label">CNPJ/CPF</div>
+                  <div class="dacte-val">{{ formatCnpj(parsedDacte.tomador.cnpj) }}</div>
+                </div>
+                <div class="dacte-col size-2">
+                  <div class="dacte-label">INSCRIÇÃO ESTADUAL</div>
+                  <div class="dacte-val">{{ parsedDacte.tomador.ie || 'ISENTO' }}</div>
+                </div>
+              </div>
+              <div v-if="parsedDacte.tomador" class="dacte-row">
+                <div class="dacte-col size-5">
+                  <div class="dacte-label">ENDEREÇO</div>
+                  <div class="dacte-val">
+                    {{ parsedDacte.tomador.endereco?.logradouro || '' }} {{ parsedDacte.tomador.endereco?.numero || '' }}
+                    <span v-if="parsedDacte.tomador.endereco?.bairro"> - {{ parsedDacte.tomador.endereco.bairro }}</span>
+                  </div>
+                </div>
+                <div class="dacte-col size-3">
+                  <div class="dacte-label">MUNICÍPIO / UF</div>
+                  <div class="dacte-val">{{ parsedDacte.tomador.endereco?.municipio || '' }} / {{ parsedDacte.tomador.endereco?.uf || '' }}</div>
+                </div>
+                <div class="dacte-col size-2">
+                  <div class="dacte-label">FONE / CEP</div>
+                  <div class="dacte-val">{{ parsedDacte.tomador.endereco?.fone || 'N/A' }} - {{ parsedDacte.tomador.endereco?.cep || '' }}</div>
+                </div>
+              </div>
+
+              <!-- DADOS DA CARGA -->
+              <div class="dacte-section-title">PRODUTO PREDOMINANTE E DADOS DA CARGA</div>
+              <div class="dacte-row dacte-border-top">
+                <div class="dacte-col size-5">
+                  <div class="dacte-label">PRODUTO PREDOMINANTE</div>
+                  <div class="dacte-val">{{ parsedDacte.produto_predominante || 'CARGA GERAL' }}</div>
+                </div>
+                <div class="dacte-col size-5">
+                  <div class="dacte-label">VALOR TOTAL DA CARGA</div>
+                  <div class="dacte-val bold">R$ {{ formatNumber(parsedDacte.valor_total_carga || parsedDacte.valor_carga) }}</div>
+                </div>
+              </div>
+              <div class="dacte-row dacte-border-top">
+                <div v-for="med in parsedDacte.medidas" :key="med.type" class="dacte-col">
+                  <div class="dacte-label">{{ med.type }}</div>
+                  <div class="dacte-val bold">{{ formatNumber(med.val) }}</div>
+                </div>
+                <div v-if="!parsedDacte.medidas || parsedDacte.medidas.length === 0" class="dacte-col">
+                  <div class="dacte-label">PESO (KG)</div>
+                  <div class="dacte-val">N/A</div>
+                </div>
+                <div v-if="!parsedDacte.medidas || parsedDacte.medidas.length === 0" class="dacte-col">
+                  <div class="dacte-label">VOLUMES</div>
+                  <div class="dacte-val">N/A</div>
+                </div>
+              </div>
+
+              <!-- VALORES DO FRETE -->
+              <div class="dacte-section-title">COMPONENTES DO VALOR DA PRESTAÇÃO DO SERVIÇO</div>
+              <div class="dacte-row dacte-border-top">
+                <div class="dacte-col size-7">
+                  <div class="dacte-components-grid">
+                    <div v-for="comp in parsedDacte.componentes" :key="comp.name" class="dacte-comp-item">
+                      <span class="dacte-comp-name">{{ comp.name }}:</span>
+                      <span class="dacte-comp-val">R$ {{ formatNumber(comp.value) }}</span>
+                    </div>
+                    <div v-if="!parsedDacte.componentes || parsedDacte.componentes.length === 0" class="dacte-comp-item text-muted">
+                      Nenhum componente discriminado no XML.
+                    </div>
+                  </div>
+                </div>
+                <div class="dacte-col size-3 dacte-border-left bg-light-gray dacte-align-right">
+                  <div class="dacte-label text-right">VALOR TOTAL DO SERVIÇO</div>
+                  <div class="dacte-val-large">R$ {{ formatNumber(parsedDacte.valor_total) }}</div>
+                  <div class="dacte-label text-right">VALOR A RECEBER</div>
+                  <div class="dacte-val-large">R$ {{ formatNumber(parsedDacte.valor_receber) }}</div>
+                </div>
+              </div>
+
+              <!-- NOTAS FISCAIS RELACIONADAS -->
+              <div class="dacte-section-title">DOCUMENTOS FISCAIS RELACIONADOS (NF-e)</div>
+              <div class="dacte-row dacte-border-top">
+                <div class="dacte-col size-10">
+                  <div class="dacte-nfe-list">
+                    <div v-for="(chave, idx) in parsedDacte.nfe_chaves" :key="chave" class="dacte-nfe-item">
+                      <strong>NF-e {{ idx + 1 }}:</strong> <span class="dacte-nfe-key">{{ formatKey(chave) }}</span>
+                    </div>
+                    <div v-if="!parsedDacte.nfe_chaves || parsedDacte.nfe_chaves.length === 0" class="text-muted">
+                      Nenhuma Nota Fiscal Eletrônica vinculada encontrada no XML.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- OBSERVAÇÕES -->
+              <div class="dacte-section-title">OBSERVAÇÕES DO CONTRIBUINTE</div>
+              <div class="dacte-row dacte-border-top">
+                <div class="dacte-col size-10 dacte-obs-box">
+                  <div class="dacte-obs-content">{{ parsedDacte.xObs || 'Sem observações declaradas pelo contribuinte.' }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+
         <div class="modal-footer">
-          <button @click="downloadXmlDirect(selectedXmlAudit)" class="btn-primary">
-            <i class="fas fa-download"></i> Download Arquivo
+          <button v-if="modalTab === 'dacte' && parsedDacte" @click="printDacte" class="btn-primary">
+            <i class="fas fa-print"></i> Imprimir DACTE (PDF)
+          </button>
+          <button @click="downloadXmlDirect(selectedXmlAudit)" class="btn-primary-outline">
+            <i class="fas fa-download"></i> Baixar XML
           </button>
           <button @click="selectedXmlAudit = null" class="btn-secondary">Fechar</button>
         </div>
@@ -460,7 +731,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { getAuthenticatedBlobUrl } from '../utils/api-utils';
 
 // Abas
@@ -489,6 +760,194 @@ const filterEndDate = ref(today.toISOString().substring(0, 10));
 
 // Modais
 const selectedXmlAudit = ref(null);
+const modalTab = ref('dacte');
+
+// Função de parsing do DACTE a partir do XML
+const parseXmlDacte = (xmlStr) => {
+  if (!xmlStr) return null;
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlStr, "text/xml");
+    
+    const getTagText = (tagName) => {
+      const el = doc.getElementsByTagName(tagName)[0];
+      return el ? el.textContent : '';
+    };
+
+    const getNestedTagText = (parentTag, childTag) => {
+      const parent = doc.getElementsByTagName(parentTag)[0];
+      if (!parent) return '';
+      const child = parent.getElementsByTagName(childTag)[0];
+      return child ? child.textContent : '';
+    };
+
+    const getNfeChaves = () => {
+      const chaves = [];
+      const nodes = doc.getElementsByTagName('infNFe');
+      for (let i = 0; i < nodes.length; i++) {
+        const ch = nodes[i].getElementsByTagName('chave')[0]?.textContent;
+        if (ch) chaves.push(ch);
+      }
+      const nDocNodes = doc.getElementsByTagName('infNF');
+      for (let i = 0; i < nDocNodes.length; i++) {
+        const nDoc = nDocNodes[i].getElementsByTagName('nDoc')[0]?.textContent;
+        if (nDoc) chaves.push(`Nota: ${nDoc}`);
+      }
+      return chaves;
+    };
+
+    const getFreteComponentes = () => {
+      const compList = [];
+      const nodes = doc.getElementsByTagName('Comp');
+      for (let i = 0; i < nodes.length; i++) {
+        const xNome = nodes[i].getElementsByTagName('xNome')[0]?.textContent;
+        const vComp = nodes[i].getElementsByTagName('vComp')[0]?.textContent;
+        if (xNome && vComp) {
+          compList.push({ name: xNome, value: parseFloat(vComp) });
+        }
+      }
+      return compList;
+    };
+
+    const getMedidas = () => {
+      const medList = [];
+      const nodes = doc.getElementsByTagName('infQ');
+      for (let i = 0; i < nodes.length; i++) {
+        const tpMed = nodes[i].getElementsByTagName('tpMed')[0]?.textContent;
+        const qCarga = nodes[i].getElementsByTagName('qCarga')[0]?.textContent;
+        if (tpMed && qCarga) {
+          medList.push({ type: tpMed, val: qCarga });
+        }
+      }
+      return medList;
+    };
+
+    const parseEndereco = (parentEl) => {
+      if (!parentEl) return {};
+      const get = (tag) => parentEl.getElementsByTagName(tag)[0]?.textContent || '';
+      return {
+        logradouro: get('xLgr'),
+        numero: get('nro'),
+        complemento: get('xCpl'),
+        bairro: get('xBairro'),
+        municipio: get('xMun'),
+        uf: get('UF'),
+        cep: get('CEP'),
+        fone: get('fone')
+      };
+    };
+
+    const getParticipant = (tagName) => {
+      const el = doc.getElementsByTagName(tagName)[0];
+      if (!el) return null;
+      const get = (tag) => el.getElementsByTagName(tag)[0]?.textContent || '';
+      const enderTag = el.getElementsByTagName('ender' + tagName.charAt(0).toUpperCase() + tagName.slice(1))[0] 
+                    || el.getElementsByTagName('enderEmit')[0]
+                    || el.getElementsByTagName('enderDest')[0]
+                    || el.getElementsByTagName('enderReme')[0];
+      return {
+        cnpj: get('CNPJ') || get('CPF'),
+        ie: get('IE'),
+        nome: get('xNome'),
+        fantasia: get('xFant'),
+        endereco: parseEndereco(enderTag)
+      };
+    };
+
+    const getTomador = () => {
+      const toma3 = doc.getElementsByTagName('toma3')[0];
+      if (toma3) {
+        const tomaVal = parseInt(toma3.getElementsByTagName('toma')[0]?.textContent || '0');
+        if (tomaVal === 0) return { ref: 'REMETENTE', ...getParticipant('rem') };
+        if (tomaVal === 3) return { ref: 'DESTINATÁRIO', ...getParticipant('dest') };
+        if (toma3.getElementsByTagName('CNPJ')[0] || toma3.getElementsByTagName('CPF')[0]) {
+          const get = (tag) => toma3.getElementsByTagName(tag)[0]?.textContent || '';
+          return {
+            ref: 'TOMADOR (3)',
+            cnpj: get('CNPJ') || get('CPF'),
+            ie: get('IE'),
+            nome: get('xNome'),
+            endereco: parseEndereco(toma3)
+          };
+        }
+      }
+      const toma4 = doc.getElementsByTagName('toma4')[0];
+      if (toma4) {
+        const get = (tag) => toma4.getElementsByTagName(tag)[0]?.textContent || '';
+        return {
+          ref: 'TOMADOR (4)',
+          cnpj: get('CNPJ') || get('CPF'),
+          ie: get('IE'),
+          nome: get('xNome'),
+          endereco: parseEndereco(toma4)
+        };
+      }
+      return null;
+    };
+
+    const ide = doc.getElementsByTagName('ide')[0];
+    const compl = doc.getElementsByTagName('compl')[0];
+    const vPrest = doc.getElementsByTagName('vPrest')[0];
+    const infCarga = doc.getElementsByTagName('infCarga')[0];
+    const protCTe = doc.getElementsByTagName('protCTe')[0];
+
+    const getChaveAcesso = () => {
+      const infCte = doc.getElementsByTagName('infCte')[0];
+      let id = infCte ? infCte.getAttribute('Id') : '';
+      if (id) {
+        return id.replace(/[^\d]/g, '');
+      }
+      return getTagText('chCTe');
+    };
+
+    return {
+      chave: getChaveAcesso(),
+      protocolo: protCTe ? protCTe.getElementsByTagName('nProt')[0]?.textContent : '',
+      data_protocolo: protCTe ? protCTe.getElementsByTagName('dhRecbto')[0]?.textContent : '',
+      numero: ide?.getElementsByTagName('nCT')[0]?.textContent || '',
+      serie: ide?.getElementsByTagName('serie')[0]?.textContent || '',
+      modelo: ide?.getElementsByTagName('mod')[0]?.textContent || '',
+      dhEmi: ide?.getElementsByTagName('dhEmi')[0]?.textContent || '',
+      natOp: ide?.getElementsByTagName('natOp')[0]?.textContent || '',
+      cfop: ide?.getElementsByTagName('CFOP')[0]?.textContent || '',
+      xObs: compl?.getElementsByTagName('xObs')[0]?.textContent || '',
+      
+      emitente: getParticipant('emit'),
+      remetente: getParticipant('rem'),
+      destinatario: getParticipant('dest'),
+      tomador: getTomador(),
+      
+      valor_total: parseFloat(vPrest?.getElementsByTagName('vTPrest')[0]?.textContent || '0'),
+      valor_receber: parseFloat(vPrest?.getElementsByTagName('vRec')[0]?.textContent || '0'),
+      componentes: getFreteComponentes(),
+      
+      valor_carga: parseFloat(infCarga?.getElementsByTagName('vCarga')[0]?.textContent || '0'),
+      produto_predominante: infCarga?.getElementsByTagName('proPred')[0]?.textContent || '',
+      medidas: getMedidas(),
+      nfe_chaves: getNfeChaves()
+    };
+  } catch (err) {
+    console.error("Erro ao processar DACTE do XML:", err);
+    return null;
+  }
+};
+
+const parsedDacte = computed(() => {
+  if (!selectedXmlAudit.value || !selectedXmlAudit.value.xml_content) return null;
+  return parseXmlDacte(selectedXmlAudit.value.xml_content);
+});
+
+const formatKey = (key) => {
+  if (!key) return '';
+  const clean = key.replace(/\D/g, '');
+  if (clean.length !== 44) return key;
+  return clean.replace(/(\d{4})/g, '$1 ').trim();
+};
+
+const printDacte = () => {
+  window.print();
+};
+
 const isPdfPreviewOpen = ref(false);
 const pdfPreviewUrl = ref("");
 const isPdfLoading = ref(false);
@@ -672,6 +1131,7 @@ const downloadXmlDirect = (cte) => {
 };
 
 const openXmlModal = (cte) => {
+  modalTab.value = 'dacte';
   selectedXmlAudit.value = {
     cte_numero: cte.cte_number || cte.numero_cte,
     xml_filename: cte.xml_filename,
@@ -1988,5 +2448,312 @@ onMounted(() => {
   font-size: 0.8rem;
   color: #f8fafc;
   line-height: 1.5;
+}
+
+/* Abas no Modal */
+.modal-tabs {
+  display: flex;
+  gap: 12px;
+  margin-left: 20px;
+}
+
+.modal-tab-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.modal-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-main);
+}
+
+.modal-tab-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(0, 74, 153, 0.25);
+}
+
+/* Modal Responsivo para DACTE */
+.xml-viewer-modal.dacte-mode {
+  max-width: 900px;
+  width: 95%;
+}
+
+.modal-body-wrapper {
+  overflow-y: auto;
+  max-height: calc(80vh - 120px);
+  padding: 10px 0;
+}
+
+/* Área do DACTE */
+.dacte-viewer-area {
+  background: #f8fafc;
+  padding: 15px;
+  border-radius: 8px;
+  color: #1e293b;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.dacte-container {
+  background: white;
+  border: 2px solid #000;
+  padding: 12px;
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.dacte-row {
+  display: flex;
+  width: 100%;
+}
+
+.dacte-border-top {
+  border-top: 1px solid #000;
+}
+
+.dacte-border-left {
+  border-left: 1px solid #000;
+}
+
+.dacte-col {
+  flex: 1;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.dacte-col.size-1 { flex: 1; }
+.dacte-col.size-2 { flex: 2; }
+.dacte-col.size-3 { flex: 3; }
+.dacte-col.size-4 { flex: 4; }
+.dacte-col.size-5 { flex: 5; }
+.dacte-col.size-6 { flex: 6; }
+.dacte-col.size-7 { flex: 7; }
+.dacte-col.size-10 { flex: 10; }
+
+.dacte-emitente {
+  border-right: 1px solid #000;
+  flex: 4;
+}
+
+.dacte-emit-name {
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.dacte-emit-fant {
+  font-size: 9px;
+  font-style: italic;
+  margin-bottom: 2px;
+}
+
+.dacte-emit-addr, .dacte-emit-addr-sub, .dacte-emit-contact {
+  font-size: 8px;
+}
+
+.dacte-title-block {
+  border-right: 1px solid #000;
+  flex: 3;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.dacte-doc-title {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.dacte-doc-desc {
+  font-size: 7px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.dacte-doc-types {
+  display: flex;
+  gap: 8px;
+  font-size: 8px;
+}
+
+.dacte-doc-dh {
+  font-size: 8px;
+  margin-top: 3px;
+}
+
+.dacte-key-block {
+  flex: 5;
+  padding: 4px;
+}
+
+.dacte-label {
+  font-size: 7px;
+  font-weight: bold;
+  color: #475569;
+  text-transform: uppercase;
+  margin-bottom: 1px;
+}
+
+.dacte-key {
+  font-size: 10px;
+  font-weight: bold;
+  word-break: break-all;
+  margin-bottom: 6px;
+  font-family: monospace;
+}
+
+.dacte-protocol-box {
+  border-top: 1px solid #ddd;
+  padding-top: 3px;
+}
+
+.dacte-val {
+  font-size: 9px;
+}
+
+.dacte-val.bold {
+  font-weight: bold;
+}
+
+.dacte-val-large {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.dacte-section-title {
+  background: #000;
+  color: #fff;
+  font-weight: bold;
+  font-size: 8px;
+  padding: 2px 4px;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+
+.bg-light-gray {
+  background-color: #f1f5f9;
+}
+
+.dacte-align-right {
+  text-align: right;
+}
+
+.dacte-components-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+}
+
+.dacte-comp-item {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dashed #ddd;
+  padding-bottom: 1px;
+}
+
+.dacte-comp-name {
+  font-weight: bold;
+}
+
+.dacte-nfe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dacte-nfe-item {
+  font-family: monospace;
+}
+
+.dacte-obs-box {
+  min-height: 40px;
+}
+
+.dacte-obs-content {
+  font-size: 8px;
+  white-space: pre-wrap;
+}
+
+.dacte-error {
+  text-align: center;
+  padding: 40px;
+}
+
+.dacte-error i {
+  font-size: 2rem;
+  color: #ef4444;
+  margin-bottom: 10px;
+}
+
+/* REGRAS DE IMPRESSÃO EXCLUSIVAS */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  
+  /* Exibe somente a modal de DACTE e seus filhos */
+  .modal-overlay {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    background: transparent !important;
+    display: block !important;
+    visibility: visible !important;
+    overflow: visible !important;
+  }
+  
+  .xml-viewer-modal {
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    visibility: visible !important;
+  }
+
+  .modal-header, .modal-footer, .modal-tabs, .btn-close {
+    display: none !important;
+  }
+
+  .modal-body-wrapper {
+    overflow: visible !important;
+    max-height: none !important;
+    padding: 0 !important;
+    visibility: visible !important;
+  }
+
+  .dacte-viewer-area {
+    background: white !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    visibility: visible !important;
+  }
+
+  #dacte-print-area, #dacte-print-area * {
+    visibility: visible !important;
+  }
+
+  #dacte-print-area {
+    border: 2px solid #000 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
 }
 </style>

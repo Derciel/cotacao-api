@@ -120,6 +120,9 @@ export class Quotation {
   @Column({ type: 'boolean', default: false })
   is_test!: boolean;
 
+  @Column({ name: 'exibir_frete_isento', type: 'boolean', default: false })
+  exibir_frete_isento!: boolean;
+
   @CreateDateColumn()
   created_at!: Date;
 

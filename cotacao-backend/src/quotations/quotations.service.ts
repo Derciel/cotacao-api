@@ -212,6 +212,9 @@ export class QuotationsService {
       if (finalizeDto.dataColeta) quotation.data_coleta = finalizeDto.dataColeta;
       if (finalizeDto.tipoFrete) quotation.tipo_frete = finalizeDto.tipoFrete;
       if (finalizeDto.obs !== undefined) quotation.obs = finalizeDto.obs;
+      if (finalizeDto.exibirFreteIsento !== undefined) {
+        quotation.exibir_frete_isento = finalizeDto.exibirFreteIsento;
+      }
 
       // Mesmo ajuste para o número do pedido no finalize
       if (finalizeDto.numeroPedidoManual !== undefined) {
@@ -290,7 +293,8 @@ export class QuotationsService {
     }
   }
 
-  public isFreightExempt(razaoSocial: string, fantasia?: string): boolean {
+  public isFreightExempt(razaoSocial: string, fantasia?: string, empresaFaturamento?: string): boolean {
+    if (empresaFaturamento && empresaFaturamento !== 'NICOPEL') return false;
     const r = (razaoSocial || '').toUpperCase();
     const f = (fantasia || '').toUpperCase();
     const grupos = [

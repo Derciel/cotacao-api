@@ -107,77 +107,109 @@ export class SiegService {
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(now.getDate() - 90);
 
-      const payload = {
-        TipoXml: 2, // CTe
-        Take: 50,
-        Skip: 0,
-        DataEmissaoInicio: ninetyDaysAgo.toISOString(),
-        DataEmissaoFim: now.toISOString()
-      };
+      let skip = 0;
+      const take = 50;
+      let matchedCteData: any = null;
+      let hasMore = true;
+      let iterationCount = 0;
+      const maxIterations = 20; // limite de segurança (1000 registros no total)
 
-      this.logger.log(`Consultando download em lote na SIEG (/api/v1/baixar-xmls) de ${ninetyDaysAgo.toLocaleDateString()} a ${now.toLocaleDateString()}`);
+      while (hasMore && iterationCount < maxIterations) {
+        iterationCount++;
+        const payload = {
+          TipoXml: 2, // CTe
+          Take: take,
+          Skip: skip,
+          DataEmissaoInicio: ninetyDaysAgo.toISOString(),
+          DataEmissaoFim: now.toISOString()
+        };
 
-      // 3. Fazer requisição de lote binário
-      const response = await firstValueFrom(
-        this.httpService.post(
-          `${this.baseUrl}/api/v1/baixar-xmls`,
-          payload,
-          {
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-              'X-API-Key': this.apiKey
-            },
-            responseType: 'arraybuffer'
-          }
-        )
-      );
+        this.logger.log(`Consultando download em lote na SIEG (/api/v1/baixar-xmls) de ${ninetyDaysAgo.toLocaleDateString()} a ${now.toLocaleDateString()} (Skip: ${skip}, Take: ${take})`);
 
-      const buffer = Buffer.from(response.data);
-      let docsFound = 0;
-
-      // 4. Se a resposta for um arquivo ZIP, processamos
-      if (buffer.length > 4 && buffer.toString('utf8', 0, 2) === 'PK') {
-        const zip = new AdmZip(buffer);
-        const zipEntries = zip.getEntries();
-        docsFound = zipEntries.length;
-        
-        this.logger.log(`Busca SIEG retornou pacote ZIP com ${docsFound} documentos de CT-e.`);
-
-        for (const entry of zipEntries) {
-          try {
-            const xmlContent = entry.getData().toString('utf8');
-            const cte = this.parseXmlToObj(xmlContent);
-            if (!cte) continue;
-
-            const chavesNf = this.extractNfChaves(cte);
-            const targetNf = nfNumber.replace(/^0+/, '');
-            
-            const hasNfMatch = chavesNf.some(ch => {
-                const cleanCh = ch.replace(/^0+/, '');
-                if (cleanCh.length === 44) {
-                   return cleanCh.substring(25, 34).replace(/^0+/, '') === targetNf;
-                }
-                return cleanCh === targetNf || ch === nfNumber;
-            });
-
-            if (hasNfMatch) {
-                const key = entry.entryName.replace(/\.xml$/i, '');
-                this.logger.log(`CT-e validado com sucesso via Nova API SIEG! Chave: ${key}`);
-                const dataFromXml = this.extractDataFromXml(xmlContent, key);
-                if (dataFromXml) return dataFromXml;
+        // 3. Fazer requisição de lote binário
+        const response = await firstValueFrom(
+          this.httpService.post(
+            `${this.baseUrl}/api/v1/baixar-xmls`,
+            payload,
+            {
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'X-API-Key': this.apiKey
+              },
+              responseType: 'arraybuffer'
             }
-          } catch (e: any) {
-            this.logger.warn(`Erro ao analisar XML individual do ZIP: ${e.message}`);
+          )
+        );
+
+        const buffer = Buffer.from(response.data);
+        let docsFound = 0;
+
+        // 4. Se a resposta for um arquivo ZIP, processamos
+        if (buffer.length > 4 && buffer.toString('utf8', 0, 2) === 'PK') {
+          const zip = new AdmZip(buffer);
+          const zipEntries = zip.getEntries();
+          docsFound = zipEntries.length;
+          
+          this.logger.log(`Busca SIEG retornou pacote ZIP com ${docsFound} documentos de CT-e (Skip: ${skip}).`);
+
+          if (docsFound === 0) {
+            hasMore = false;
+            break;
           }
+
+          for (const entry of zipEntries) {
+            try {
+              const xmlContent = entry.getData().toString('utf8');
+              const cte = this.parseXmlToObj(xmlContent);
+              if (!cte) continue;
+
+              const chavesNf = this.extractNfChaves(cte);
+              const targetNf = nfNumber.replace(/^0+/, '');
+              
+              const hasNfMatch = chavesNf.some(ch => {
+                  const cleanCh = ch.replace(/^0+/, '');
+                  if (cleanCh.length === 44) {
+                     return cleanCh.substring(25, 34).replace(/^0+/, '') === targetNf;
+                  }
+                  return cleanCh === targetNf || ch === nfNumber;
+              });
+
+              if (hasNfMatch) {
+                  const key = entry.entryName.replace(/\.xml$/i, '');
+                  this.logger.log(`CT-e validado com sucesso via Nova API SIEG! Chave: ${key}`);
+                  const dataFromXml = this.extractDataFromXml(xmlContent, key);
+                  if (dataFromXml) {
+                    matchedCteData = dataFromXml;
+                    break;
+                  }
+              }
+            } catch (e: any) {
+              this.logger.warn(`Erro ao analisar XML individual do ZIP: ${e.message}`);
+            }
+          }
+
+          if (matchedCteData) {
+            break;
+          }
+
+          // Se o número de documentos retornados for menor que a capacidade da página, significa que não há mais registros
+          if (docsFound < take) {
+            hasMore = false;
+          } else {
+            skip += take;
+          }
+        } else {
+          const textResponse = buffer.toString('utf8');
+          this.logger.warn(`API da SIEG não retornou pacote ZIP. Resposta: ${textResponse.substring(0, 200)}`);
+          hasMore = false;
         }
-      } else {
-        const textResponse = buffer.toString('utf8');
-        this.logger.warn(`API da SIEG não retornou pacote ZIP. Resposta: ${textResponse.substring(0, 200)}`);
       }
 
-      this.logger.warn(`Nenhum CT-e correspondente à NF ${nfNumber} foi localizado no lote de ${docsFound} documentos.`);
+      if (matchedCteData) return matchedCteData;
+
+      this.logger.warn(`Nenhum CT-e correspondente à NF ${nfNumber} foi localizado no cofre SIEG.`);
 
       // Se não achou na API, vai para fallbacks locais
       this.logger.log('Iniciando fallback para busca em arquivos XML locais...');
@@ -409,55 +441,79 @@ export class SiegService {
       }
 
       const token = await this.getJwtToken();
+      let skip = 0;
+      const take = 50;
+      let hasMore = true;
+      let iterationCount = 0;
+      const maxIterations = 50; // limite de segurança (2500 registros no total)
 
-      const payload = {
-        TipoXml: 2, // CTe
-        Take: 50, // Limite padrão de 50
-        Skip: 0,
-        DataEmissaoInicio: startDate.toISOString(),
-        DataEmissaoFim: endDate.toISOString()
-      };
+      while (hasMore && iterationCount < maxIterations) {
+        iterationCount++;
+        const payload = {
+          TipoXml: 2, // CTe
+          Take: take,
+          Skip: skip,
+          DataEmissaoInicio: startDate.toISOString(),
+          DataEmissaoFim: endDate.toISOString()
+        };
 
-      const response = await firstValueFrom(
-        this.httpService.post(
-          `${this.baseUrl}/api/v1/baixar-xmls`,
-          payload,
-          {
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-              'X-API-Key': this.apiKey
-            },
-            responseType: 'arraybuffer'
-          }
-        )
-      );
+        this.logger.log(`Consultando lote de CT-es do SIEG (Skip: ${skip}, Take: ${take})...`);
 
-      const buffer = Buffer.from(response.data);
-
-      if (buffer.length > 4 && buffer.toString('utf8', 0, 2) === 'PK') {
-        const zip = new AdmZip(buffer);
-        const zipEntries = zip.getEntries();
-        this.logger.log(`SIEG retornou ZIP com ${zipEntries.length} documentos no período.`);
-
-        for (const entry of zipEntries) {
-          try {
-            const xmlContent = entry.getData().toString('utf8');
-            const cteObj = this.parseXmlToObj(xmlContent);
-            if (!cteObj) continue;
-
-            const parsedCte = this.parseCteDetails(cteObj, xmlContent, entry.entryName);
-            if (parsedCte) {
-              ctes.push(parsedCte);
+        const response = await firstValueFrom(
+          this.httpService.post(
+            `${this.baseUrl}/api/v1/baixar-xmls`,
+            payload,
+            {
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'X-API-Key': this.apiKey
+              },
+              responseType: 'arraybuffer'
             }
-          } catch (e: any) {
-            this.logger.warn(`Erro ao processar CT-e individual do ZIP: ${e.message}`);
+          )
+        );
+
+        const buffer = Buffer.from(response.data);
+        let docsFound = 0;
+
+        if (buffer.length > 4 && buffer.toString('utf8', 0, 2) === 'PK') {
+          const zip = new AdmZip(buffer);
+          const zipEntries = zip.getEntries();
+          docsFound = zipEntries.length;
+          this.logger.log(`SIEG retornou ZIP com ${docsFound} documentos no lote (Skip: ${skip}).`);
+
+          if (docsFound === 0) {
+            hasMore = false;
+            break;
           }
+
+          for (const entry of zipEntries) {
+            try {
+              const xmlContent = entry.getData().toString('utf8');
+              const cteObj = this.parseXmlToObj(xmlContent);
+              if (!cteObj) continue;
+
+              const parsedCte = this.parseCteDetails(cteObj, xmlContent, entry.entryName);
+              if (parsedCte) {
+                ctes.push(parsedCte);
+              }
+            } catch (e: any) {
+              this.logger.warn(`Erro ao processar CT-e individual do ZIP: ${e.message}`);
+            }
+          }
+
+          if (docsFound < take) {
+            hasMore = false;
+          } else {
+            skip += take;
+          }
+        } else {
+          const textResponse = buffer.toString('utf8');
+          this.logger.warn(`SIEG não retornou pacote ZIP no período. Resposta: ${textResponse.substring(0, 200)}`);
+          hasMore = false;
         }
-      } else {
-        const textResponse = buffer.toString('utf8');
-        this.logger.warn(`SIEG não retornou pacote ZIP no período. Resposta: ${textResponse.substring(0, 200)}`);
       }
 
     } catch (error: any) {

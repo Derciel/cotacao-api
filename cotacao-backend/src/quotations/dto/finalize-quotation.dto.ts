@@ -42,4 +42,8 @@ export class FinalizeQuotationDto {
   @IsString()
   @IsOptional()
   obs?: string;
+
+  @ApiProperty({ description: 'Indica se o frete deve ser exibido no PDF mesmo sendo isento', example: true, required: false })
+  @IsOptional()
+  exibirFreteIsento?: boolean;
 }

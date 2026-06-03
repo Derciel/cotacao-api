@@ -123,6 +123,7 @@ const saveClientEdit = async () => {
 
 // --- REGRAS DE NEGÓCIO ---
 const isFreightExempt = computed(() => {
+    if (originCompany.value !== 'NICOPEL') return false;
     const r = (dest.razao_social || '').toUpperCase();
     const f = (dest.fantasia || '').toUpperCase();
     const grupos = ['THE BEST', 'GELA BOCA', 'BARONE', 'SANTA PIZZA', 'PIMENTA ROSA', 'FRATELLO', 'GMEL'];
@@ -426,7 +427,8 @@ const completionData = reactive({
     freightType: 'CIF',
     collectionDate: '',
     nf: '',
-    obs: ''
+    obs: '',
+    exibirFreteIsento: false
 });
 
 // --- FRETE MANUAL ---
@@ -508,7 +510,8 @@ const confirmFinalization = async () => {
             dataColeta: completionData.collectionDate,
             tipoFrete: completionData.freightType,
             numeroPedidoManual: completionData.orderNumber,
-            obs: completionData.obs
+            obs: completionData.obs,
+            exibirFreteIsento: completionData.exibirFreteIsento
         };
         const res = await safeFetch(`/api/quotations/${lastQuotationId.value}/finalize`, {
             method: 'PATCH',
@@ -548,6 +551,7 @@ const resetFlow = () => {
     completionData.nf = '';
     completionData.obs = '';
     completionData.collectionDate = '';
+    completionData.exibirFreteIsento = false;
     if (mode) {
         origin.cep = "86087350";
         searchCep("86087350", 'ori');
@@ -826,6 +830,12 @@ const showToastLocal = (msg: string, type: any = 'info') => { if(window && windo
                 <div class="form-field" style="grid-column: span 2;">
                     <label><i class="fas fa-comment-alt"></i> OBSERVAÇÕES</label>
                     <textarea v-model="completionData.obs" class="table-input" placeholder="Alguma observação adicional?" rows="3" style="resize: none;"></textarea>
+                </div>
+                <div v-if="isFreightExempt" class="form-field" style="grid-column: span 2; display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+                    <input v-model="completionData.exibirFreteIsento" type="checkbox" id="exibir-frete-isento" style="width: 20px; height: 20px; cursor: pointer;">
+                    <label for="exibir-frete-isento" style="cursor: pointer; margin-bottom: 0; font-weight: 600; color: #f59e0b;">
+                        Exibir valor do frete no PDF (mesmo sendo isento)
+                    </label>
                 </div>
             </div>
 
