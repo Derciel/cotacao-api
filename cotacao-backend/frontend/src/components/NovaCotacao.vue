@@ -49,6 +49,25 @@ if (typeof window !== 'undefined') {
         console.error("Erro ao ler user_info", e);
     }
 }
+
+const isIpiUnlocked = ref(false);
+const ipiPassword = 'nicopel@ipi';
+
+const toggleIpiLock = () => {
+    if (isAdmin.value) return; // Admins sempre podem editar
+    if (isIpiUnlocked.value) {
+        isIpiUnlocked.value = false;
+        showToastLocal("Edição de IPI bloqueada.", "info");
+    } else {
+        const password = prompt("Digite a senha para desbloquear a edição do IPI:");
+        if (password === ipiPassword) {
+            isIpiUnlocked.value = true;
+            showToastLocal("Edição de IPI liberada!", "success");
+        } else if (password !== null) {
+            showToastLocal("Senha incorreta!", "error");
+        }
+    }
+};
 let searchTimeout: ReturnType<typeof setTimeout>;
 
 // --- DADOS PARA EDIÇÃO RÁPIDA ---
@@ -672,7 +691,14 @@ const showToastLocal = (msg: string, type: any = 'info') => { if(window && windo
                             </div>
                         </td>
                         <td><input type="number" v-model="item.unitValue" @input="calcRow(idx)" class="table-input money" step="0.01"></td>
-                        <td><input type="number" v-model="item.ipi" :readonly="!isAdmin" :class="['table-input', 'center', { locked: !isAdmin }]" @input="calcRow(idx)"></td>
+                        <td>
+                            <div class="ipi-input-container">
+                                <input type="number" v-model="item.ipi" :readonly="!isAdmin && !isIpiUnlocked" :class="['table-input', 'center', { locked: !isAdmin && !isIpiUnlocked }]" @input="calcRow(idx)">
+                                <button v-if="!isAdmin" @click="toggleIpiLock" class="btn-lock" :title="isIpiUnlocked ? 'Bloquear edição de IPI' : 'Desbloquear edição de IPI com senha'">
+                                    <i :class="isIpiUnlocked ? 'fas fa-lock-open' : 'fas fa-lock'"></i>
+                                </button>
+                            </div>
+                        </td>
                         <td class="total-col">R$ {{ item.total.toFixed(2) }}</td>
                         <td><button @click="removeItem(idx)" class="btn-del">×</button></td>
                     </tr>
@@ -1400,4 +1426,30 @@ const showToastLocal = (msg: string, type: any = 'info') => { if(window && windo
     vertical-align: middle;
 }
 
+.ipi-input-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    justify-content: center;
+}
+
+.btn-lock {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 4px;
+    font-size: 0.85rem;
+    transition: color 0.2s;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-lock:hover {
+    color: var(--primary);
+}
+
+.btn-lock i {
+    font-size: 0.85rem;
+}
 </style>

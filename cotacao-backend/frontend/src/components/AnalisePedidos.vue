@@ -7,6 +7,13 @@ const downloadProgress = ref(0);
 const rawOrders = ref<any[]>([]);
 const productsList = ref<any[]>([]);
 const manualMappings = ref<Record<string, { unidades_caixa: number; peso_caixa_kg: number }>>({});
+const manualQuantities = ref<Record<string, number>>({});
+
+const updateItemQty = (orderId: number, description: string, value: number) => {
+  const qtyKey = `${orderId}_${description}`;
+  manualQuantities.value[qtyKey] = Number(value) || 0;
+};
+
 
 // Filtros
 const filterDate = ref('');
@@ -364,8 +371,18 @@ const groupedByClient = computed(() => {
     const order = client.orders[orderId];
 
     // Guarda informações brutas para consolidação inteligente por tipo de pote depois
-    const qtde = parseFloat(item.vw_pedidos_completos_quantidade) || 0;
-    const valorItem = parseFloat(item.vw_pedidos_completos_valor_total) || 0;
+    const desc = item.vw_pedidos_completos_descricao_item_pedido;
+    const qtyKey = `${orderId}_${desc}`;
+    
+    const qtyOriginal = parseFloat(item.vw_pedidos_completos_quantidade) || 0;
+    const valorItemOriginal = parseFloat(item.vw_pedidos_completos_valor_total) || 0;
+    const unitPriceOriginal = qtyOriginal > 0 ? (valorItemOriginal / qtyOriginal) : 0;
+    
+    const qtde = manualQuantities.value[qtyKey] !== undefined 
+      ? manualQuantities.value[qtyKey] 
+      : qtyOriginal;
+      
+    const valorItem = qtde * unitPriceOriginal;
 
     order.items.push({
       ...item,
@@ -421,7 +438,7 @@ const groupedByClient = computed(() => {
           qtyRef
         );
 
-        const volumes = specs.unidades_caixa > 0 ? (it.qtde / specs.unidades_caixa) : 0;
+        const volumes = specs.unidades_caixa > 0 ? Math.ceil(it.qtde / specs.unidades_caixa) : 0;
         const peso = volumes * specs.peso_caixa_kg;
 
         return {
@@ -752,7 +769,14 @@ const formatCNPJ = (v: string) => {
                                   <span class="cat-text">{{ item.vw_pedidos_completos_descricao_categoria }}</span>
                                 </div>
                               </td>
-                              <td class="text-center">{{ Math.round(item.qtde) }}</td>
+                              <td class="text-center">
+                                <input 
+                                  type="number" 
+                                  :value="Math.round(item.qtde)"
+                                  @input="updateItemQty(order.idPedido, item.vw_pedidos_completos_descricao_item_pedido, ($event.target as HTMLInputElement).valueAsNumber)"
+                                  class="table-editor-input"
+                                />
+                              </td>
                               
                               <!-- Input Edição Unidades/Caixa -->
                               <td class="text-center">

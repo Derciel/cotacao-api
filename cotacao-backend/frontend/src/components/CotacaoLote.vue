@@ -97,6 +97,25 @@ const isAdmin = computed(() => {
     }
 });
 
+const isIpiUnlocked = ref(false);
+const ipiPassword = 'nicopel@ipi';
+
+const toggleIpiLock = () => {
+    if (isAdmin.value) return; // Admins sempre podem editar
+    if (isIpiUnlocked.value) {
+        isIpiUnlocked.value = false;
+        window.showToast("Edição de IPI bloqueada.", "info");
+    } else {
+        const password = prompt("Digite a senha para desbloquear a edição do IPI:");
+        if (password === ipiPassword) {
+            isIpiUnlocked.value = true;
+            window.showToast("Edição de IPI liberada!", "success");
+        } else if (password !== null) {
+            window.showToast("Senha incorreta!", "error");
+        }
+    }
+};
+
 const cnpjList = computed(() => cnpjs.value.split('\n').map(c => c.trim()).filter(c => c.length > 0));
 const cnpjCount = computed(() => cnpjList.value.length);
 const totalPedido = computed(() => selectedProducts.value.reduce((acc, item) => acc + item.total, 0));
@@ -383,9 +402,14 @@ const printBatch = () => {
                                 <td>
                                     <input type="number" min="0" step="0.01" v-model.number="p.valorUnitario" @input="calcRow(idx)" class="table-input money">
                                 </td>
-                                <td>
-                                    <input type="number" min="0" step="0.01" v-model.number="p.ipi" @input="calcRow(idx)" :readonly="!isAdmin" :class="['table-input', 'center', { locked: !isAdmin }]">
-                                </td>
+                                 <td>
+                                     <div class="ipi-input-container">
+                                         <input type="number" min="0" step="0.01" v-model.number="p.ipi" @input="calcRow(idx)" :readonly="!isAdmin && !isIpiUnlocked" :class="['table-input', 'center', { locked: !isAdmin && !isIpiUnlocked }]">
+                                         <button v-if="!isAdmin" @click="toggleIpiLock" class="btn-lock" :title="isIpiUnlocked ? 'Bloquear edição de IPI' : 'Desbloquear edição de IPI com senha'">
+                                             <i :class="isIpiUnlocked ? 'fas fa-lock-open' : 'fas fa-lock'"></i>
+                                         </button>
+                                     </div>
+                                 </td>
                                 <td class="total-col">{{ formatCurrency(p.total) }}</td>
                                 <td>
                                     <button @click="removeProduct(idx)" class="btn-remove-p" title="Remover produto">×</button>
@@ -1384,5 +1408,32 @@ tr.ERROR { background: rgba(239, 68, 68, 0.02); }
 @keyframes popIn {
     from { transform: scale(0.95); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
+}
+
+.ipi-input-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    justify-content: center;
+}
+
+.btn-lock {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 4px;
+    font-size: 0.85rem;
+    transition: color 0.2s;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-lock:hover {
+    color: var(--primary);
+}
+
+.btn-lock i {
+    font-size: 0.85rem;
 }
 </style>
