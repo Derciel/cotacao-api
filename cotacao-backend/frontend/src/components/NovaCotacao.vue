@@ -460,9 +460,7 @@ const manualFreightData = reactive({
 const openManualFreightModal = () => {
     isResultOpen.value = false;
     isManualFreightModalOpen.value = true;
-    if (isFreightExempt.value) {
-        manualFreightData.price = 0;
-    }
+    // Removido o zeramento forçado para isentos para que o valor possa ser salvo no histórico
 };
 
 const selectManualFreight = () => {
@@ -886,9 +884,9 @@ const showToastLocal = (msg: string, type: any = 'info') => { if(window && windo
                 <div class="form-field">
                     <label>
                         <i class="fas fa-dollar-sign"></i> Valor do Frete (R$)
-                        <span v-if="isFreightExempt" style="color: #f59e0b; font-size: 0.75rem; margin-left: 5px;">(ISENTO)</span>
+                        <span v-if="isFreightExempt" style="color: #f59e0b; font-size: 0.75rem; margin-left: 5px;">(ISENTO NO PDF)</span>
                     </label>
-                    <input v-model="manualFreightData.price" type="number" class="table-input" step="0.01" :disabled="isFreightExempt">
+                    <input v-model="manualFreightData.price" type="number" class="table-input" step="0.01">
                 </div>
                 <div class="form-field">
                     <label><i class="fas fa-clock"></i> Prazo de Entrega</label>
