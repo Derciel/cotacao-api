@@ -195,6 +195,26 @@ import Layout from '../layouts/MainLayout.astro';
                   </div>
                 </div>
               </label>
+              <label class="permission-card">
+                <input type="checkbox" name="permissions" value="/cadastrar-cliente"> 
+                <div class="perm-card-content">
+                  <div class="perm-icon"><i class="fas fa-user-plus"></i></div>
+                  <div class="perm-info">
+                    <span class="perm-name">Clientes</span>
+                    <span class="perm-desc">Cadastrar</span>
+                  </div>
+                </div>
+              </label>
+              <label class="permission-card">
+                <input type="checkbox" name="permissions" value="/atualizar-cliente"> 
+                <div class="perm-card-content">
+                  <div class="perm-icon"><i class="fas fa-user-edit"></i></div>
+                  <div class="perm-info">
+                    <span class="perm-name">Clientes</span>
+                    <span class="perm-desc">Atualizar</span>
+                  </div>
+                </div>
+              </label>
             </div>
           </div>
         </div>
@@ -236,6 +256,8 @@ import Layout from '../layouts/MainLayout.astro';
       '/relatorios': 'Analytics',
       '/produtos': 'Estoque',
       '/usuarios': 'Usuários',
+      '/cadastrar-cliente': 'Cadastrar Cliente',
+      '/atualizar-cliente': 'Atualizar Cliente',
       'quota_restricted': 'Restrito' 
     };
 
@@ -335,6 +357,8 @@ import Layout from '../layouts/MainLayout.astro';
       '/relatorios': 'fas fa-chart-line',
       '/produtos': 'fas fa-boxes',
       '/usuarios': 'fas fa-users-cog',
+      '/cadastrar-cliente': 'fas fa-user-plus',
+      '/atualizar-cliente': 'fas fa-user-edit',
       'quota_restricted': 'fas fa-user-lock'
     };
 
@@ -417,7 +441,7 @@ import Layout from '../layouts/MainLayout.astro';
         pwHint.style.display = 'none';
         document.getElementById('password').required = true;
         
-        ['/', '/nova-cotacao', '/historico'].forEach(p => {
+        ['/', '/nova-cotacao', '/historico', '/cadastrar-cliente', '/atualizar-cliente'].forEach(p => {
           const cb = userForm.querySelector(`input[value="${p}"]`);
           if (cb) cb.checked = true;
         });
