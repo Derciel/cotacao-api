@@ -1,0 +1,189 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "OAuth",
+    "description": "Rotas de autenticação OAuth",
+    "version": "engine"
+  },
+  "servers": [
+    {
+      "url": "https://api.sieg.com"
+    }
+  ],
+  "security": [
+    {
+      "ClientId": [],
+      "SecretKey": []
+    }
+  ],
+  "paths": {
+    "/api/v1/oauth/generate-token": {
+      "post": {
+        "tags": [
+          "OAuthExternalSystem"
+        ],
+        "summary": "Gera um token de acesso a partir de um código de autorização.",
+        "operationId": "OAuthExternalSystem_Token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthGenerateTokenRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthGenerateTokenRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultApiGeneralObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/oauth/revoke": {
+      "post": {
+        "tags": [
+          "OAuthExternalSystem"
+        ],
+        "summary": "Revoga um token de acesso ativo, invalidando-o permanentemente.",
+        "operationId": "OAuthExternalSystem_Revoke",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthCredentialsRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthCredentialsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultApiGeneralObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/oauth/refresh": {
+      "post": {
+        "tags": [
+          "OAuthExternalSystem"
+        ],
+        "summary": "Renova um token de acesso existente, estendendo seu tempo de validade.",
+        "operationId": "OAuthExternalSystem_Refresh",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthCredentialsRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthCredentialsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultApiGeneralObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ClientId": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Client-Id",
+        "description": "Insira o seu Client Id"
+      },
+      "SecretKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Secret-Key",
+        "description": "Insira a sua Secret Key"
+      }
+    },
+    "schemas": {
+      "OAuthGenerateTokenRequestDto": {
+        "type": "object",
+        "properties": {
+          "AccessToken": {
+            "type": "string"
+          },
+          "State": {
+            "type": "string"
+          },
+          "RedirectUri": {
+            "type": "string"
+          }
+        }
+      },
+      "OAuthCredentialsRequestDto": {
+        "type": "object",
+        "properties": {
+          "Token": {
+            "type": "string"
+          }
+        }
+      },
+      "ResultApiGeneralObject": {
+        "type": "object",
+        "properties": {
+          "IsSuccess": {
+            "type": "boolean"
+          },
+          "ErrorMessage": {
+            "type": "string"
+          },
+          "StatusCode": {
+            "type": "integer"
+          },
+          "Data": {
+            "type": "object"
+          },
+          "IsFailure": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

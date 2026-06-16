@@ -237,10 +237,25 @@ const selectClient = async (client: any) => {
       const res = await safeFetch(`/api/clients/cnpj/${client.cnpj}`);
       if (res.ok) {
         const details = res.data.data || res.data;
-        client.cep = client.cep || details.cep;
-        client.cidade = client.cidade || details.cidade;
-        client.estado = client.estado || details.estado;
-        if (!client.fantasia) client.fantasia = details.fantasia;
+        const updatedFields: any = {};
+        let needsUpdate = false;
+
+        if (!client.cep && details.cep) { client.cep = details.cep; updatedFields.cep = details.cep; needsUpdate = true; }
+        if (!client.cidade && details.cidade) { client.cidade = details.cidade; updatedFields.cidade = details.cidade; needsUpdate = true; }
+        if (!client.estado && details.estado) { client.estado = details.estado; updatedFields.estado = details.estado; needsUpdate = true; }
+        if (!client.fantasia && details.fantasia) { client.fantasia = details.fantasia; updatedFields.fantasia = details.fantasia; needsUpdate = true; }
+
+        if (needsUpdate && client.id) {
+           try {
+               await safeFetch(`/api/clients/${client.id}`, {
+                   method: 'PATCH',
+                   body: JSON.stringify(updatedFields),
+                   headers: { 'Content-Type': 'application/json' }
+               });
+           } catch (e) {
+               console.warn("Falha ao salvar enriquecimento de dados no BD:", e);
+           }
+        }
       }
     } catch (e) {
       console.warn("Falha ao enriquecer dados:", e);

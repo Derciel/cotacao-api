@@ -1,0 +1,75 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "SIEG API – Create JWT",
+    "version": "1.0.0",
+    "description": "Endpoint responsável por gerar um token JWT para autenticação\nde sistemas internos.\n"
+  },
+  "servers": [
+    {
+      "url": "https://api.sieg.com"
+    }
+  ],
+  "paths": {
+    "/api/v1/create-jwt": {
+      "post": {
+        "summary": "Criar token JWT",
+        "description": "Gera um token JWT válido a partir das credenciais informadas nos headers.\n",
+        "operationId": "createJwtToken",
+        "security": [
+          {
+            "SecretKey": []
+          },
+          {
+            "ClientId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token JWT gerado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateJwtResponseDto"
+                },
+                "example": {
+                  "Token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não autorizado"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "SecretKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Secret-Key"
+      },
+      "ClientId": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Client-Id"
+      }
+    },
+    "schemas": {
+      "CreateJwtResponseDto": {
+        "type": "object",
+        "description": "Resposta contendo o token JWT gerado.",
+        "properties": {
+          "Token": {
+            "type": "string",
+            "description": "Token JWT no formato Bearer.",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          }
+        }
+      }
+    }
+  }
+}

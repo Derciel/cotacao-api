@@ -1,0 +1,27 @@
+=== URLS DA SIEG ENCONTRADAS ===
+https://integracoes.sieg.com/sistema-externo/docs/introducao-a-api
+http://integracoes.sieg.com/sistema-externo/docs/introducao-a-api
+https://app.sieg.com/empresas-integradas\\\
+https://integracoes.sieg.com/sistema-externo/docs/introducao-a-api\
+http://integracoes.sieg.com/sistema-externo/docs/introducao-a-api\
+https://api.swaggerhub.com/apis/siegcom/sieg-api-suite-completa/1.0/swagger.json\
+https://api.swaggerhub.com/apis/siegcom/ConsultaNSUs/1.0.0/swagger.json\
+https://api.swaggerhub.com/apis/siegcom/BaixarNsuLote/1.0.0/swagger.json\
+https://api.swaggerhub.com/apis/siegcom/BaixarXmlNSU/1.0.0/swagger.json\
+https://api.swaggerhub.com/apis/siegcom/BuscarXmlsNSU/1.0.0/swagger.json\
+https://api.swaggerhub.com/apis/siegcom/BaixarEventos/1.0.0/swagger.json\
+https://api.swaggerhub.com/apis/siegcom/ManifestarPorXml/1.0.0/swagger.json\
+https://api.swaggerhub.com/apis/siegcom/ManifestacaoPorChave/1.0.0/swagger.json\
+https://api.swaggerhub.com/apis/siegcom/RelatorioPreConfigurado/1.0.0/swagger.json\
+https://api.swaggerhub.com/apis/siegcom/BaixarXml/1.0.0/swagger.json\
+https://api.swaggerhub.com/apis/siegcom/ContarXmls/1.0.0/swagger.json\
+https://api.swaggerhub.com/apis/siegcom/BaixarXmls/1.0.0/swagger.json\
+https://api.swaggerhub.com/apis/siegcom/EnviarXmls/1.0.0/swagger.json\
+https://api.swaggerhub.com/apis/siegcom/OAuth/engine/swagger.json\
+https://api.swaggerhub.com/apis/siegcom/NewJWT/1.0.0/swagger.json\
+
+=== BLOCOS DE TEXTO/API ENCONTRADOS NO JSON ===
+
+
+=== TEXTO LIMPO DA PÁGINA ===
+Title: Cached Content Description: Fetched from cache Source: https://integracoes.sieg.com/sistema-externo/docs/introducao-a-api --- Primeiros Passos | API SIEG | sieg API SIEG Mode Log in...
