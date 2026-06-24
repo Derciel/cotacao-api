@@ -499,7 +499,7 @@ const printBatch = () => {
         </div>
 
         <!-- Modal Busca de Produtos -->
-        <div v-if="isProductModalOpen" class="modal-overlay" @click.self="isProductModalOpen = false">
+        <div v-if="isProductModalOpen" class="modal-overlay">
             <div class="modal-box">
                 <div class="modal-header">
                     <div>
@@ -528,7 +528,7 @@ const printBatch = () => {
         </div>
 
         <!-- Modal Visualização e Impressão de Lote -->
-        <div v-if="isPrintModalOpen" class="modal-overlay" @click.self="closePrintModal">
+        <div v-if="isPrintModalOpen" class="modal-overlay">
             <div class="modal-box pdf-modal-box animate-pop">
                 <div class="modal-header">
                     <div>

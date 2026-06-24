@@ -23,8 +23,8 @@ export class MakeProductValueNullable1772556731863 implements MigrationInterface
         await queryRunner.query(`ALTER TABLE "clients" ALTER COLUMN "cidade" SET NOT NULL`);
         await queryRunner.query(`ALTER TABLE "clients" ALTER COLUMN "estado" SET NOT NULL`);
         await queryRunner.query(`ALTER TABLE "clients" ALTER COLUMN "estado" DROP DEFAULT`);
-        await queryRunner.query(`ALTER TABLE "clients" DROP COLUMN "empresa_faturamento"`);
-        await queryRunner.query(`ALTER TABLE "clients" ADD "empresa_faturamento" character varying NOT NULL`);
+        await queryRunner.query(`UPDATE "clients" SET "empresa_faturamento" = 'NICOPEL' WHERE "empresa_faturamento" IS NULL`);
+        await queryRunner.query(`ALTER TABLE "clients" ALTER COLUMN "empresa_faturamento" SET NOT NULL`);
         await queryRunner.query(`ALTER TABLE "clients" ALTER COLUMN "createdAt" SET NOT NULL`);
         await queryRunner.query(`ALTER TABLE "clients" ALTER COLUMN "createdAt" SET DEFAULT now()`);
         await queryRunner.query(`ALTER TABLE "quotations" DROP CONSTRAINT "UQ_quotations_numero_pedido_manual"`);

@@ -756,9 +756,14 @@ const showToastLocal = (msg: string, type: any = 'info') => { if(window && windo
     </div>
 
     <!-- Modal: Busca de Clientes -->
-    <div v-if="isModalOpen" class="modal-overlay" @click.self="isModalOpen = false">
+    <div v-if="isModalOpen" class="modal-overlay">
         <div class="modal-box">
-            <h3>Buscar {{ activePrefix === 'ori' ? 'Remetente' : 'Destinatário' }}</h3>
+            <div class="modal-header-custom">
+                <h3>Buscar {{ activePrefix === 'ori' ? 'Remetente' : 'Destinatário' }}</h3>
+                <button @click="isModalOpen = false" class="modal-close-btn" title="Fechar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
             <div class="input-wrapper" v-if="activePrefix === 'dest'">
                 <input v-model="modalSearch" @input="handleSearchInput" placeholder="Nome ou CNPJ..." class="pill-input full-width" autofocus>
                 <span v-if="isSearching" class="spinner"></span>
@@ -786,9 +791,14 @@ const showToastLocal = (msg: string, type: any = 'info') => { if(window && windo
     </div>
 
     <!-- Modal Busca de Produtos -->
-    <div v-if="isProductModalOpen" class="modal-overlay" @click.self="isProductModalOpen = false">
+    <div v-if="isProductModalOpen" class="modal-overlay">
         <div class="modal-box">
-            <h3>Selecionar Produto</h3>
+            <div class="modal-header-custom">
+                <h3>Selecionar Produto</h3>
+                <button @click="isProductModalOpen = false" class="modal-close-btn" title="Fechar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
             <div class="input-wrapper">
                 <input v-model="productSearch" @input="handleProductSearchInput" placeholder="Buscar produto..." class="pill-input full-width" autofocus>
                 <span v-if="isSearching" class="spinner"></span>
@@ -808,16 +818,19 @@ const showToastLocal = (msg: string, type: any = 'info') => { if(window && windo
     </div>
 
     <!-- Modal Resultados Frete -->
-    <div v-if="isResultOpen" class="modal-overlay" @click.self="isResultOpen = false">
+    <div v-if="isResultOpen" class="modal-overlay">
        <div class="modal-box giant">
            <div class="modal-header">
                <div class="header-titles">
                    <h3>Opções de Frete Disponíveis</h3>
                    <p class="modal-subtitle">Total Produtos: {{ formatCurrency(totalValue) }}</p>
                </div>
-               <div v-if="isQuickMode" class="header-actions">
-                   <button @click="resetFlow" class="btn-reset-quick">
+               <div class="header-actions" style="display: flex; align-items: center; gap: 10px;">
+                   <button v-if="isQuickMode" @click="resetFlow" class="btn-reset-quick">
                        <i class="fas fa-redo"></i> NOVA CONSULTA
+                   </button>
+                   <button @click="isResultOpen = false" class="modal-close-btn" title="Fechar" style="font-size: 1.5rem;">
+                       <i class="fas fa-times"></i>
                    </button>
                </div>
            </div>
@@ -944,9 +957,14 @@ const showToastLocal = (msg: string, type: any = 'info') => { if(window && windo
     </div>
 
     <!-- Modal Edição Rápida de Cliente -->
-    <div v-if="isEditClientModalOpen" class="modal-overlay" @click.self="isEditClientModalOpen = false">
+    <div v-if="isEditClientModalOpen" class="modal-overlay">
         <div class="modal-box shadow-lg">
-            <h3><i class="fas fa-user-edit" style="color: var(--primary)"></i> Editar Cliente Cadastrado</h3>
+            <div class="modal-header-custom">
+                <h3><i class="fas fa-user-edit" style="color: var(--primary)"></i> Editar Cliente Cadastrado</h3>
+                <button @click="isEditClientModalOpen = false" class="modal-close-btn" title="Fechar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
             <p style="margin-bottom: 20px; font-size: 0.85rem; color: var(--text-muted)">Altere os campos que desejar para corrigir os dados do cliente.</p>
             
             <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
@@ -1012,6 +1030,27 @@ const showToastLocal = (msg: string, type: any = 'info') => { if(window && windo
 </template>
 
 <style scoped>
+.modal-header-custom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.modal-close-btn {
+    background: transparent;
+    border: none;
+    font-size: 1.25rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.2s;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.modal-close-btn:hover {
+    color: #ef4444;
+}
 .cotacao-container { font-family: 'Inter', sans-serif; padding: 20px; max-width: 1250px; margin: 0 auto; color: var(--text-main); }
 .quick-mode-header { display: flex; justify-content: center; }
 .modal-header { display: flex; justify-content: space-between; align-items: flex-start; }

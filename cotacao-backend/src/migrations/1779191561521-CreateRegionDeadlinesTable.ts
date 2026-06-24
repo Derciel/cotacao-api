@@ -6,7 +6,7 @@ export class CreateRegionDeadlinesTable1779191561521 implements MigrationInterfa
     public async up(queryRunner: QueryRunner): Promise<void> {
         // Criar tabela region_deadlines de forma isolada e segura
         await queryRunner.query(`
-            CREATE TABLE "region_deadlines" (
+            CREATE TABLE IF NOT EXISTS "region_deadlines" (
                 "id" SERIAL NOT NULL, 
                 "cidade" character varying NOT NULL, 
                 "uf" character varying NOT NULL, 
@@ -19,7 +19,7 @@ export class CreateRegionDeadlinesTable1779191561521 implements MigrationInterfa
             )
         `);
         await queryRunner.query(`
-            CREATE UNIQUE INDEX "IDX_273277683ceeebacd3c2145caf" ON "region_deadlines" ("cidade", "uf", "carrier")
+            CREATE UNIQUE INDEX IF NOT EXISTS "IDX_273277683ceeebacd3c2145caf" ON "region_deadlines" ("cidade", "uf", "carrier")
         `);
     }
 
