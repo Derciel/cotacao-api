@@ -38,15 +38,36 @@ export class ClientsService {
       // Verifica duplicidade no banco local antes de retornar
       const existing = await this.clientsRepository.findOne({ where: { cnpj: cnpjLimpo } });
 
-      // Persiste o enriquecimento se o cliente já existir mas faltar dados básicos
+      // Persiste o enriquecimento se o cliente já existir mas os dados forem diferentes ou faltarem
       if (existing) {
         let hasChanges = false;
         
-        if (!existing.cep && data.cep) { existing.cep = data.cep; hasChanges = true; }
-        if (!existing.cidade && data.municipio) { existing.cidade = data.municipio; hasChanges = true; }
-        if (!existing.estado && data.uf) { existing.estado = data.uf; hasChanges = true; }
+        const cleanExistingCep = (existing.cep || '').replace(/\D/g, '');
+        const cleanDataCep = (data.cep || '').replace(/\D/g, '');
 
-        if (!existing.fantasia && data.nome_fantasia && typeof data.nome_fantasia !== 'object') {
+        if (cleanExistingCep !== cleanDataCep && data.cep) {
+          existing.cep = cleanDataCep;
+          hasChanges = true;
+        }
+
+        const cleanExistingCidade = (existing.cidade || '').trim().toUpperCase();
+        const cleanDataCidade = (data.municipio || '').trim().toUpperCase();
+        if (cleanExistingCidade !== cleanDataCidade && data.municipio) {
+          existing.cidade = data.municipio.trim();
+          hasChanges = true;
+        }
+
+        const cleanExistingEstado = (existing.estado || '').trim().toUpperCase();
+        const cleanDataEstado = (data.uf || '').trim().toUpperCase();
+        if (cleanExistingEstado !== cleanDataEstado && data.uf) {
+          existing.estado = data.uf.trim().toUpperCase();
+          hasChanges = true;
+        }
+
+        const cleanExistingFantasia = (existing.fantasia || '').trim().toUpperCase();
+        const cleanDataFantasia = (data.nome_fantasia && typeof data.nome_fantasia !== 'object')
+          ? String(data.nome_fantasia).trim().toUpperCase() : '';
+        if (cleanExistingFantasia !== cleanDataFantasia && cleanDataFantasia) {
           existing.fantasia = String(data.nome_fantasia).trim();
           hasChanges = true;
         }

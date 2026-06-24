@@ -231,19 +231,46 @@ const selectClient = async (client: any) => {
       return window.showToast("Erro ao registrar cliente externo: " + e.message, "error");
     }
   }
-  if (!client.isExternal && (!client.cep || !client.cidade || !client.estado) && client.cnpj) {
+  if (!client.isExternal && client.cnpj) {
     try {
-      window.showToast("Completando dados cadastrais...", "info");
+      window.showToast("Verificando dados cadastrais...", "info");
       const res = await safeFetch(`/api/clients/cnpj/${client.cnpj}`);
       if (res.ok) {
         const details = res.data.data || res.data;
         const updatedFields: any = {};
         let needsUpdate = false;
 
-        if (!client.cep && details.cep) { client.cep = details.cep; updatedFields.cep = details.cep; needsUpdate = true; }
-        if (!client.cidade && details.cidade) { client.cidade = details.cidade; updatedFields.cidade = details.cidade; needsUpdate = true; }
-        if (!client.estado && details.estado) { client.estado = details.estado; updatedFields.estado = details.estado; needsUpdate = true; }
-        if (!client.fantasia && details.fantasia) { client.fantasia = details.fantasia; updatedFields.fantasia = details.fantasia; needsUpdate = true; }
+        const cleanClientCep = (client.cep || '').replace(/\D/g, '');
+        const cleanDetailsCep = (details.cep || '').replace(/\D/g, '');
+        if (cleanClientCep !== cleanDetailsCep && details.cep) {
+            client.cep = cleanDetailsCep;
+            updatedFields.cep = cleanDetailsCep;
+            needsUpdate = true;
+        }
+
+        const cleanClientCidade = (client.cidade || '').trim().toUpperCase();
+        const cleanDetailsCidade = (details.cidade || '').trim().toUpperCase();
+        if (cleanClientCidade !== cleanDetailsCidade && details.cidade) {
+            client.cidade = details.cidade.trim();
+            updatedFields.cidade = details.cidade.trim();
+            needsUpdate = true;
+        }
+
+        const cleanClientEstado = (client.estado || '').trim().toUpperCase();
+        const cleanDetailsEstado = (details.estado || '').trim().toUpperCase();
+        if (cleanClientEstado !== cleanDetailsEstado && details.estado) {
+            client.estado = details.estado.trim().toUpperCase();
+            updatedFields.estado = details.estado.trim().toUpperCase();
+            needsUpdate = true;
+        }
+
+        const cleanClientFantasia = (client.fantasia || '').trim().toUpperCase();
+        const cleanDetailsFantasia = (details.fantasia || '').trim().toUpperCase();
+        if (cleanClientFantasia !== cleanDetailsFantasia && details.fantasia) {
+            client.fantasia = details.fantasia.trim();
+            updatedFields.fantasia = details.fantasia.trim();
+            needsUpdate = true;
+        }
 
         if (needsUpdate && client.id) {
            try {
