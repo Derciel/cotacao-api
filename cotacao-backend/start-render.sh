@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Forced LF line endings
 
 # 1. Instala o Tailscale se ainda não estiver instalado
 curl -fsSL https://tailscale.com/install.sh | sh
