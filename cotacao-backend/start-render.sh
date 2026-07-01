@@ -27,5 +27,9 @@ if [ -d "cotacao-backend" ]; then
   cd cotacao-backend
 fi
 
-# 4. Inicia a sua API (ajuste se o seu comando for diferente)
+# 4. Inicia o proxy local de banco de dados TCP-over-SOCKS5 em segundo plano
+node db-proxy.js &
+sleep 2
+
+# 5. Inicia a sua API (ajuste se o seu comando for diferente)
 npm run start
