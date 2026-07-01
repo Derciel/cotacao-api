@@ -15,12 +15,12 @@ if [ ! -f ./tailscale ] || [ ! -f ./tailscaled ]; then
   echo "Tailscale instalado localmente com sucesso!"
 fi
 
-# 2. Inicia o Tailscale em modo "userspace" (necessário para o Render e sem ROOT)
-./tailscaled --tun=userspace-networking --socks5-server=localhost:1055 &
+# 2. Inicia o Tailscale em modo "userspace" direcionando o socket e estado para a pasta /tmp (gravavel sem ROOT)
+./tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --socket=/tmp/tailscaled.sock --state=/tmp/tailscale.state &
 sleep 5
 
-# 3. Autentica usando a chave que colocamos no painel do Render
-./tailscale up --authkey=${TAILSCALE_AUTHKEY}
+# 3. Autentica apontando para o socket customizado e a chave do Render
+./tailscale --socket=/tmp/tailscaled.sock up --authkey=${TAILSCALE_AUTHKEY}
 
 # Se o script estiver rodando na raiz do repositorio, entra no diretorio correto
 if [ -d "cotacao-backend" ]; then
