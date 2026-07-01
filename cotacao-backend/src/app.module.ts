@@ -32,7 +32,8 @@ const __dirname = dirname(__filename);
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const dbUrl = configService.get<string>('DATABASE_URL');
+        const dbUrl = configService.get<string>('DATABASE_URL') || '';
+        const useSsl = !dbUrl.includes('sslmode=disable') && !dbUrl.includes('127.0.0.1') && !dbUrl.includes('localhost');
 
         if (!dbUrl) {
           throw new Error('DATABASE_URL não encontrada no painel do Render');
@@ -45,14 +46,8 @@ const __dirname = dirname(__filename);
           logging: true, // Adicionado para depurar o erro 'Missing column'
           // synchronize: false protege os dados dos seus 6.000+ clientes
           synchronize: false,
-          ssl: {
-            rejectUnauthorized: false,
-          },
-          extra: {
-            ssl: {
-              rejectUnauthorized: false,
-            },
-          },
+          ssl: useSsl ? { rejectUnauthorized: false } : false,
+          extra: useSsl ? { ssl: { rejectUnauthorized: false } } : {},
         };
       },
     }),
