@@ -569,7 +569,7 @@ export class QuotationsService {
           // Tenta obter/enriquecer os dados cadastrais diretamente da Brasil API
           const externalResult = await this.clientsService.findCnpjExternal(cnpjLimpo);
           
-          if (externalResult) {
+          if (externalResult && externalResult.data) {
             if (externalResult.isAlreadyRegistered && externalResult.registeredId) {
               // Cliente já cadastrado, vamos buscar a entidade no banco de dados local
               client = await this.clientRepository.findOne({ where: { id: externalResult.registeredId } });

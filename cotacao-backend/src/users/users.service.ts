@@ -17,6 +17,17 @@ export class UsersService {
         });
     }
 
+    async findOne(id: number) {
+        const user = await this.userRepository.findOne({
+            where: { id },
+            select: ['id', 'username', 'role', 'permissions'],
+        });
+        if (!user) {
+            throw new NotFoundException('Usuário não encontrado');
+        }
+        return user;
+    }
+
     async create(userData: any) {
         // Se o ID vier vazio do frontend, removemos para o TypeORM gerar um novo
         if (userData.id === '' || userData.id === null) {

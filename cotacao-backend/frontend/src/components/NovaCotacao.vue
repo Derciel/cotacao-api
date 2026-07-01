@@ -235,53 +235,55 @@ const selectClient = async (client: any) => {
     try {
       window.showToast("Verificando dados cadastrais...", "info");
       const res = await safeFetch(`/api/clients/cnpj/${client.cnpj}`);
-      if (res.ok) {
+      if (res.ok && res.data) {
         const details = res.data.data || res.data;
-        const updatedFields: any = {};
-        let needsUpdate = false;
+        if (details) {
+          const updatedFields: any = {};
+          let needsUpdate = false;
 
-        const cleanClientCep = (client.cep || '').replace(/\D/g, '');
-        const cleanDetailsCep = (details.cep || '').replace(/\D/g, '');
-        if (cleanClientCep !== cleanDetailsCep && details.cep) {
-            client.cep = cleanDetailsCep;
-            updatedFields.cep = cleanDetailsCep;
-            needsUpdate = true;
-        }
+          const cleanClientCep = (client.cep || '').replace(/\D/g, '');
+          const cleanDetailsCep = (details.cep || '').replace(/\D/g, '');
+          if (cleanClientCep !== cleanDetailsCep && details.cep) {
+              client.cep = cleanDetailsCep;
+              updatedFields.cep = cleanDetailsCep;
+              needsUpdate = true;
+          }
 
-        const cleanClientCidade = (client.cidade || '').trim().toUpperCase();
-        const cleanDetailsCidade = (details.cidade || '').trim().toUpperCase();
-        if (cleanClientCidade !== cleanDetailsCidade && details.cidade) {
-            client.cidade = details.cidade.trim();
-            updatedFields.cidade = details.cidade.trim();
-            needsUpdate = true;
-        }
+          const cleanClientCidade = (client.cidade || '').trim().toUpperCase();
+          const cleanDetailsCidade = (details.cidade || '').trim().toUpperCase();
+          if (cleanClientCidade !== cleanDetailsCidade && details.cidade) {
+              client.cidade = details.cidade.trim();
+              updatedFields.cidade = details.cidade.trim();
+              needsUpdate = true;
+          }
 
-        const cleanClientEstado = (client.estado || '').trim().toUpperCase();
-        const cleanDetailsEstado = (details.estado || '').trim().toUpperCase();
-        if (cleanClientEstado !== cleanDetailsEstado && details.estado) {
-            client.estado = details.estado.trim().toUpperCase();
-            updatedFields.estado = details.estado.trim().toUpperCase();
-            needsUpdate = true;
-        }
+          const cleanClientEstado = (client.estado || '').trim().toUpperCase();
+          const cleanDetailsEstado = (details.estado || '').trim().toUpperCase();
+          if (cleanClientEstado !== cleanDetailsEstado && details.estado) {
+              client.estado = details.estado.trim().toUpperCase();
+              updatedFields.estado = details.estado.trim().toUpperCase();
+              needsUpdate = true;
+          }
 
-        const cleanClientFantasia = (client.fantasia || '').trim().toUpperCase();
-        const cleanDetailsFantasia = (details.fantasia || '').trim().toUpperCase();
-        if (cleanClientFantasia !== cleanDetailsFantasia && details.fantasia) {
-            client.fantasia = details.fantasia.trim();
-            updatedFields.fantasia = details.fantasia.trim();
-            needsUpdate = true;
-        }
+          const cleanClientFantasia = (client.fantasia || '').trim().toUpperCase();
+          const cleanDetailsFantasia = (details.fantasia || '').trim().toUpperCase();
+          if (cleanClientFantasia !== cleanDetailsFantasia && details.fantasia) {
+              client.fantasia = details.fantasia.trim();
+              updatedFields.fantasia = details.fantasia.trim();
+              needsUpdate = true;
+          }
 
-        if (needsUpdate && client.id) {
-           try {
-               await safeFetch(`/api/clients/${client.id}`, {
-                   method: 'PATCH',
-                   body: JSON.stringify(updatedFields),
-                   headers: { 'Content-Type': 'application/json' }
-               });
-           } catch (e) {
-               console.warn("Falha ao salvar enriquecimento de dados no BD:", e);
-           }
+          if (needsUpdate && client.id) {
+             try {
+                 await safeFetch(`/api/clients/${client.id}`, {
+                     method: 'PATCH',
+                     body: JSON.stringify(updatedFields),
+                     headers: { 'Content-Type': 'application/json' }
+                 });
+             } catch (e) {
+                 console.warn("Falha ao salvar enriquecimento de dados no BD:", e);
+             }
+          }
         }
       }
     } catch (e) {

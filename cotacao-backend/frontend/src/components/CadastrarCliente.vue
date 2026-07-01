@@ -36,7 +36,7 @@ const lookupCNPJ = async () => {
   isSearching.value = true;
   try {
     const res = await safeFetch(`/api/clients/cnpj/${cnpjClean}`);
-    if (res.ok && res.data.data) {
+    if (res.ok && res.data && res.data.data) {
       const d = res.data.data;
       client.value.razao_social = d.razao_social || '';
       client.value.fantasia = d.fantasia || '';
@@ -54,10 +54,10 @@ const lookupCNPJ = async () => {
       if (client.value.cep) lookupCEP();
       
     } else {
-      window.showToast('CNPJ não encontrado na base externa.', 'error');
+      window.showToast('CNPJ não localizado na busca externa. Preencha os dados manualmente.', 'warning');
     }
   } catch (e) {
-    window.showToast('Erro ao consultar CNPJ.', 'error');
+    window.showToast('Erro ao consultar CNPJ na base externa.', 'error');
   } finally {
     isSearching.value = false;
   }
@@ -85,15 +85,38 @@ const lookupCEP = async () => {
 
 const handleSave = async (e: Event) => {
   e.preventDefault();
-  if (!client.value.cnpj || !client.value.razao_social) {
-    return window.showToast('Preencha os campos obrigatórios (*)', 'warning');
+  
+  const cnpjClean = client.value.cnpj.replace(/\D/g, '');
+  const cepClean = client.value.cep.replace(/\D/g, '');
+
+  if (!cnpjClean || cnpjClean.length !== 14) {
+    return window.showToast('Digite um CNPJ válido com 14 dígitos.', 'warning');
+  }
+  if (!client.value.razao_social.trim()) {
+    return window.showToast('Preencha a Razão Social do cliente.', 'warning');
+  }
+  if (!cepClean || cepClean.length !== 8) {
+    return window.showToast('Digite um CEP válido com 8 dígitos.', 'warning');
+  }
+  if (!client.value.cidade.trim()) {
+    return window.showToast('Preencha a Cidade.', 'warning');
+  }
+  if (!client.value.estado) {
+    return window.showToast('Selecione o Estado (UF).', 'warning');
+  }
+  if (!client.value.empresa_faturamento) {
+    return window.showToast('Selecione a Empresa de Faturamento.', 'warning');
   }
 
   isSaving.value = true;
   try {
     const res = await safeFetch('/api/clients', {
       method: 'POST',
-      body: JSON.stringify(client.value),
+      body: JSON.stringify({
+        ...client.value,
+        cnpj: cnpjClean,
+        cep: cepClean
+      }),
       headers: { 
         'Content-Type': 'application/json'
       }
@@ -173,6 +196,15 @@ const onCnpjInput = (e: any) => {
               <div class="input-group">
                 <label>Nome Fantasia</label>
                 <input v-model="client.fantasia" type="text" placeholder="Como a empresa é conhecida..." class="premium-input">
+              </div>
+
+              <div class="input-group">
+                <label>Empresa de Faturamento <span class="required">*</span></label>
+                <select v-model="client.empresa_faturamento" class="premium-input">
+                  <option value="NICOPEL">NICOPEL</option>
+                  <option value="FLEXOBOX">FLEXOBOX</option>
+                  <option value="L_LOG">L_LOG</option>
+                </select>
               </div>
 
               <div class="input-row">

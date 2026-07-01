@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { UsersService } from './users.service.js';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -9,6 +9,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 @UseGuards(JwtAuthGuard)
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }
+
+    @Get('me')
+    @ApiOperation({ summary: 'Retorna o perfil do usuário logado atual' })
+    async getProfile(@Req() req: any) {
+        return this.usersService.findOne(req.user.userId);
+    }
 
     @Get()
     @ApiOperation({ summary: 'Lista todos os usuários' })

@@ -95,7 +95,32 @@ export class ClientsService {
       };
     } catch (error: any) {
       this.logger.error(`Erro ao consultar CNPJ ${cnpj}: ${error.message}`);
-      return null; // Retorna null em vez de erro para o findAll tratar
+      
+      const existing = await this.clientsRepository.findOne({ where: { cnpj: cnpjLimpo } });
+      if (existing) {
+        this.logger.log(`Fallback local ativado: Cliente ${cnpjLimpo} carregado do banco de dados local.`);
+        return {
+          isAlreadyRegistered: true,
+          registeredId: existing.id,
+          isExternal: false,
+          data: {
+            razao_social: existing.razao_social,
+            fantasia: existing.fantasia || '',
+            cnpj: existing.cnpj,
+            cep: existing.cep,
+            cidade: existing.cidade,
+            estado: existing.estado,
+            empresa_faturamento: existing.empresa_faturamento,
+          }
+        };
+      }
+
+      return {
+        isAlreadyRegistered: false,
+        registeredId: null,
+        isExternal: true,
+        data: null
+      };
     }
   }
 
@@ -150,7 +175,7 @@ export class ClientsService {
 
       if (cleanSearch.length === 14) {
         const external = await this.findCnpjExternal(cleanSearch);
-        if (external) {
+        if (external && external.data) {
           data = [{
             ...external.data,
             id: external.registeredId,
@@ -160,7 +185,7 @@ export class ClientsService {
         }
       } else if (cleanSearch.length === 8) {
         const external = await this.findCepExternal(cleanSearch);
-        if (external) {
+        if (external && external.data) {
           data = [{
             ...external.data,
             isExternal: true

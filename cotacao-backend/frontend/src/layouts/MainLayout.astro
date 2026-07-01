@@ -228,6 +228,34 @@ const buildTimestamp = new Date().getTime(); // Timestamp gerado no momento do b
 
       const user = JSON.parse(userInfo);
       
+      // Sincronizar permissões atualizadas em background
+      if (window.safeFetch) {
+        window.safeFetch('/api/users/me')
+          .then(function(res) {
+            if (res.ok && res.data) {
+              const updatedUser = res.data;
+              const permissions = updatedUser.permissions || [];
+              
+              const oldPermissions = JSON.stringify(user.permissions || []);
+              const newPermissions = JSON.stringify(permissions);
+              
+              localStorage.setItem('user_info', JSON.stringify({
+                username: updatedUser.username,
+                role: updatedUser.role,
+                permissions: permissions
+              }));
+              
+              if (oldPermissions !== newPermissions) {
+                console.log('Permissões atualizadas de forma dinâmica. Atualizando interface...');
+                window.location.reload();
+              }
+            }
+          })
+          .catch(function(err) {
+            console.warn('Erro ao sincronizar permissões em background:', err);
+          });
+      }
+      
       // Ajustar Menu baseado no Role e Permissões Granulares (Desktop Only)
       const allNavLinks = document.querySelectorAll('.nav-links .nav-item');
       allNavLinks.forEach(link => {
