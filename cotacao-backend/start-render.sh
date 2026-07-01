@@ -11,5 +11,10 @@ sleep 5
 # 3. Autentica usando a chave que colocamos no painel do Render
 tailscale up --authkey=${TAILSCALE_AUTHKEY}
 
+# Se o script estiver rodando na raiz do repositorio, entra no diretorio correto
+if [ -d "cotacao-backend" ]; then
+  cd cotacao-backend
+fi
+
 # 4. Inicia a sua API (ajuste se o seu comando for diferente)
 npm run start
