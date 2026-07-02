@@ -260,12 +260,15 @@ const buildTimestamp = new Date().getTime(); // Timestamp gerado no momento do b
       const allNavLinks = document.querySelectorAll('.nav-links .nav-item');
       allNavLinks.forEach(link => {
          const href = link.getAttribute('href');
-         if (user.role === 'ADMIN') {
-            link.style.display = 'flex';
-         } else {
-            const hasPermission = user.permissions && user.permissions.includes(href);
-            link.style.display = hasPermission ? 'flex' : 'none';
-            if (pathname === href && !hasPermission) window.location.href = '/';
+         // ADMIN deve ter acesso irrestrito ao gerenciador de usuários (/usuarios)
+         // e ao dashboard principal (/) para evitar bloqueios acidentais e loops de redirect.
+         const isAlwaysAllowed = href === '/' || href === '/usuarios';
+         const hasPermission = (user.permissions && user.permissions.includes(href)) || 
+                               (user.role === 'ADMIN' && isAlwaysAllowed);
+         
+         link.style.display = hasPermission ? 'flex' : 'none';
+         if (pathname === href && !hasPermission && href !== '/') {
+            window.location.href = '/';
          }
       });
 

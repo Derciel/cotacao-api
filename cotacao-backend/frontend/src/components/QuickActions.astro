@@ -38,11 +38,11 @@ const actions = [
     if (!userInfo) return;
     
     const user = JSON.parse(userInfo);
-    if (user.role === 'ADMIN') return; // Admin sees everything
-
+    
     const actions = document.querySelectorAll('#quick-actions-card .action-btn');
     actions.forEach(btn => {
       const href = btn.getAttribute('data-href');
+      // ADMIN deve respeitar as permissões marcadas, assim como vendedores
       const hasPermission = user.permissions && user.permissions.includes(href);
       if (!hasPermission) {
         btn.style.display = 'none';
