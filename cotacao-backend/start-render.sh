@@ -20,7 +20,11 @@ fi
 sleep 5
 
 # 3. Autentica apontando para o socket customizado e a chave do Render
-./tailscale --socket=/tmp/tailscaled.sock up --authkey=${TAILSCALE_AUTHKEY}
+./tailscale --socket=/tmp/tailscaled.sock up --authkey=${TAILSCALE_AUTHKEY} --hostname=cotacao-api-render
+
+echo "Aguardando 10 segundos para o túnel estabilizar as rotas..."
+sleep 10
+echo "Pronto para iniciar serviços locais."
 
 # Se o script estiver rodando na raiz do repositorio, entra no diretorio correto
 if [ -d "cotacao-backend" ]; then
@@ -31,5 +35,5 @@ fi
 node db-proxy.js &
 sleep 2
 
-# 5. Inicia a sua API (ajuste se o seu comando for diferente)
+# 5. Inicia a sua API
 npm run start
