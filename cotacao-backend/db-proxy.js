@@ -6,15 +6,43 @@ const REMOTE_PORT = 5432;
 const SOCKS_HOST = '127.0.0.1';
 const SOCKS_PORT = 1055; // Porta SOCKS5 do Tailscale
 
-const server = net.createServer((clientSocket) => {
-  console.log('[DB-PROXY] Nova conexão local de banco de dados iniciada.');
+// Configurações de retry com backoff exponencial
+const MAX_RETRIES = 12;        // Até 12 tentativas (~2 minutos no máximo)
+const INITIAL_DELAY_MS = 2000; // Começa com 2s
+const MAX_DELAY_MS = 15000;    // Máximo de 15s entre tentativas
+
+function connectWithRetry(clientSocket, attempt = 0) {
+  if (clientSocket.destroyed) return;
+
+  const delay = Math.min(INITIAL_DELAY_MS * Math.pow(1.5, attempt), MAX_DELAY_MS);
+
+  if (attempt === 0) {
+    console.log('[DB-PROXY] Nova conexão local de banco de dados iniciada.');
+  } else {
+    console.log(`[DB-PROXY] Tentativa ${attempt}/${MAX_RETRIES} em ${Math.round(delay / 1000)}s...`);
+  }
 
   const socksSocket = net.connect(SOCKS_PORT, SOCKS_HOST, () => {
     // 1. Envia handshake do protocolo SOCKS5 (Sem Autenticação)
     socksSocket.write(Buffer.from([0x05, 0x01, 0x00]));
   });
 
+  socksSocket.setTimeout(10000); // Timeout de 10s por tentativa
+
   let state = 0; // 0: Handshake, 1: Conexão, 2: Ativo
+
+  const onFailure = (reason) => {
+    socksSocket.destroy();
+    if (attempt < MAX_RETRIES) {
+      console.warn(`[DB-PROXY] Falha (${reason}). Aguardando ${Math.round(delay / 1000)}s para reconexão VPN...`);
+      setTimeout(() => connectWithRetry(clientSocket, attempt + 1), delay);
+    } else {
+      console.error(`[DB-PROXY] Todas as ${MAX_RETRIES} tentativas esgotadas. Encerrando conexão.`);
+      clientSocket.destroy();
+    }
+  };
+
+  socksSocket.on('timeout', () => onFailure('timeout de 10s'));
 
   socksSocket.on('data', (data) => {
     if (state === 0) {
@@ -34,13 +62,12 @@ const server = net.createServer((clientSocket) => {
         req.writeUInt16BE(REMOTE_PORT, 8);
         socksSocket.write(req);
       } else {
-        console.error('[DB-PROXY] Falha no handshake do SOCKS5.');
-        clientSocket.destroy();
-        socksSocket.destroy();
+        onFailure('handshake SOCKS5 rejeitado');
       }
     } else if (state === 1) {
       if (data[0] === 0x05 && data[1] === 0x00) {
         state = 2;
+        socksSocket.setTimeout(0); // Remove timeout após conexão estabelecida
         console.log('[DB-PROXY] Conexão TCP tunelada com o banco de dados via VPN com sucesso!');
         // Repassa eventuais bytes iniciais recebidos
         if (data.length > 10) {
@@ -50,9 +77,7 @@ const server = net.createServer((clientSocket) => {
         clientSocket.pipe(socksSocket);
         socksSocket.pipe(clientSocket);
       } else {
-        console.error('[DB-PROXY] Falha ao conectar ao banco de dados remoto via SOCKS5, código:', data[1]);
-        clientSocket.destroy();
-        socksSocket.destroy();
+        onFailure(`SOCKS5 código ${data[1]}`);
       }
     }
   });
@@ -63,9 +88,17 @@ const server = net.createServer((clientSocket) => {
   });
 
   socksSocket.on('error', (err) => {
-    console.warn('[DB-PROXY] Erro no socket SOCKS:', err.message);
-    clientSocket.destroy();
+    if (state < 2) {
+      onFailure(err.message);
+    } else {
+      console.warn('[DB-PROXY] Erro no socket SOCKS (ativo):', err.message);
+      clientSocket.destroy();
+    }
   });
+}
+
+const server = net.createServer((clientSocket) => {
+  connectWithRetry(clientSocket, 0);
 });
 
 server.listen(LOCAL_PORT, '127.0.0.1', () => {

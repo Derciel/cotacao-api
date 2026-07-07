@@ -48,6 +48,10 @@ const __dirname = dirname(__filename);
           synchronize: false,
           ssl: useSsl ? { rejectUnauthorized: false } : false,
           extra: useSsl ? { ssl: { rejectUnauthorized: false } } : {},
+          // Resiliência: aguarda reconexão VPN/SOCKS5 em vez de crashar
+          retryAttempts: 10,         // tenta reconectar até 10x
+          retryDelay: 5000,          // espera 5s entre tentativas
+          connectTimeoutMS: 30000,   // timeout de 30s por tentativa
         };
       },
     }),
