@@ -47,7 +47,13 @@ const __dirname = dirname(__filename);
           // synchronize: false protege os dados dos seus 6.000+ clientes
           synchronize: false,
           ssl: useSsl ? { rejectUnauthorized: false } : false,
-          extra: useSsl ? { ssl: { rejectUnauthorized: false } } : {},
+          extra: {
+            ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
+            keepAlive: true,                  // Mantém o socket ativo e detecta quedas rapidamente
+            connectionTimeoutMillis: 5000,    // Aguarda no máximo 5s por uma nova conexão do pool
+            idleTimeoutMillis: 15000,         // Fecha conexões inativas após 15 segundos para evitar sockets órfãos
+            max: 20,                          // Pool máximo de conexões
+          },
           // Resiliência: aguarda reconexão VPN/SOCKS5 em vez de crashar
           retryAttempts: 10,         // tenta reconectar até 10x
           retryDelay: 5000,          // espera 5s entre tentativas

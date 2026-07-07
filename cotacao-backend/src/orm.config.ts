@@ -12,7 +12,13 @@ const config: DataSourceOptions = process.env.DATABASE_URL
     type: 'postgres',
     url: process.env.DATABASE_URL,
     ssl: useSsl ? { rejectUnauthorized: false } : false,
-    extra: useSsl ? { ssl: { rejectUnauthorized: false } } : {},
+    extra: {
+      ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
+      keepAlive: true,
+      connectionTimeoutMillis: 5000,
+      idleTimeoutMillis: 15000,
+      max: 20
+    },
     entities: ['dist/**/*.entity.js', 'src/**/*.entity.ts'],
     migrations: ['dist/migrations/*.js', 'src/migrations/*.ts'],
     synchronize: false,
