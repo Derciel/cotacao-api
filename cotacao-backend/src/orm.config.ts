@@ -16,7 +16,7 @@ const config: DataSourceOptions = process.env.DATABASE_URL
       ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
       keepAlive: true,
       connectionTimeoutMillis: 5000,
-      idleTimeoutMillis: 15000,
+      idleTimeoutMillis: 60000, // Aumentado para 60s para evitar o abre/fecha constante
       max: 20
     },
     entities: ['dist/**/*.entity.js', 'src/**/*.entity.ts'],
