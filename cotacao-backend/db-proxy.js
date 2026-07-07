@@ -7,9 +7,9 @@ const SOCKS_HOST = '127.0.0.1';
 const SOCKS_PORT = 1055; // Porta SOCKS5 do Tailscale
 
 // Configurações de retry com backoff exponencial
-const MAX_RETRIES = 12;        // Até 12 tentativas (~2 minutos no máximo)
-const INITIAL_DELAY_MS = 2000; // Começa com 2s
-const MAX_DELAY_MS = 15000;    // Máximo de 15s entre tentativas
+const MAX_RETRIES = 20;        // Aumentado para mais tentativas, mas mais rápidas
+const INITIAL_DELAY_MS = 500;  // Começa com 500ms (antes 2s)
+const MAX_DELAY_MS = 5000;     // Máximo de 5s entre tentativas (antes 15s)
 
 function connectWithRetry(clientSocket, attempt = 0) {
   if (clientSocket.destroyed) return;
@@ -19,7 +19,7 @@ function connectWithRetry(clientSocket, attempt = 0) {
   if (attempt === 0) {
     console.log('[DB-PROXY] Nova conexão local de banco de dados iniciada.');
   } else {
-    console.log(`[DB-PROXY] Tentativa ${attempt}/${MAX_RETRIES} em ${Math.round(delay / 1000)}s...`);
+    console.log(`[DB-PROXY] Tentativa ${attempt}/${MAX_RETRIES} em ${(delay / 1000).toFixed(1)}s...`);
   }
 
   const socksSocket = net.connect(SOCKS_PORT, SOCKS_HOST, () => {
@@ -34,7 +34,7 @@ function connectWithRetry(clientSocket, attempt = 0) {
   const onFailure = (reason) => {
     socksSocket.destroy();
     if (attempt < MAX_RETRIES) {
-      console.warn(`[DB-PROXY] Falha (${reason}). Aguardando ${Math.round(delay / 1000)}s para reconexão VPN...`);
+      console.warn(`[DB-PROXY] Falha (${reason}). Aguardando ${(delay / 1000).toFixed(1)}s para reconexão VPN...`);
       setTimeout(() => connectWithRetry(clientSocket, attempt + 1), delay);
     } else {
       console.error(`[DB-PROXY] Todas as ${MAX_RETRIES} tentativas esgotadas. Encerrando conexão.`);
