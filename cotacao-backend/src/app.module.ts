@@ -54,10 +54,10 @@ const __dirname = dirname(__filename);
             idleTimeoutMillis: 15000,         // Fecha conexões inativas após 15 segundos para evitar sockets órfãos
             max: 20,                          // Pool máximo de conexões
           },
-          // Resiliência: aguarda reconexão VPN/SOCKS5 em vez de crashar
-          retryAttempts: 10,         // tenta reconectar até 10x
-          retryDelay: 5000,          // espera 5s entre tentativas
-          connectTimeoutMS: 30000,   // timeout de 30s por tentativa
+          // Resiliência: aguarda reconexão VPN/SOCKS5 no startup de forma rápida sem travar o health check do Render
+          retryAttempts: 3,          // tenta reconectar até 3x no startup
+          retryDelay: 3000,          // espera 3s entre tentativas
+          connectTimeoutMS: 5000,    // timeout de 5s por tentativa
         };
       },
     }),
