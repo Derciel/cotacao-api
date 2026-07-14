@@ -86,7 +86,10 @@ export class FrenetService {
 
     // Busca opções em paralelo com tratamento de erro individual
     const [frenetOptions, vipOption, rodonavesOption] = await Promise.all([
-      this.fetchFrenetOptions(frenetPayload).catch(err => {
+      this.fetchFrenetOptions(frenetPayload).then(opts => {
+        console.log('[FrenetService] Opções retornadas pela Frenet:', JSON.stringify(opts, null, 2));
+        return opts;
+      }).catch(err => {
         console.warn('Frenet API Error (Silenced):', err.message);
         return [];
       }),
@@ -123,7 +126,17 @@ export class FrenetService {
     }
 
     // FILTRO FINAL: Remove qualquer opção que tenha preço <= 0, exceto a TEX que pode vir sem preço se for a combinar
-    const finalOptions = processedOptions.filter(opt => opt.price > 0 || opt.carrier.toUpperCase().includes('TEX'));
+    const finalOptions = processedOptions.filter(opt => {
+      const isTex = opt.carrier.toUpperCase().includes('TEX') || opt.service_description.toUpperCase().includes('TEX');
+      
+      // Se for a TEX e o preço for 0, marcamos como cotação manual e permitimos passar
+      if (isTex && opt.price <= 0) {
+        opt.recommendation = 'manual_quote';
+        return true;
+      }
+
+      return opt.price > 0 || isTex;
+    });
 
     // Se não houver NENHUMA opção válida, cria a opção de Cotação Manual
     if (finalOptions.length === 0) {
