@@ -238,7 +238,7 @@ const openPdfPreview = async (item: any) => {
     
     // Identifica a transportadora para o fundo adaptativo
     const carrier = item.transportadora_escolhida?.toUpperCase() || "";
-    if (carrier.includes("RODONAVES") || carrier.includes("TEX CARGO") || carrier.includes("ENVIA") || carrier.includes("SUDOESTE")) {
+    if (carrier.includes("RODONAVES") || carrier.includes("TEX") || carrier.includes("ENVIA") || carrier.includes("SUDOESTE")) {
         currentCarrierLogo.value = "white"; // Logos brancas pedem fundo preto
     } else {
         currentCarrierLogo.value = "dark"; // Logos escuras pedem fundo branco

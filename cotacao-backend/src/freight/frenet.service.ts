@@ -122,10 +122,10 @@ export class FrenetService {
       processedOptions.push(rodonavesOption);
     }
 
-    // FILTRO FINAL: Remove qualquer opção que tenha preço <= 0 (evita o que apareceu no screenshot)
-    const finalOptions = processedOptions.filter(opt => opt.price > 0);
+    // FILTRO FINAL: Remove qualquer opção que tenha preço <= 0, exceto a TEX que pode vir sem preço se for a combinar
+    const finalOptions = processedOptions.filter(opt => opt.price > 0 || opt.carrier.toUpperCase().includes('TEX'));
 
-    // Se não houver NENHUMA opção válida (> 0), cria a opção de Cotação Manual
+    // Se não houver NENHUMA opção válida, cria a opção de Cotação Manual
     if (finalOptions.length === 0) {
       finalOptions.push({
         carrier: 'DEPARTAMENTO DE LOGÍSTICA',

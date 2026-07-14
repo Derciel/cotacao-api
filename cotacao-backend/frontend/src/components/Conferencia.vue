@@ -1159,7 +1159,7 @@ const openPdfPreview = async (quotation) => {
     }
     
     const carrier = quotation.transportadora_escolhida?.toUpperCase() || "";
-    if (carrier.includes("RODONAVES") || carrier.includes("TEX CARGO") || carrier.includes("ENVIA") || carrier.includes("SUDOESTE")) {
+    if (carrier.includes("RODONAVES") || carrier.includes("TEX") || carrier.includes("ENVIA") || carrier.includes("SUDOESTE")) {
         currentCarrierLogo.value = "white";
     } else {
         currentCarrierLogo.value = "dark";

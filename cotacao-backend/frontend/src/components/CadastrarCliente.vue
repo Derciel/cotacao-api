@@ -29,8 +29,8 @@ const isSaving = ref(false);
 
 const lookupCNPJ = async () => {
   const cnpjClean = client.value.cnpj.replace(/\D/g, '');
-  if (cnpjClean.length !== 14) {
-    return window.showToast('Digite um CNPJ válido com 14 dígitos.', 'warning');
+  if (cnpjClean.length !== 14 && cnpjClean.length !== 11) {
+    return window.showToast('Digite um CNPJ válido com 14 dígitos ou CPF com 11 dígitos.', 'warning');
   }
 
   isSearching.value = true;
@@ -89,8 +89,8 @@ const handleSave = async (e: Event) => {
   const cnpjClean = client.value.cnpj.replace(/\D/g, '');
   const cepClean = client.value.cep.replace(/\D/g, '');
 
-  if (!cnpjClean || cnpjClean.length !== 14) {
-    return window.showToast('Digite um CNPJ válido com 14 dígitos.', 'warning');
+  if (!cnpjClean || (cnpjClean.length !== 14 && cnpjClean.length !== 11)) {
+    return window.showToast('Digite um CNPJ válido com 14 dígitos ou CPF com 11 dígitos.', 'warning');
   }
   if (!client.value.razao_social.trim()) {
     return window.showToast('Preencha a Razão Social do cliente.', 'warning');
@@ -145,14 +145,21 @@ const resetForm = () => {
   };
 };
 
-// Formatação básica de CNPJ
+// Formatação básica de CNPJ/CPF
 const onCnpjInput = (e: any) => {
     let v = e.target.value.replace(/\D/g, '');
     if (v.length > 14) v = v.slice(0, 14);
-    if (v.length > 12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
-    else if (v.length > 8) v = v.replace(/^(\d{2})(\d{3})(\d{3})/, "$1.$2.$3/");
-    else if (v.length > 5) v = v.replace(/^(\d{2})(\d{3})/, "$1.$2.");
-    else if (v.length > 2) v = v.replace(/^(\d{2})/, "$1.");
+    
+    if (v.length <= 11) {
+        v = v.replace(/(\d{3})(\d)/, '$1.$2');
+        v = v.replace(/(\d{3})(\d)/, '$1.$2');
+        v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    } else {
+        v = v.replace(/^(\d{2})(\d)/, '$1.$2');
+        v = v.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+        v = v.replace(/\.(\d{3})(\d)/, '.$1/$2');
+        v = v.replace(/(\d{4})(\d)/, '$1-$2');
+    }
     client.value.cnpj = v;
 };
 </script>
@@ -168,13 +175,13 @@ const onCnpjInput = (e: any) => {
             
             <div class="input-stack">
               <div class="input-group">
-                <label>CNPJ <span class="required">*</span></label>
+                <label>CPF / CNPJ <span class="required">*</span></label>
                 <div class="input-with-button">
                   <div class="input-with-icon flex-1">
                     <i class="fas fa-id-card"></i>
                     <input 
                       type="text" 
-                      placeholder="00.000.000/0000-00" 
+                      placeholder="CPF ou CNPJ" 
                       class="premium-input"
                       :value="client.cnpj"
                       @input="onCnpjInput"

@@ -30,6 +30,59 @@ export class ClientsService {
    */
   async findCnpjExternal(cnpj: string) {
     const cnpjLimpo = cnpj.replace(/\D/g, '');
+
+    // Tratamento para CPF (11 dígitos)
+    if (cnpjLimpo.length === 11) {
+        const existingCpf = await this.clientsRepository.findOne({ where: { cnpj: cnpjLimpo } });
+        if (existingCpf) {
+            return {
+                isAlreadyRegistered: true,
+                registeredId: existingCpf.id,
+                isExternal: false,
+                data: {
+                    razao_social: existingCpf.razao_social,
+                    fantasia: existingCpf.fantasia || '',
+                    cnpj: existingCpf.cnpj,
+                    cep: existingCpf.cep,
+                    cidade: existingCpf.cidade,
+                    estado: existingCpf.estado,
+                    empresa_faturamento: existingCpf.empresa_faturamento,
+                }
+            };
+        }
+        
+        try {
+            // Tenta consultar uma API pública de CPF, caso exista, ou falha silenciosamente
+            const url = `https://api.cpfcnpj.com.br/5ae973d7a997af13f0aaf2bf60e65803/1/${cnpjLimpo}`;
+            const { data } = await firstValueFrom(this.httpService.get(url));
+            if (data && data.status === 1) {
+                return {
+                    isAlreadyRegistered: false,
+                    registeredId: null,
+                    isExternal: true,
+                    data: {
+                        razao_social: data.nome,
+                        fantasia: '',
+                        cnpj: cnpjLimpo,
+                        cep: '',
+                        cidade: '',
+                        estado: '',
+                        empresa_faturamento: 'NICOPEL',
+                    }
+                };
+            }
+        } catch (e: any) {
+            this.logger.warn(`Busca de CPF externa indisponível: ${e.message}`);
+        }
+        
+        return {
+            isAlreadyRegistered: false,
+            registeredId: null,
+            isExternal: true,
+            data: null
+        };
+    }
+
     const url = `https://brasilapi.com.br/api/cnpj/v1/${cnpjLimpo}`;
 
     try {
