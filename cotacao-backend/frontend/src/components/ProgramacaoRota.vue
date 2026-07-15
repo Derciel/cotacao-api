@@ -33,8 +33,6 @@ const originCep = ref('86087-350'); // CEP padrão Londrina/PR
 const truckConsumo = ref(3.5); // km/l padrão
 const fuelType = ref<'dieselS10' | 'gasolina' | 'etanol'>('dieselS10');
 const fuelPrice = ref(5.88); // Valor médio padrão para PR
-const vehicleType = ref<'driving-car' | 'driving-hgv'>('driving-car');
-const truckHeight = ref(4.4); // Altura padrão do caminhão em metros (para evitar pontilhões)
 
 // Paradas Modo Simples (Manual)
 const manualStops = ref<ClientStop[]>([]);
@@ -560,65 +558,29 @@ const processAndCalculateRoute = async () => {
 
     finalRouteStops.value = orderedStops;
 
-    // 4. Chamar a API pública do OpenRouteService com múltiplos pontos
-    const coordinates = [
-      [finalOrigin[1], finalOrigin[0]],
-      ...orderedStops.map(s => [s.lon, s.lat])
-    ];
+    // 4. Chamar a API pública do OSRM (driving pelas ruas e rodovias) com múltiplos pontos
+    // Formato OSRM: lon1,lat1;lon2,lat2;lon3,lat3...
+    const originSegment = `${finalOrigin[1]},${finalOrigin[0]}`;
+    const stopsSegment = orderedStops.map(s => `${s.lon},${s.lat}`).join(';');
+    const coordinatesUrl = `${originSegment};${stopsSegment}`;
 
-    let options = {};
-    if (vehicleType.value === 'driving-hgv') {
-      options = {
-        profile_params: {
-          restrictions: {
-            height: truckHeight.value,
-            length: 15,
-            weight: 20
-          }
-        }
-      };
-    }
-
-    const payload = {
-      coordinates: coordinates,
-      ...options,
-      elevation: false,
-      instructions: false
-    };
-
-    // Necessário token no .env (VITE_ORS_API_KEY)
-    const apiKey = import.meta.env.VITE_ORS_API_KEY || '';
-    if (!apiKey) {
-        isSearching.value = false;
-        return window.showToast('Erro: Chave de API do OpenRouteService não configurada (VITE_ORS_API_KEY).', 'error');
-    }
-
-    const osrmUrl = `https://api.openrouteservice.org/v2/directions/${vehicleType.value}/geojson`;
-    const resRoute = await fetch(osrmUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': apiKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordinatesUrl}?overview=full&geometries=geojson`;
+    const resRoute = await fetch(osrmUrl);
     
     if (!resRoute.ok) {
       isSearching.value = false;
-      const err = await resRoute.json().catch(() => ({}));
-      console.error(err);
       return window.showToast('Erro ao traçar rota real pelas rodovias no servidor de mapas.', 'error');
     }
 
     const routeData = await resRoute.json();
-    if (!routeData.features || routeData.features.length === 0) {
+    if (!routeData.routes || routeData.routes.length === 0) {
       isSearching.value = false;
       return window.showToast('Nenhuma rota viária viável encontrada entre os pontos.', 'warning');
     }
 
-    const route = routeData.features[0];
-    const distanceKm = route.properties.summary.distance / 1000; 
-    const durationStr = formatDuration(route.properties.summary.duration); 
+    const route = routeData.routes[0];
+    const distanceKm = route.distance / 1000; 
+    const durationStr = formatDuration(route.duration); 
 
     // 5. Cálculos Financeiros/Logísticos
     const totalLiters = distanceKm / truckConsumo.value;
@@ -818,20 +780,6 @@ const exportOptimizedRoute = () => {
                 <option value="gasolina">Gasolina Comum</option>
                 <option value="etanol">Etanol</option>
               </select>
-            </div>
-          </div>
-
-          <div class="form-row mt-10">
-            <div class="form-group flex-1">
-              <label>Tipo de Veículo (Rotas)</label>
-              <select v-model="vehicleType" class="premium-select">
-                <option value="driving-car">Carro / Van</option>
-                <option value="driving-hgv">Caminhão Pesado (HGV)</option>
-              </select>
-            </div>
-            <div class="form-group flex-1" v-if="vehicleType === 'driving-hgv'">
-              <label>Altura do Caminhão (Metros)</label>
-              <input type="number" step="0.1" v-model="truckHeight" class="premium-input" title="Evitará pontilhões baixos (Ex: 4.4m)" />
             </div>
           </div>
 
