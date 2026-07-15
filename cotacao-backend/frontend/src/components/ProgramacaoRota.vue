@@ -163,12 +163,11 @@ const geocodeText = async (text: string): Promise<[number, number] | null> => {
     if (res.ok) {
       const data = await res.json();
       if (data && data.length > 0) {
-        console.log(`[Geocodificação Textual] Sucesso para "${text}": [${data[0].lat}, ${data[0].lon}]`);
         return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
       }
     }
   } catch (e) {
-    console.error(`Erro ao geocodificar texto "${text}":`, e);
+    // Silenciado
   }
   return null;
 };
@@ -181,7 +180,6 @@ const geocodeCepResilient = async (cep: string, cidade?: string, estado?: string
   // 1. Tentar Brasil API v2 (Coordenadas Geográficas Diretas do CEP)
   if (clean.length === 8) {
     try {
-      console.log(`[Geocodificação Camada 1] Buscando coordenadas na Brasil API v2 para o CEP: ${clean}`);
       const res = await fetch(`https://brasilapi.com.br/api/cep/v2/${clean}`);
       if (res.ok) {
         const data = await res.json();
@@ -189,13 +187,12 @@ const geocodeCepResilient = async (cep: string, cidade?: string, estado?: string
           const lat = parseFloat(data.location.coordinates.latitude);
           const lon = parseFloat(data.location.coordinates.longitude);
           if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
-            console.log(`[Geocodificação Camada 1] Sucesso! CEP: ${clean} -> [${lat}, ${lon}]`);
             return [lat, lon];
           }
         }
       }
     } catch (e) {
-      console.warn(`[Geocodificação Camada 1] Falhou para CEP ${clean}. Tentando ViaCEP/Nominatim...`);
+      // Falhou silenciosamente, vai para a camada 2
     }
   }
 
@@ -207,7 +204,6 @@ const geocodeCepResilient = async (cep: string, cidade?: string, estado?: string
 
   if (clean.length === 8) {
     try {
-      console.log(`[Geocodificação Camada 2] Buscando endereço no ViaCEP para o CEP: ${clean}`);
       const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
       if (res.ok) {
         const data = await res.json();
@@ -219,7 +215,7 @@ const geocodeCepResilient = async (cep: string, cidade?: string, estado?: string
         }
       }
     } catch (e) {
-      console.warn(`[Geocodificação Camada 2] Falha ao obter dados textuais no ViaCEP:`, e);
+      // Falhou silenciosamente
     }
   }
 
@@ -246,7 +242,6 @@ const geocodeCepResilient = async (cep: string, cidade?: string, estado?: string
   }
 
   // 3. Fallback absoluto baseado no Estado (Evita que o mapa quebre em CEPs inexistentes/novos/rurais)
-  console.warn(`[Geocodificação Camada 3] CEP ${cep} não pôde ser geocodificado de nenhuma forma. Aplicando coordenadas de fallback para UF: ${resolvedUf}`);
   const fallbacksByUf: Record<string, [number, number]> = {
     'AC': [-9.974, -67.807], 'AL': [-9.665, -35.735], 'AP': [0.034, -51.069], 'AM': [-3.119, -60.021],
     'BA': [-12.971, -38.51], 'CE': [-3.717, -38.543], 'DF': [-15.793, -47.882], 'ES': [-20.315, -40.312],
