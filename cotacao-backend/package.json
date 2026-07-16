@@ -7,10 +7,10 @@
     "build": "tsc -p tsconfig.build.json",
     "build:frontend": "npm install --include=dev --no-audit --no-fund --prefix frontend && npm run build --prefix frontend",
     "build:all": "npm run build:frontend && npm run build",
-    "dev": "npm run start:dev",
-    "build:dev": "tsc -p tsconfig.build.json --watch",
+    "dev": "nest start --watch",
+    "build:dev": "nest build",
     "start": "node dist/main.js",
-    "start:dev": "npm run build:dev",
+    "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
     "typeorm": "node --loader ts-node/esm ./node_modules/typeorm/cli.js -d ./data-source.ts",
     "postinstall": "node -e \"try{require('child_process').execSync('node_modules/.bin/puppeteer browsers install chrome --platform linux 2>/dev/null',{stdio:'pipe'})}catch(e){}\""

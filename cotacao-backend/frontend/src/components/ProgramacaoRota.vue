@@ -33,8 +33,8 @@ const originCep = ref('86087-350'); // CEP padrão Londrina/PR
 const truckConsumo = ref(3.5); // km/l padrão
 const fuelType = ref<'dieselS10' | 'gasolina' | 'etanol'>('dieselS10');
 const fuelPrice = ref(5.88); // Valor médio padrão para PR
-
-// Paradas Modo Simples (Manual)
+const vehicleType = ref<'driving-car' | 'driving-hgv'>('driving-car');
+const truckHeight = ref(4.4); // Altura padrão do caminhão em metros
 const manualStops = ref<ClientStop[]>([]);
 
 // Planilha Modo Excel
@@ -518,33 +518,95 @@ const processAndCalculateRoute = async () => {
 
     // 3. Otimização de Rota (Algoritmo do Vizinho Mais Próximo - TSP) se for planilha
     let orderedStops: ClientStop[] = [];
+    
+    // Configurações do OpenRouteService
+    const apiKey = import.meta.env.VITE_ORS_API_KEY || '';
+    
     if (activeTab.value === 'excel') {
-      window.showToast('Otimizando circuito de entregas (Algoritmo Caixeiro Viajante)...', 'info');
+      window.showToast('Otimizando circuito de entregas...', 'info');
       
       const unvisited = [...geocodedStops];
-      let currentLat = finalOrigin[0];
-      let currentLon = finalOrigin[1];
+      
+      // Tentativa de Otimização Profissional via OpenRouteService (VROOM)
+      let optimizationSuccess = false;
+      
+      if (apiKey) {
+        try {
+          const optPayload = {
+            jobs: unvisited.map((stop, index) => ({
+              id: index + 1,
+              service: 300, // 5 minutos por entrega
+              location: [stop.lon, stop.lat]
+            })),
+            vehicles: [
+              {
+                id: 1,
+                profile: vehicleType.value,
+                start: [finalOrigin[1], finalOrigin[0]]
+              }
+            ]
+          };
 
-      while (unvisited.length > 0) {
-        let nearestIndex = 0;
-        let minDistance = Infinity;
+          const optRes = await fetch('https://api.openrouteservice.org/optimization', {
+            method: 'POST',
+            headers: {
+              'Authorization': apiKey,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(optPayload)
+          });
 
-        for (let i = 0; i < unvisited.length; i++) {
-          const stop = unvisited[i];
-          if (stop.lat && stop.lon) {
-            // Distância Euclidiana Simplificada
-            const d = Math.sqrt(Math.pow(stop.lat - currentLat, 2) + Math.pow(stop.lon - currentLon, 2));
-            if (d < minDistance) {
-              minDistance = d;
-              nearestIndex = i;
+          if (optRes.ok) {
+            const optData = await optRes.json();
+            if (optData.routes && optData.routes.length > 0 && optData.routes[0].steps) {
+              const steps = optData.routes[0].steps;
+              
+              // Reconstrói a ordem baseada na resposta da API
+              orderedStops = steps
+                .filter((step: any) => step.type === 'job')
+                .map((step: any) => {
+                  const jobIndex = step.job - 1; // o id era index + 1
+                  return unvisited[jobIndex];
+                });
+                
+              optimizationSuccess = true;
+              console.log('[Roteirização] Otimizada com sucesso via VROOM (ORS)!');
+            }
+          } else {
+             console.warn('[Roteirização] Falha na API de otimização ORS. Código:', optRes.status);
+          }
+        } catch (e) {
+          console.warn('[Roteirização] Erro ao conectar com API de Otimização ORS.', e);
+        }
+      }
+
+      // Fallback: Algoritmo Local (Vizinho Mais Próximo) caso ORS falhe ou sem chave
+      if (!optimizationSuccess) {
+        console.log('[Roteirização] Usando fallback local (Vizinho Mais Próximo).');
+        orderedStops = [];
+        let currentLat = finalOrigin[0];
+        let currentLon = finalOrigin[1];
+
+        while (unvisited.length > 0) {
+          let nearestIndex = 0;
+          let minDistance = Infinity;
+
+          for (let i = 0; i < unvisited.length; i++) {
+            const stop = unvisited[i];
+            if (stop.lat && stop.lon) {
+              const d = Math.sqrt(Math.pow(stop.lat - currentLat, 2) + Math.pow(stop.lon - currentLon, 2));
+              if (d < minDistance) {
+                minDistance = d;
+                nearestIndex = i;
+              }
             }
           }
-        }
 
-        const nextStop = unvisited.splice(nearestIndex, 1)[0];
-        currentLat = nextStop.lat!;
-        currentLon = nextStop.lon!;
-        orderedStops.push(nextStop);
+          const nextStop = unvisited.splice(nearestIndex, 1)[0];
+          currentLat = nextStop.lat!;
+          currentLon = nextStop.lon!;
+          orderedStops.push(nextStop);
+        }
       }
 
       // Atualiza sequences
@@ -558,29 +620,88 @@ const processAndCalculateRoute = async () => {
 
     finalRouteStops.value = orderedStops;
 
-    // 4. Chamar a API pública do OSRM (driving pelas ruas e rodovias) com múltiplos pontos
-    // Formato OSRM: lon1,lat1;lon2,lat2;lon3,lat3...
-    const originSegment = `${finalOrigin[1]},${finalOrigin[0]}`;
-    const stopsSegment = orderedStops.map(s => `${s.lon},${s.lat}`).join(';');
-    const coordinatesUrl = `${originSegment};${stopsSegment}`;
+    // 4. Traçar a Rota Real nas Estradas
+    let routeGeometry = null;
+    let distanceKm = 0;
+    let durationStr = '';
 
-    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordinatesUrl}?overview=full&geometries=geojson`;
-    const resRoute = await fetch(osrmUrl);
-    
-    if (!resRoute.ok) {
-      isSearching.value = false;
-      return window.showToast('Erro ao traçar rota real pelas rodovias no servidor de mapas.', 'error');
+    if (apiKey) {
+      // Traçado usando OpenRouteService (Suporta caminhões e perfil real)
+      const coordinates = [
+        [finalOrigin[1], finalOrigin[0]],
+        ...orderedStops.map(s => [s.lon, s.lat])
+      ];
+
+      let options = {};
+      if (vehicleType.value === 'driving-hgv') {
+        options = {
+          profile_params: {
+            restrictions: {
+              height: truckHeight.value,
+              length: 15,
+              weight: 20
+            }
+          }
+        };
+      }
+
+      const payload = {
+        coordinates: coordinates,
+        ...options,
+        elevation: false,
+        instructions: false
+      };
+
+      const osrmUrl = `https://api.openrouteservice.org/v2/directions/${vehicleType.value}/geojson`;
+      const resRoute = await fetch(osrmUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': apiKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!resRoute.ok) {
+        isSearching.value = false;
+        return window.showToast('Erro ao traçar rota real no OpenRouteService. Verifique os limites da chave.', 'error');
+      }
+
+      const routeData = await resRoute.json();
+      if (!routeData.features || routeData.features.length === 0) {
+        isSearching.value = false;
+        return window.showToast('Nenhuma rota viária viável encontrada entre os pontos.', 'warning');
+      }
+
+      const route = routeData.features[0];
+      distanceKm = route.properties.summary.distance / 1000; 
+      durationStr = formatDuration(route.properties.summary.duration);
+      routeGeometry = route.geometry;
+    } else {
+      // Fallback para OSRM público (Não suporta perfil de caminhão)
+      const originSegment = `${finalOrigin[1]},${finalOrigin[0]}`;
+      const stopsSegment = orderedStops.map(s => `${s.lon},${s.lat}`).join(';');
+      const coordinatesUrl = `${originSegment};${stopsSegment}`;
+
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordinatesUrl}?overview=full&geometries=geojson`;
+      const resRoute = await fetch(osrmUrl);
+      
+      if (!resRoute.ok) {
+        isSearching.value = false;
+        return window.showToast('Erro ao traçar rota no servidor público OSRM.', 'error');
+      }
+
+      const routeData = await resRoute.json();
+      if (!routeData.routes || routeData.routes.length === 0) {
+        isSearching.value = false;
+        return window.showToast('Nenhuma rota viária viável encontrada entre os pontos.', 'warning');
+      }
+
+      const route = routeData.routes[0];
+      distanceKm = route.distance / 1000; 
+      durationStr = formatDuration(route.duration);
+      routeGeometry = route.geometry;
     }
-
-    const routeData = await resRoute.json();
-    if (!routeData.routes || routeData.routes.length === 0) {
-      isSearching.value = false;
-      return window.showToast('Nenhuma rota viária viável encontrada entre os pontos.', 'warning');
-    }
-
-    const route = routeData.routes[0];
-    const distanceKm = route.distance / 1000; 
-    const durationStr = formatDuration(route.duration); 
 
     // 5. Cálculos Financeiros/Logísticos
     const totalLiters = distanceKm / truckConsumo.value;
@@ -596,7 +717,7 @@ const processAndCalculateRoute = async () => {
     // 6. Desenhar Rota no Leaflet
     const L = window.L;
     
-    routeLayer.value = L.geoJSON(route.geometry, {
+    routeLayer.value = L.geoJSON(routeGeometry, {
       style: {
         color: '#10b981',
         weight: 6,
@@ -780,6 +901,20 @@ const exportOptimizedRoute = () => {
                 <option value="gasolina">Gasolina Comum</option>
                 <option value="etanol">Etanol</option>
               </select>
+            </div>
+          </div>
+
+          <div class="form-row mt-10">
+            <div class="form-group flex-1">
+              <label>Tipo de Veículo (Rotas)</label>
+              <select v-model="vehicleType" class="premium-select">
+                <option value="driving-car">Carro / Van</option>
+                <option value="driving-hgv">Caminhão Pesado (HGV)</option>
+              </select>
+            </div>
+            <div class="form-group flex-1" v-if="vehicleType === 'driving-hgv'">
+              <label>Altura do Caminhão (Metros)</label>
+              <input type="number" step="0.1" v-model="truckHeight" class="premium-input" title="Evitará pontilhões baixos (Ex: 4.4m)" />
             </div>
           </div>
 

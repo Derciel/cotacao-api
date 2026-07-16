@@ -7,7 +7,7 @@ import { Logger } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-    origin: ['https://cotacao.nicopel.com.br', 'http://localhost:4321', 'http://localhost:3000'],
+    origin: ['https://cotacao.nicopel.com.br', 'http://localhost:4321', 'http://localhost:4325', 'http://localhost:3005'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
@@ -64,7 +64,7 @@ async function bootstrap() {
     next();
   });
 
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 3005;
   await app.listen(port, '0.0.0.0');
 
   // Notificação visual destacada nos logs do servidor de que a atualização foi aplicada com sucesso

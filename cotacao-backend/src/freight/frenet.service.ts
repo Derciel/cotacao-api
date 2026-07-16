@@ -255,10 +255,15 @@ export class FrenetService {
       let carrier = option.Carrier || option.carrier || 'Transportadora';
       let service_description = option.ServiceDescription || option.service_description || carrier;
 
-      if (carrier.toUpperCase().includes('LOGISTICA PROPRIA') || carrier.toUpperCase().includes('LOGÍSTICA PRÓPRIA')) {
+      if (carrier.toUpperCase().includes('LOGISTICA PROPRIA') || carrier.toUpperCase().includes('LOGÍSTICA PRÓPRIA') || carrier.toUpperCase().includes('SEU PRÓPRIO CONTRATO')) {
         const temp = carrier;
         carrier = service_description;
         service_description = temp;
+      }
+
+      // Normalizaçao Forçada para TEX Encomendas
+      if (carrier.toUpperCase().includes('TEX ') || carrier.toUpperCase() === 'TEX' || service_description.toUpperCase().includes('TEX ')) {
+        carrier = 'TEX ENCOMENDAS';
       }
 
       return {
