@@ -62,6 +62,11 @@ const routeDetails = ref({
 // Paradas ordenadas finais da rota atual
 const finalRouteStops = ref<ClientStop[]>([]);
 
+// Opções de Roteamento (Estradas Rurais / Unpaved)
+const avoidUnpaved = ref(true);
+const highlightRuralRoads = ref(true);
+const ruralRoadLayers = ref<any[]>([]);
+
 // Cache local de preços de combustíveis por UF
 const fuelPricesCache = ref<any>(null);
 
@@ -441,6 +446,9 @@ const clearMap = () => {
 
   markers.value.forEach(m => map.value.removeLayer(m));
   markers.value = [];
+
+  ruralRoadLayers.value.forEach(l => map.value.removeLayer(l));
+  ruralRoadLayers.value = [];
 };
 
 // MÉTODOS MODO SIMPLES (Multi-Clientes Manual)
@@ -798,22 +806,24 @@ const processAndCalculateRoute = async () => {
         ...orderedStops.map(s => [s.lon, s.lat])
       ];
 
-      let options = {};
+      let options: any = {};
+      if (avoidUnpaved.value) {
+        options.avoid_features = ["unpaved"];
+      }
+
       if (vehicleType.value === 'driving-hgv') {
-        options = {
-          profile_params: {
-            restrictions: {
-              height: truckHeight.value,
-              length: 15,
-              weight: 20
-            }
+        options.profile_params = {
+          restrictions: {
+            height: truckHeight.value,
+            length: 15,
+            weight: 20
           }
         };
       }
 
       const payload = {
         coordinates: coordinates,
-        ...options,
+        options: Object.keys(options).length > 0 ? options : undefined,
         elevation: false,
         instructions: false
       };
@@ -877,7 +887,9 @@ const processAndCalculateRoute = async () => {
       distance: Number(distanceKm.toFixed(1)),
       duration: durationStr,
       liters: Number(totalLiters.toFixed(1)),
-      cost: Number(totalCost.toFixed(2))
+      cost: Number(totalCost.toFixed(2)),
+      tollsCount: 0,
+      tollCost: 0
     };
 
     // 6. Desenhar Rota no Leaflet
@@ -902,7 +914,7 @@ const processAndCalculateRoute = async () => {
     });
 
     const markerOrigem = L.marker(finalOrigin, { icon: iconOrigem })
-      .bindPopup(`<strong>Origem (Partida)</strong><br>CEP: ${originCep.value}`)
+      .bindPopup(`<strong>Nicopel Embalagens (Matriz)</strong><br>Ponto de Partida Oficial<br>CEP: 86087-350`)
       .addTo(map.value);
     
     markers.value.push(markerOrigem);
@@ -931,6 +943,7 @@ const processAndCalculateRoute = async () => {
     // 7. Identificar Praças de Pedágio e Custo Total na Rota
     await fetchGoogleTollCosts(allCoords); // Busca custo Google
     await fetchAndDrawTolls(routeGeometry, allCoords); // Busca praças no mapa (visual)
+    await fetchAndDrawRuralRoads(routeGeometry, allCoords); // Busca e destaca estradas rurais/não pavimentadas na região
 
     routeCalculated.value = true;
     window.showToast('Circuito logístico completo calculado com sucesso!', 'success');
@@ -1161,6 +1174,118 @@ out body;`;
     }
   } catch (e) {
     console.error('Erro ao buscar pedágios na rota:', e);
+  }
+};
+
+// BUSCA E DESENHO DE ESTRADAS RURAIS / NÃO PAVIMENTADAS (OVERPASS API)
+const fetchAndDrawRuralRoads = async (routeGeometry: any, allCoords: [number, number][]) => {
+  if (!map.value || !window.L || !highlightRuralRoads.value) return;
+  const L = window.L;
+
+  let routeLineCoords: [number, number][] = [];
+  if (routeGeometry && routeGeometry.coordinates) {
+    if (Array.isArray(routeGeometry.coordinates[0])) {
+      routeLineCoords = routeGeometry.coordinates.map((c: any) => [c[1], c[0]]);
+    }
+  }
+  if (routeLineCoords.length === 0) {
+    routeLineCoords = allCoords;
+  }
+
+  let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+  routeLineCoords.forEach(([lat, lon]) => {
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+    if (lon < minLon) minLon = lon;
+    if (lon > maxLon) maxLon = lon;
+  });
+
+  minLat -= 0.04; maxLat += 0.04;
+  minLon -= 0.04; maxLon += 0.04;
+
+  try {
+    const query = `[out:json][timeout:15];
+(
+  way["surface"~"unpaved|dirt|earth|gravel|ground"](${minLat.toFixed(4)},${minLon.toFixed(4)},${maxLat.toFixed(4)},${maxLon.toFixed(4)});
+  way["highway"="track"](${minLat.toFixed(4)},${minLon.toFixed(4)},${maxLat.toFixed(4)},${maxLon.toFixed(4)});
+);
+out geom;`;
+
+    const overpassUrls = [
+      'https://lz4.overpass-api.de/api/interpreter',
+      'https://z.overpass-api.de/api/interpreter',
+      'https://overpass-api.de/api/interpreter'
+    ];
+
+    let res = null;
+    for (const url of overpassUrls) {
+      try {
+        res = await fetch(url, {
+          method: 'POST',
+          body: 'data=' + encodeURIComponent(query),
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+        if (res.ok) break;
+      } catch (e) {
+        console.warn(`Falha no servidor Overpass para estradas rurais: ${url}`);
+      }
+    }
+
+    if (!res || !res.ok) return;
+
+    const data = await res.json();
+    const ways = data.elements || [];
+    if (ways.length === 0) return;
+
+    let ruralCount = 0;
+    ways.forEach((way: any) => {
+      if (!way.geometry || way.geometry.length === 0) return;
+      const latLngs = way.geometry.map((pt: any) => [pt.lat, pt.lon]);
+
+      // Verifica se a via rural está próxima da rota (raio 4km)
+      let isNearRoute = false;
+      for (const pt of way.geometry) {
+        for (const [rLat, rLon] of routeLineCoords) {
+          const dLat = (pt.lat - rLat) * 111.32;
+          const dLon = (pt.lon - rLon) * 111.32 * Math.cos(rLat * (Math.PI / 180));
+          if (Math.hypot(dLat, dLon) <= 4.0) {
+            isNearRoute = true;
+            break;
+          }
+        }
+        if (isNearRoute) break;
+      }
+
+      if (!isNearRoute) return;
+      ruralCount++;
+
+      const tags = way.tags || {};
+      const roadName = tags.name || tags.ref || 'Estrada Rural / Não Pavimentada';
+      const surface = tags.surface || 'terra/cascalho';
+
+      const polyline = L.polyline(latLngs, {
+        color: '#dc2626',
+        weight: 5,
+        dashArray: '8, 8',
+        opacity: 0.85
+      }).bindPopup(`
+        <div style="font-family: sans-serif; padding: 4px;">
+          <strong style="color: #dc2626; font-size: 13px;"><i class="fas fa-exclamation-triangle"></i> ${roadName}</strong><br>
+          <small style="color: #475569;"><b>Superfície:</b> ${surface}</small><br>
+          <span style="display:inline-block; margin-top:4px; font-size:11px; background:#fef2f2; color:#991b1b; padding:2px 6px; border-radius:4px; font-weight:700;">
+            <i class="fas fa-ban"></i> Estrada de Terra/Rural (Evitada no Roteamento)
+          </span>
+        </div>
+      `).addTo(map.value);
+
+      ruralRoadLayers.value.push(polyline);
+    });
+
+    if (ruralCount > 0) {
+      window.showToast(`Mapeados ${ruralCount} trechos de estradas rurais (em vermelho tracejado) evitadas no percurso!`, 'info');
+    }
+  } catch (e) {
+    console.error('Erro ao buscar estradas rurais:', e);
   }
 };
 
