@@ -998,6 +998,7 @@ const fetchGoogleTollCosts = async (allCoords: [number, number][]) => {
     // MULTIPLICADOR DE EIXOS
     const multiplier = vehicleType.value === 'driving-hgv' ? (truckAxles.value || 2) : 1;
     routeDetails.value.tollCost = baseTollCost * multiplier;
+    routeDetails.value.cost += routeDetails.value.tollCost; // Soma o pedágio ao custo total (combustível)
     
   } catch (err) {
     console.error('Erro na requisição ao Google Maps Tolls:', err);
@@ -1456,7 +1457,7 @@ const exportOptimizedRoute = () => {
               <span class="ind-value">{{ routeDetails.liters }} Litros</span>
             </div>
             <div class="indicator-card glow-green">
-              <span class="ind-label"><i class="fas fa-dollar-sign"></i> Custo Diesel/Gas</span>
+              <span class="ind-label"><i class="fas fa-dollar-sign"></i> Custo Total (Comb + Ped)</span>
               <span class="ind-value highlight">{{ routeDetails.cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }}</span>
             </div>
             <div class="indicator-card" style="border-left: 3px solid #f59e0b;">
