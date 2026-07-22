@@ -1018,7 +1018,6 @@ const fetchAndDrawTolls = async (routeGeometry: any, allCoords: [number, number]
   if (routeLineCoords.length === 0) {
     routeLineCoords = allCoords;
   }
-
   let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
   routeLineCoords.forEach(([lat, lon]) => {
     if (lat < minLat) minLat = lat;
@@ -1031,23 +1030,42 @@ const fetchAndDrawTolls = async (routeGeometry: any, allCoords: [number, number]
   minLon -= 0.04; maxLon += 0.04;
 
   try {
-    const overpassUrl = 'https://overpass-api.de/api/interpreter';
     const query = `[out:json][timeout:15];
 (
   node["barrier"="toll_booth"](${minLat.toFixed(4)},${minLon.toFixed(4)},${maxLat.toFixed(4)},${maxLon.toFixed(4)});
   node["highway"="toll_gantry"](${minLat.toFixed(4)},${minLon.toFixed(4)},${maxLat.toFixed(4)},${maxLon.toFixed(4)});
 );
 out body;`;
-    
-    const res = await fetch(overpassUrl, {
-      method: 'POST',
-      body: 'data=' + encodeURIComponent(query),
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    });
 
-    if (!res.ok) return;
+    const overpassUrls = [
+      'https://lz4.overpass-api.de/api/interpreter',
+      'https://z.overpass-api.de/api/interpreter',
+      'https://overpass-api.de/api/interpreter'
+    ];
+
+    let res = null;
+    for (const url of overpassUrls) {
+      try {
+        res = await fetch(url, {
+          method: 'POST',
+          body: 'data=' + encodeURIComponent(query),
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+        if (res.ok) break;
+      } catch (e) {
+        console.warn(`Falha no servidor Overpass: ${url}`);
+      }
+    }
+
+    if (!res || !res.ok) {
+      console.warn('Todos os servidores Overpass falharam ou deram Timeout.');
+      routeDetails.value.tollsCount = 0;
+      return;
+    }
+
     const data = await res.json();
-    if (!data.elements || data.elements.length === 0) {
+    const tollNodes = data.elements || [];
+    if (tollNodes.length === 0) {
       routeDetails.value.tollsCount = 0;
       return;
     }
