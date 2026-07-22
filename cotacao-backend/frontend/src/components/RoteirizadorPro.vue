@@ -35,6 +35,7 @@ const fuelType = ref<'dieselS10' | 'gasolina' | 'etanol'>('dieselS10');
 const fuelPrice = ref(5.88); // Valor médio padrão para PR
 const vehicleType = ref<'driving-car' | 'driving-hgv'>('driving-car');
 const truckHeight = ref(4.4); // Altura padrão do caminhão em metros
+const truckAxles = ref(6); // Número de eixos (para multiplicador de pedágio)
 const manualStops = ref<ClientStop[]>([]);
 
 // Planilha Modo Excel
@@ -55,7 +56,8 @@ const routeDetails = ref({
   duration: '',
   liters: 0,
   cost: 0,
-  tollsCount: 0
+  tollsCount: 0,
+  tollCost: 0 // Valor total do pedágio estimado
 });
 
 // Paradas ordenadas finais da rota atual
@@ -922,8 +924,9 @@ const processAndCalculateRoute = async () => {
     const bounds = L.latLngBounds(allCoords);
     map.value.fitBounds(bounds, { padding: [50, 50] });
 
-    // 7. Identificar Praças de Pedágio (ANTT / OpenStreetMap) na Rota
-    await fetchAndDrawTolls(routeGeometry, allCoords);
+    // 7. Identificar Praças de Pedágio e Custo Total na Rota
+    await fetchGoogleTollCosts(allCoords); // Busca custo Google
+    await fetchAndDrawTolls(routeGeometry, allCoords); // Busca praças no mapa (visual)
 
     routeCalculated.value = true;
     finalRouteStops.value = orderedStops;
@@ -933,6 +936,71 @@ const processAndCalculateRoute = async () => {
     window.showToast('Erro interno ao traçar circuito logístico pelas estradas: ' + err.message, 'error');
   } finally {
     isSearching.value = false;
+  }
+};
+
+// CHAMADA AO GOOGLE MAPS PARA CALCULAR CUSTO DO PEDÁGIO
+const fetchGoogleTollCosts = async (allCoords: [number, number][]) => {
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  if (!apiKey || allCoords.length < 2) {
+    routeDetails.value.tollCost = 0;
+    return;
+  }
+
+  try {
+    const origin = allCoords[0];
+    const destination = allCoords[allCoords.length - 1];
+    const waypoints = allCoords.slice(1, -1).map(coord => ({
+      location: { latLng: { latitude: coord[0], longitude: coord[1] } }
+    }));
+
+    const payload = {
+      origin: { location: { latLng: { latitude: origin[0], longitude: origin[1] } } },
+      destination: { location: { latLng: { latitude: destination[0], longitude: destination[1] } } },
+      intermediates: waypoints,
+      travelMode: "DRIVE",
+      routingPreference: "TRAFFIC_AWARE",
+      extraComputations: ["TOLLS"]
+    };
+
+    const res = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': 'routes.travelAdvisory.tollInfo'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      console.warn('Erro ao consultar pedágio no Google Maps', await res.text());
+      routeDetails.value.tollCost = 0;
+      return;
+    }
+
+    const data = await res.json();
+    let baseTollCost = 0;
+
+    if (data.routes && data.routes[0] && data.routes[0].travelAdvisory && data.routes[0].travelAdvisory.tollInfo) {
+      const estimatedPrices = data.routes[0].travelAdvisory.tollInfo.estimatedPrice || [];
+      if (estimatedPrices.length > 0) {
+        // Pega o primeiro preço estimado (normalmente em BRL)
+        const priceObj = estimatedPrices[0];
+        if (priceObj.units) {
+          baseTollCost = parseFloat(priceObj.units) + (priceObj.nanos ? priceObj.nanos / 1e9 : 0);
+        }
+      }
+    }
+
+    // MULTIPLICADOR DE EIXOS (O Segredo!)
+    // O Google retorna valor de carro (x1). Se for HGV, multiplicamos pelos eixos informados.
+    const multiplier = vehicleType.value === 'driving-hgv' ? (truckAxles.value || 2) : 1;
+    routeDetails.value.tollCost = baseTollCost * multiplier;
+    
+  } catch (err) {
+    console.error('Erro na requisição ao Google Maps Tolls:', err);
+    routeDetails.value.tollCost = 0;
   }
 };
 
@@ -1177,6 +1245,19 @@ const exportOptimizedRoute = () => {
               <label><i class="fas fa-ruler-vertical"></i> Altura (m)</label>
               <input type="number" step="0.1" v-model="truckHeight" class="glass-input" />
             </div>
+
+            <div class="config-item" v-if="vehicleType === 'driving-hgv'">
+              <label><i class="fas fa-truck-moving"></i> Eixos</label>
+              <select v-model="truckAxles" class="glass-input">
+                <option :value="2">2 Eixos (Toco)</option>
+                <option :value="3">3 Eixos (Truck)</option>
+                <option :value="4">4 Eixos (Bi-truck)</option>
+                <option :value="5">5 Eixos (Carreta)</option>
+                <option :value="6">6 Eixos (Carreta LS)</option>
+                <option :value="7">7 Eixos (Rodotrem)</option>
+                <option :value="9">9 Eixos (Bitrem 9)</option>
+              </select>
+            </div>
           </div>
 
           <hr class="glass-divider" />
@@ -1303,8 +1384,11 @@ const exportOptimizedRoute = () => {
           <div class="res-item highlight-toll">
             <i class="fas fa-hand-holding-usd icon-amber"></i>
             <div>
-              <span class="res-label">Pedágios (ANTT)</span>
-              <span class="res-value text-amber">{{ routeDetails.tollsCount || 0 }} praça(s)</span>
+              <span class="res-label">Pedágios (Custo)</span>
+              <span class="res-value text-amber">
+                {{ routeDetails.tollsCount || 0 }} praça(s) 
+                <span v-if="routeDetails.tollCost > 0">- {{ routeDetails.tollCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }}</span>
+              </span>
             </div>
           </div>
           <div class="res-item highlight">
