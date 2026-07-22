@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { safeFetch } from '../utils/api-utils';
 import * as XLSX from 'xlsx';
 
@@ -84,6 +84,170 @@ const fetchClients = async () => {
     console.error('Erro ao buscar clientes:', e);
   }
 };
+
+// Estados dos Modais de Cliente
+const showRegisterModal = ref(false);
+const showViewClientModal = ref(false);
+const viewClientSearch = ref('');
+const inspectedClient = ref<any>(null);
+
+const isSearchingCNPJ = ref(false);
+const isSavingClient = ref(false);
+
+const newClientForm = ref({
+  cnpj: '',
+  razao_social: '',
+  fantasia: '',
+  cep: '',
+  logradouro: '',
+  numero: '',
+  bairro: '',
+  cidade: '',
+  estado: '',
+  inscricao_estadual: '',
+  telefone: '',
+  empresa_faturamento: 'NICOPEL'
+});
+
+// Ações do Modal de Cadastro
+const openRegisterClientModal = () => {
+  newClientForm.value = {
+    cnpj: '', razao_social: '', fantasia: '', cep: '',
+    logradouro: '', numero: '', bairro: '', cidade: '',
+    estado: '', inscricao_estadual: '', telefone: '',
+    empresa_faturamento: 'NICOPEL'
+  };
+  showRegisterModal.value = true;
+};
+
+const lookupNewClientCNPJ = async () => {
+  const cnpjClean = newClientForm.value.cnpj.replace(/\D/g, '');
+  if (cnpjClean.length !== 14 && cnpjClean.length !== 11) {
+    return window.showToast('Digite um CNPJ válido com 14 dígitos ou CPF com 11 dígitos.', 'warning');
+  }
+
+  isSearchingCNPJ.value = true;
+  try {
+    const res = await safeFetch(`/api/clients/cnpj/${cnpjClean}`);
+    if (res.ok && res.data && res.data.data) {
+      const d = res.data.data;
+      newClientForm.value.razao_social = d.razao_social || '';
+      newClientForm.value.fantasia = d.fantasia || '';
+      newClientForm.value.cep = d.cep || '';
+      newClientForm.value.cidade = d.cidade || '';
+      newClientForm.value.estado = d.estado || '';
+      
+      if (res.data.isAlreadyRegistered) {
+        window.showToast('Este cliente já está cadastrado no sistema.', 'info');
+      } else {
+        window.showToast('Dados da empresa localizados na Receita!', 'success');
+      }
+      
+      if (newClientForm.value.cep) lookupNewClientCEP();
+    } else {
+      window.showToast('CNPJ não localizado na busca externa. Preencha os dados manualmente.', 'warning');
+    }
+  } catch (e) {
+    window.showToast('Erro ao consultar CNPJ.', 'error');
+  } finally {
+    isSearchingCNPJ.value = false;
+  }
+};
+
+const lookupNewClientCEP = async () => {
+  const cepClean = newClientForm.value.cep.replace(/\D/g, '');
+  if (cepClean.length !== 8) return;
+
+  try {
+    const res = await fetch(`https://brasilapi.com.br/api/cep/v1/${cepClean}`);
+    const d = await res.json();
+    if (res.ok) {
+      newClientForm.value.logradouro = d.street || '';
+      newClientForm.value.bairro = d.neighborhood || '';
+      newClientForm.value.cidade = d.city || '';
+      newClientForm.value.estado = d.state || '';
+    }
+  } catch (e) {
+    console.error("Erro CEP:", e);
+  }
+};
+
+const saveNewClient = async (e: Event) => {
+  e.preventDefault();
+  const cnpjClean = newClientForm.value.cnpj.replace(/\D/g, '');
+  const cepClean = newClientForm.value.cep.replace(/\D/g, '');
+
+  if (!cnpjClean || (cnpjClean.length !== 14 && cnpjClean.length !== 11)) {
+    return window.showToast('Digite um CNPJ/CPF válido.', 'warning');
+  }
+  if (!newClientForm.value.razao_social.trim()) {
+    return window.showToast('Preencha a Razão Social.', 'warning');
+  }
+  if (!cepClean || cepClean.length !== 8) {
+    return window.showToast('Digite um CEP válido com 8 dígitos.', 'warning');
+  }
+  if (!newClientForm.value.cidade.trim() || !newClientForm.value.estado) {
+    return window.showToast('Preencha Cidade e Estado.', 'warning');
+  }
+
+  isSavingClient.value = true;
+  try {
+    const res = await safeFetch('/api/clients', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...newClientForm.value,
+        cnpj: cnpjClean,
+        cep: cepClean
+      }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (res.ok && res.data) {
+      window.showToast('Cliente cadastrado com sucesso no banco de dados!', 'success');
+      await fetchClients();
+      const createdId = res.data.id || (clients.value.find(c => c.cnpj === cnpjClean)?.id);
+      if (createdId) {
+        selectedClientId.value = createdId;
+      }
+      showRegisterModal.value = false;
+    } else {
+      window.showToast(res.data?.message || 'Erro ao salvar cliente.', 'error');
+    }
+  } catch (e) {
+    window.showToast('Erro na comunicação com o servidor.', 'error');
+  } finally {
+    isSavingClient.value = false;
+  }
+};
+
+// Ações do Modal de Visualização / Consulta de Clientes
+const openViewClientModal = () => {
+  viewClientSearch.value = '';
+  if (selectedClientId.value) {
+    inspectedClient.value = clients.value.find(c => c.id === selectedClientId.value) || null;
+  } else {
+    inspectedClient.value = null;
+  }
+  showViewClientModal.value = true;
+};
+
+const selectClientFromModal = (client: any) => {
+  selectedClientId.value = client.id;
+  showViewClientModal.value = false;
+  window.showToast(`Cliente "${client.razao_social}" selecionado.`, 'info');
+};
+
+const filteredModalClients = computed(() => {
+  const q = viewClientSearch.value.toLowerCase().trim();
+  if (!q) return clients.value;
+  return clients.value.filter(c => 
+    (c.razao_social && c.razao_social.toLowerCase().includes(q)) ||
+    (c.cnpj && c.cnpj.includes(q)) ||
+    (c.cidade && c.cidade.toLowerCase().includes(q)) ||
+    (c.estado && c.estado.toLowerCase().includes(q)) ||
+    (c.fantasia && c.fantasia.toLowerCase().includes(q))
+  );
+});
 
 const fetchFuelPrices = async () => {
   try {
@@ -923,8 +1087,14 @@ const exportOptimizedRoute = () => {
                   {{ client.razao_social }} ({{ client.cidade }} - {{ client.estado }})
                 </option>
               </select>
-              <button @click="addClientToRoute" class="btn-glass primary">
+              <button type="button" @click="addClientToRoute" class="btn-glass primary" title="Adicionar Cliente Selecionado à Rota">
                 <i class="fas fa-plus"></i>
+              </button>
+              <button type="button" @click="openViewClientModal" class="btn-glass info" title="Verificar Dados do Cliente no Banco">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button type="button" @click="openRegisterClientModal" class="btn-glass success" title="Cadastrar Novo Cliente no Banco">
+                <i class="fas fa-user-plus"></i>
               </button>
             </div>
 
@@ -1041,6 +1211,224 @@ const exportOptimizedRoute = () => {
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- MODAL DE CADASTRO DE NOVO CLIENTE NO BANCO -->
+  <div v-if="showRegisterModal" class="client-modal-overlay fade-in" @click.self="showRegisterModal = false">
+    <div class="client-modal-card">
+      <div class="client-modal-header">
+        <h3><i class="fas fa-user-plus text-success"></i> Cadastrar Novo Cliente no Banco</h3>
+        <button @click="showRegisterModal = false" class="btn-close-modal"><i class="fas fa-times"></i></button>
+      </div>
+      
+      <form @submit="saveNewClient" class="client-form-grid">
+        <div class="form-group full-width">
+          <label>CNPJ / CPF</label>
+          <div class="input-with-button">
+            <input 
+              v-model="newClientForm.cnpj" 
+              type="text" 
+              class="glass-input" 
+              placeholder="Digite o CNPJ (ex: 00.000.000/0000-00)" 
+              required 
+            />
+            <button type="button" @click="lookupNewClientCNPJ" class="btn-lookup" :disabled="isSearchingCNPJ">
+              <i class="fas" :class="isSearchingCNPJ ? 'fa-spinner fa-spin' : 'fa-search'"></i> Buscar CNPJ
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group span-2">
+          <label>Razão Social / Nome *</label>
+          <input v-model="newClientForm.razao_social" type="text" class="glass-input" placeholder="Razão Social" required />
+        </div>
+
+        <div class="form-group">
+          <label>Nome Fantasia</label>
+          <input v-model="newClientForm.fantasia" type="text" class="glass-input" placeholder="Nome Fantasia" />
+        </div>
+
+        <div class="form-group">
+          <label>CEP *</label>
+          <input v-model="newClientForm.cep" @blur="lookupNewClientCEP" type="text" class="glass-input" placeholder="86000-000" required />
+        </div>
+
+        <div class="form-group span-2">
+          <label>Logradouro / Endereço</label>
+          <input v-model="newClientForm.logradouro" type="text" class="glass-input" placeholder="Rua, Av..." />
+        </div>
+
+        <div class="form-group">
+          <label>Número</label>
+          <input v-model="newClientForm.numero" type="text" class="glass-input" placeholder="123" />
+        </div>
+
+        <div class="form-group">
+          <label>Bairro</label>
+          <input v-model="newClientForm.bairro" type="text" class="glass-input" placeholder="Bairro" />
+        </div>
+
+        <div class="form-group">
+          <label>Cidade *</label>
+          <input v-model="newClientForm.cidade" type="text" class="glass-input" placeholder="Londrina" required />
+        </div>
+
+        <div class="form-group">
+          <label>Estado (UF) *</label>
+          <select v-model="newClientForm.estado" class="glass-input" required>
+            <option value="" disabled>UF</option>
+            <option v-for="uf in ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']" :key="uf" :value="uf">{{ uf }}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Telefone / Contato</label>
+          <input v-model="newClientForm.telefone" type="text" class="glass-input" placeholder="(43) 99999-9999" />
+        </div>
+
+        <div class="form-group">
+          <label>Inscrição Estadual</label>
+          <input v-model="newClientForm.inscricao_estadual" type="text" class="glass-input" placeholder="Isento ou Nº IE" />
+        </div>
+
+        <div class="form-group span-2">
+          <label>Empresa de Faturamento</label>
+          <select v-model="newClientForm.empresa_faturamento" class="glass-input">
+            <option value="NICOPEL">NICOPEL</option>
+            <option value="FLEXOBOX">FLEXOBOX</option>
+          </select>
+        </div>
+
+        <div class="client-modal-actions full-width mt-15">
+          <button type="button" @click="showRegisterModal = false" class="btn-modal-cancel">Cancelar</button>
+          <button type="submit" class="btn-modal-save" :disabled="isSavingClient">
+            <i class="fas" :class="isSavingClient ? 'fa-spinner fa-spin' : 'fa-save'"></i> Salvar Cliente no Banco
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE VERIFICAÇÃO / DADOS DO CLIENTE CADASTRADO NO BANCO -->
+  <div v-if="showViewClientModal" class="client-modal-overlay fade-in" @click.self="showViewClientModal = false">
+    <div class="client-modal-card wide">
+      <div class="client-modal-header">
+        <h3><i class="fas fa-database text-info"></i> Clientes Cadastrados no Banco de Dados</h3>
+        <button @click="showViewClientModal = false" class="btn-close-modal"><i class="fas fa-times"></i></button>
+      </div>
+
+      <!-- VISUALIZAÇÃO DE DETALHES DE UM CLIENTE ESPECÍFICO -->
+      <div v-if="inspectedClient" class="client-details-view fade-in">
+        <div class="details-top-bar">
+          <button @click="inspectedClient = null" class="btn-back-link">
+            <i class="fas fa-arrow-left"></i> Voltar à Lista de Clientes
+          </button>
+          <span class="badge-db"><i class="fas fa-check-circle"></i> Dados Registrados no Banco</span>
+        </div>
+
+        <div class="client-details-card">
+          <div class="details-header-info">
+            <h4>{{ inspectedClient.razao_social }}</h4>
+            <p v-if="inspectedClient.fantasia" class="text-muted"><i class="fas fa-building"></i> {{ inspectedClient.fantasia }}</p>
+          </div>
+
+          <div class="details-grid">
+            <div class="detail-item">
+              <span class="detail-label">ID Banco</span>
+              <span class="detail-value">#{{ inspectedClient.id }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">CNPJ / CPF</span>
+              <span class="detail-value highlight">{{ inspectedClient.cnpj }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Inscrição Estadual</span>
+              <span class="detail-value">{{ inspectedClient.inscricao_estadual || 'Isento' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Empresa Faturamento</span>
+              <span class="detail-value">{{ inspectedClient.empresa_faturamento || 'NICOPEL' }}</span>
+            </div>
+            <div class="detail-item span-2">
+              <span class="detail-label">Endereço Completo</span>
+              <span class="detail-value">
+                {{ inspectedClient.logradouro || 'Não informado' }}
+                <template v-if="inspectedClient.numero">, nº {{ inspectedClient.numero }}</template>
+                <template v-if="inspectedClient.bairro"> - {{ inspectedClient.bairro }}</template>
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">CEP</span>
+              <span class="detail-value">{{ inspectedClient.cep }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Cidade / UF</span>
+              <span class="detail-value strong">{{ inspectedClient.cidade }} / {{ inspectedClient.estado }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Telefone / Contato</span>
+              <span class="detail-value">{{ inspectedClient.telefone || 'Não cadastrado' }}</span>
+            </div>
+            <div class="detail-item" v-if="inspectedClient.latitude && inspectedClient.longitude">
+              <span class="detail-label">Coordenadas GPS</span>
+              <span class="detail-value text-success">{{ inspectedClient.latitude }}, {{ inspectedClient.longitude }}</span>
+            </div>
+          </div>
+
+          <div class="details-actions mt-20">
+            <button @click="selectClientFromModal(inspectedClient)" class="btn-modal-save">
+              <i class="fas fa-check"></i> Selecionar Este Cliente para a Rota
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- LISTA DE CLIENTES CADASTRADOS COM BUSCA -->
+      <div v-else class="client-list-view">
+        <div class="search-bar-modal mb-15">
+          <div class="input-with-icon">
+            <i class="fas fa-search search-icon"></i>
+            <input 
+              v-model="viewClientSearch" 
+              type="text" 
+              class="glass-input full-width" 
+              placeholder="Pesquisar por CNPJ, Razão Social, Cidade ou Estado..." 
+              autofocus
+            />
+          </div>
+        </div>
+
+        <div class="clients-table-scroll glass-scroll">
+          <div v-if="filteredModalClients.length === 0" class="empty-state">
+            Nenhum cliente cadastrado foi localizado com esta pesquisa.
+          </div>
+          
+          <div 
+            v-for="client in filteredModalClients" 
+            :key="client.id" 
+            class="client-row-item"
+            :class="{ active: selectedClientId === client.id }"
+          >
+            <div class="client-row-main">
+              <strong>{{ client.razao_social }}</strong>
+              <div class="client-row-sub">
+                <span><i class="fas fa-id-card"></i> {{ client.cnpj }}</span>
+                <span><i class="fas fa-map-marker-alt"></i> {{ client.cidade }}/{{ client.estado }}</span>
+                <span v-if="client.telefone"><i class="fas fa-phone"></i> {{ client.telefone }}</span>
+              </div>
+            </div>
+            <div class="client-row-btns">
+              <button @click="inspectedClient = client" class="btn-sm-action info" title="Verificar Dados Completos">
+                <i class="fas fa-eye"></i> Dados
+              </button>
+              <button @click="selectClientFromModal(client)" class="btn-sm-action primary" title="Selecionar para a Rota">
+                <i class="fas fa-check"></i> Usar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -1238,7 +1626,104 @@ const exportOptimizedRoute = () => {
   cursor: pointer; transition: all 0.2s;
 }
 .btn-glass.primary { background: #3b82f6; border-color: #3b82f6; }
+.btn-glass.info { background: #0284c7; border-color: #0284c7; }
+.btn-glass.success { background: #10b981; border-color: #10b981; }
 .btn-glass:hover { transform: translateY(-2px); }
+
+/* Estilos para Modais de Clientes */
+.client-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.client-modal-card {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  width: 100%; max-width: 620px;
+  padding: 24px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  color: #f8fafc;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.client-modal-card.wide {
+  max-width: 820px;
+}
+.client-modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 14px;
+}
+.client-modal-header h3 { margin: 0; font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.btn-close-modal { background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; transition: color 0.2s; }
+.btn-close-modal:hover { color: #ef4444; }
+
+.client-form-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;
+}
+.span-2 { grid-column: span 2; }
+.full-width { width: 100%; grid-column: 1 / -1; }
+
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; }
+
+.input-with-button { display: flex; gap: 8px; }
+.input-with-button .glass-input { flex: 1; }
+.btn-lookup {
+  background: #3b82f6; border: none; color: white; padding: 0 16px;
+  border-radius: 8px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  display: flex; align-items: center; gap: 6px; font-size: 0.85rem; transition: all 0.2s;
+}
+.btn-lookup:hover { background: #2563eb; }
+
+.client-modal-actions { display: flex; justify-content: flex-end; gap: 12px; }
+.btn-modal-cancel { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.btn-modal-cancel:hover { background: rgba(255,255,255,0.15); }
+.btn-modal-save { background: #10b981; border: none; color: white; padding: 10px 24px; border-radius: 8px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
+.btn-modal-save:hover { background: #059669; }
+
+.text-success { color: #10b981; }
+.text-info { color: #38bdf8; }
+
+/* Visualização Detalhada do Cliente */
+.details-top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.btn-back-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
+.btn-back-link:hover { text-decoration: underline; color: #60a5fa; }
+.badge-db { background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+.client-details-card { background: rgba(0, 0, 0, 0.25); border-radius: 12px; padding: 20px; border: 1px solid rgba(255, 255, 255, 0.05); }
+.details-header-info h4 { margin: 0; font-size: 1.3rem; color: #ffffff; }
+.details-header-info p { margin: 4px 0 16px 0; font-size: 0.9rem; color: #94a3b8; }
+.details-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.detail-item { display: flex; flex-direction: column; background: rgba(255, 255, 255, 0.03); padding: 10px 14px; border-radius: 8px; }
+.detail-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; }
+.detail-value { font-size: 0.95rem; color: #e2e8f0; margin-top: 4px; word-break: break-word; }
+.detail-value.highlight { color: #38bdf8; font-family: monospace; font-weight: 700; }
+.detail-value.strong { font-weight: 700; color: #ffffff; }
+
+/* Lista de Clientes na Tabela do Modal */
+.mb-15 { margin-bottom: 15px; }
+.input-with-icon { position: relative; display: flex; align-items: center; }
+.input-with-icon .search-icon { position: absolute; left: 14px; color: #94a3b8; pointer-events: none; }
+.input-with-icon input { padding-left: 40px !important; }
+
+.clients-table-scroll { max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.client-row-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 12px 16px; transition: all 0.2s; }
+.client-row-item:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(59, 130, 246, 0.4); }
+.client-row-item.active { border-color: #10b981; background: rgba(16, 185, 129, 0.08); }
+.client-row-main { display: flex; flex-direction: column; gap: 4px; }
+.client-row-main strong { color: #f1f5f9; font-size: 0.95rem; }
+.client-row-sub { display: flex; gap: 14px; font-size: 0.8rem; color: #94a3b8; }
+.client-row-btns { display: flex; gap: 8px; }
+.btn-sm-action { border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; color: white; transition: all 0.2s; }
+.btn-sm-action.info { background: #0284c7; }
+.btn-sm-action.primary { background: #3b82f6; }
+.btn-sm-action:hover { filter: brightness(1.15); transform: translateY(-1px); }
 
 .glass-scroll {
   background: rgba(0, 0, 0, 0.2);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { safeFetch } from '../utils/api-utils';
 import * as XLSX from 'xlsx';
 
@@ -84,6 +84,170 @@ const fetchClients = async () => {
     console.error('Erro ao buscar clientes:', e);
   }
 };
+
+// Estados dos Modais de Cliente
+const showRegisterModal = ref(false);
+const showViewClientModal = ref(false);
+const viewClientSearch = ref('');
+const inspectedClient = ref<any>(null);
+
+const isSearchingCNPJ = ref(false);
+const isSavingClient = ref(false);
+
+const newClientForm = ref({
+  cnpj: '',
+  razao_social: '',
+  fantasia: '',
+  cep: '',
+  logradouro: '',
+  numero: '',
+  bairro: '',
+  cidade: '',
+  estado: '',
+  inscricao_estadual: '',
+  telefone: '',
+  empresa_faturamento: 'NICOPEL'
+});
+
+// Ações do Modal de Cadastro
+const openRegisterClientModal = () => {
+  newClientForm.value = {
+    cnpj: '', razao_social: '', fantasia: '', cep: '',
+    logradouro: '', numero: '', bairro: '', cidade: '',
+    estado: '', inscricao_estadual: '', telefone: '',
+    empresa_faturamento: 'NICOPEL'
+  };
+  showRegisterModal.value = true;
+};
+
+const lookupNewClientCNPJ = async () => {
+  const cnpjClean = newClientForm.value.cnpj.replace(/\D/g, '');
+  if (cnpjClean.length !== 14 && cnpjClean.length !== 11) {
+    return window.showToast('Digite um CNPJ válido com 14 dígitos ou CPF com 11 dígitos.', 'warning');
+  }
+
+  isSearchingCNPJ.value = true;
+  try {
+    const res = await safeFetch(`/api/clients/cnpj/${cnpjClean}`);
+    if (res.ok && res.data && res.data.data) {
+      const d = res.data.data;
+      newClientForm.value.razao_social = d.razao_social || '';
+      newClientForm.value.fantasia = d.fantasia || '';
+      newClientForm.value.cep = d.cep || '';
+      newClientForm.value.cidade = d.cidade || '';
+      newClientForm.value.estado = d.estado || '';
+      
+      if (res.data.isAlreadyRegistered) {
+        window.showToast('Este cliente já está cadastrado no sistema.', 'info');
+      } else {
+        window.showToast('Dados da empresa localizados na Receita!', 'success');
+      }
+      
+      if (newClientForm.value.cep) lookupNewClientCEP();
+    } else {
+      window.showToast('CNPJ não localizado na busca externa. Preencha os dados manualmente.', 'warning');
+    }
+  } catch (e) {
+    window.showToast('Erro ao consultar CNPJ.', 'error');
+  } finally {
+    isSearchingCNPJ.value = false;
+  }
+};
+
+const lookupNewClientCEP = async () => {
+  const cepClean = newClientForm.value.cep.replace(/\D/g, '');
+  if (cepClean.length !== 8) return;
+
+  try {
+    const res = await fetch(`https://brasilapi.com.br/api/cep/v1/${cepClean}`);
+    const d = await res.json();
+    if (res.ok) {
+      newClientForm.value.logradouro = d.street || '';
+      newClientForm.value.bairro = d.neighborhood || '';
+      newClientForm.value.cidade = d.city || '';
+      newClientForm.value.estado = d.state || '';
+    }
+  } catch (e) {
+    console.error("Erro CEP:", e);
+  }
+};
+
+const saveNewClient = async (e: Event) => {
+  e.preventDefault();
+  const cnpjClean = newClientForm.value.cnpj.replace(/\D/g, '');
+  const cepClean = newClientForm.value.cep.replace(/\D/g, '');
+
+  if (!cnpjClean || (cnpjClean.length !== 14 && cnpjClean.length !== 11)) {
+    return window.showToast('Digite um CNPJ/CPF válido.', 'warning');
+  }
+  if (!newClientForm.value.razao_social.trim()) {
+    return window.showToast('Preencha a Razão Social.', 'warning');
+  }
+  if (!cepClean || cepClean.length !== 8) {
+    return window.showToast('Digite um CEP válido com 8 dígitos.', 'warning');
+  }
+  if (!newClientForm.value.cidade.trim() || !newClientForm.value.estado) {
+    return window.showToast('Preencha Cidade e Estado.', 'warning');
+  }
+
+  isSavingClient.value = true;
+  try {
+    const res = await safeFetch('/api/clients', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...newClientForm.value,
+        cnpj: cnpjClean,
+        cep: cepClean
+      }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (res.ok && res.data) {
+      window.showToast('Cliente cadastrado com sucesso no banco de dados!', 'success');
+      await fetchClients();
+      const createdId = res.data.id || (clients.value.find(c => c.cnpj === cnpjClean)?.id);
+      if (createdId) {
+        selectedClientId.value = createdId;
+      }
+      showRegisterModal.value = false;
+    } else {
+      window.showToast(res.data?.message || 'Erro ao salvar cliente.', 'error');
+    }
+  } catch (e) {
+    window.showToast('Erro na comunicação com o servidor.', 'error');
+  } finally {
+    isSavingClient.value = false;
+  }
+};
+
+// Ações do Modal de Visualização / Consulta de Clientes
+const openViewClientModal = () => {
+  viewClientSearch.value = '';
+  if (selectedClientId.value) {
+    inspectedClient.value = clients.value.find(c => c.id === selectedClientId.value) || null;
+  } else {
+    inspectedClient.value = null;
+  }
+  showViewClientModal.value = true;
+};
+
+const selectClientFromModal = (client: any) => {
+  selectedClientId.value = client.id;
+  showViewClientModal.value = false;
+  window.showToast(`Cliente "${client.razao_social}" selecionado.`, 'info');
+};
+
+const filteredModalClients = computed(() => {
+  const q = viewClientSearch.value.toLowerCase().trim();
+  if (!q) return clients.value;
+  return clients.value.filter(c => 
+    (c.razao_social && c.razao_social.toLowerCase().includes(q)) ||
+    (c.cnpj && c.cnpj.includes(q)) ||
+    (c.cidade && c.cidade.toLowerCase().includes(q)) ||
+    (c.estado && c.estado.toLowerCase().includes(q)) ||
+    (c.fantasia && c.fantasia.toLowerCase().includes(q))
+  );
+});
 
 const fetchFuelPrices = async () => {
   try {
@@ -942,8 +1106,14 @@ const exportOptimizedRoute = () => {
                     {{ client.razao_social }} ({{ client.cidade }} - {{ client.estado }})
                   </option>
                 </select>
-                <button type="button" @click="addClientToRoute" class="btn-add-stop">
+                <button type="button" @click="addClientToRoute" class="btn-add-stop" title="Adicionar à Rota">
                   <i class="fas fa-plus"></i> Add
+                </button>
+                <button type="button" @click="openViewClientModal" class="btn-add-stop info" title="Verificar Dados do Cliente no Banco">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button type="button" @click="openRegisterClientModal" class="btn-add-stop success" title="Cadastrar Novo Cliente no Banco">
+                  <i class="fas fa-user-plus"></i>
                 </button>
               </div>
             </div>
@@ -1174,6 +1344,224 @@ const exportOptimizedRoute = () => {
       </div>
     </div>
   </div>
+
+  <!-- MODAL DE CADASTRO DE NOVO CLIENTE NO BANCO -->
+  <div v-if="showRegisterModal" class="client-modal-overlay fade-in" @click.self="showRegisterModal = false">
+    <div class="client-modal-card">
+      <div class="client-modal-header">
+        <h3><i class="fas fa-user-plus text-success"></i> Cadastrar Novo Cliente no Banco</h3>
+        <button @click="showRegisterModal = false" class="btn-close-modal"><i class="fas fa-times"></i></button>
+      </div>
+      
+      <form @submit="saveNewClient" class="client-form-grid">
+        <div class="form-group full-width">
+          <label>CNPJ / CPF</label>
+          <div class="input-with-button">
+            <input 
+              v-model="newClientForm.cnpj" 
+              type="text" 
+              class="glass-input" 
+              placeholder="Digite o CNPJ (ex: 00.000.000/0000-00)" 
+              required 
+            />
+            <button type="button" @click="lookupNewClientCNPJ" class="btn-lookup" :disabled="isSearchingCNPJ">
+              <i class="fas" :class="isSearchingCNPJ ? 'fa-spinner fa-spin' : 'fa-search'"></i> Buscar CNPJ
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group span-2">
+          <label>Razão Social / Nome *</label>
+          <input v-model="newClientForm.razao_social" type="text" class="glass-input" placeholder="Razão Social" required />
+        </div>
+
+        <div class="form-group">
+          <label>Nome Fantasia</label>
+          <input v-model="newClientForm.fantasia" type="text" class="glass-input" placeholder="Nome Fantasia" />
+        </div>
+
+        <div class="form-group">
+          <label>CEP *</label>
+          <input v-model="newClientForm.cep" @blur="lookupNewClientCEP" type="text" class="glass-input" placeholder="86000-000" required />
+        </div>
+
+        <div class="form-group span-2">
+          <label>Logradouro / Endereço</label>
+          <input v-model="newClientForm.logradouro" type="text" class="glass-input" placeholder="Rua, Av..." />
+        </div>
+
+        <div class="form-group">
+          <label>Número</label>
+          <input v-model="newClientForm.numero" type="text" class="glass-input" placeholder="123" />
+        </div>
+
+        <div class="form-group">
+          <label>Bairro</label>
+          <input v-model="newClientForm.bairro" type="text" class="glass-input" placeholder="Bairro" />
+        </div>
+
+        <div class="form-group">
+          <label>Cidade *</label>
+          <input v-model="newClientForm.cidade" type="text" class="glass-input" placeholder="Londrina" required />
+        </div>
+
+        <div class="form-group">
+          <label>Estado (UF) *</label>
+          <select v-model="newClientForm.estado" class="glass-input" required>
+            <option value="" disabled>UF</option>
+            <option v-for="uf in ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']" :key="uf" :value="uf">{{ uf }}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Telefone / Contato</label>
+          <input v-model="newClientForm.telefone" type="text" class="glass-input" placeholder="(43) 99999-9999" />
+        </div>
+
+        <div class="form-group">
+          <label>Inscrição Estadual</label>
+          <input v-model="newClientForm.inscricao_estadual" type="text" class="glass-input" placeholder="Isento ou Nº IE" />
+        </div>
+
+        <div class="form-group span-2">
+          <label>Empresa de Faturamento</label>
+          <select v-model="newClientForm.empresa_faturamento" class="glass-input">
+            <option value="NICOPEL">NICOPEL</option>
+            <option value="FLEXOBOX">FLEXOBOX</option>
+          </select>
+        </div>
+
+        <div class="client-modal-actions full-width mt-15">
+          <button type="button" @click="showRegisterModal = false" class="btn-modal-cancel">Cancelar</button>
+          <button type="submit" class="btn-modal-save" :disabled="isSavingClient">
+            <i class="fas" :class="isSavingClient ? 'fa-spinner fa-spin' : 'fa-save'"></i> Salvar Cliente no Banco
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE VERIFICAÇÃO / DADOS DO CLIENTE CADASTRADO NO BANCO -->
+  <div v-if="showViewClientModal" class="client-modal-overlay fade-in" @click.self="showViewClientModal = false">
+    <div class="client-modal-card wide">
+      <div class="client-modal-header">
+        <h3><i class="fas fa-database text-info"></i> Clientes Cadastrados no Banco de Dados</h3>
+        <button @click="showViewClientModal = false" class="btn-close-modal"><i class="fas fa-times"></i></button>
+      </div>
+
+      <!-- VISUALIZAÇÃO DE DETALHES DE UM CLIENTE ESPECÍFICO -->
+      <div v-if="inspectedClient" class="client-details-view fade-in">
+        <div class="details-top-bar">
+          <button @click="inspectedClient = null" class="btn-back-link">
+            <i class="fas fa-arrow-left"></i> Voltar à Lista de Clientes
+          </button>
+          <span class="badge-db"><i class="fas fa-check-circle"></i> Dados Registrados no Banco</span>
+        </div>
+
+        <div class="client-details-card">
+          <div class="details-header-info">
+            <h4>{{ inspectedClient.razao_social }}</h4>
+            <p v-if="inspectedClient.fantasia" class="text-muted"><i class="fas fa-building"></i> {{ inspectedClient.fantasia }}</p>
+          </div>
+
+          <div class="details-grid">
+            <div class="detail-item">
+              <span class="detail-label">ID Banco</span>
+              <span class="detail-value">#{{ inspectedClient.id }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">CNPJ / CPF</span>
+              <span class="detail-value highlight">{{ inspectedClient.cnpj }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Inscrição Estadual</span>
+              <span class="detail-value">{{ inspectedClient.inscricao_estadual || 'Isento' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Empresa Faturamento</span>
+              <span class="detail-value">{{ inspectedClient.empresa_faturamento || 'NICOPEL' }}</span>
+            </div>
+            <div class="detail-item span-2">
+              <span class="detail-label">Endereço Completo</span>
+              <span class="detail-value">
+                {{ inspectedClient.logradouro || 'Não informado' }}
+                <template v-if="inspectedClient.numero">, nº {{ inspectedClient.numero }}</template>
+                <template v-if="inspectedClient.bairro"> - {{ inspectedClient.bairro }}</template>
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">CEP</span>
+              <span class="detail-value">{{ inspectedClient.cep }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Cidade / UF</span>
+              <span class="detail-value strong">{{ inspectedClient.cidade }} / {{ inspectedClient.estado }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Telefone / Contato</span>
+              <span class="detail-value">{{ inspectedClient.telefone || 'Não cadastrado' }}</span>
+            </div>
+            <div class="detail-item" v-if="inspectedClient.latitude && inspectedClient.longitude">
+              <span class="detail-label">Coordenadas GPS</span>
+              <span class="detail-value text-success">{{ inspectedClient.latitude }}, {{ inspectedClient.longitude }}</span>
+            </div>
+          </div>
+
+          <div class="details-actions mt-20">
+            <button @click="selectClientFromModal(inspectedClient)" class="btn-modal-save">
+              <i class="fas fa-check"></i> Selecionar Este Cliente para a Rota
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- LISTA DE CLIENTES CADASTRADOS COM BUSCA -->
+      <div v-else class="client-list-view">
+        <div class="search-bar-modal mb-15">
+          <div class="input-with-icon">
+            <i class="fas fa-search search-icon"></i>
+            <input 
+              v-model="viewClientSearch" 
+              type="text" 
+              class="glass-input full-width" 
+              placeholder="Pesquisar por CNPJ, Razão Social, Cidade ou Estado..." 
+              autofocus
+            />
+          </div>
+        </div>
+
+        <div class="clients-table-scroll glass-scroll">
+          <div v-if="filteredModalClients.length === 0" class="empty-state">
+            Nenhum cliente cadastrado foi localizado com esta pesquisa.
+          </div>
+          
+          <div 
+            v-for="client in filteredModalClients" 
+            :key="client.id" 
+            class="client-row-item"
+            :class="{ active: selectedClientId === client.id }"
+          >
+            <div class="client-row-main">
+              <strong>{{ client.razao_social }}</strong>
+              <div class="client-row-sub">
+                <span><i class="fas fa-id-card"></i> {{ client.cnpj }}</span>
+                <span><i class="fas fa-map-marker-alt"></i> {{ client.cidade }}/{{ client.estado }}</span>
+                <span v-if="client.telefone"><i class="fas fa-phone"></i> {{ client.telefone }}</span>
+              </div>
+            </div>
+            <div class="client-row-btns">
+              <button @click="inspectedClient = client" class="btn-sm-action info" title="Verificar Dados Completos">
+                <i class="fas fa-eye"></i> Dados
+              </button>
+              <button @click="selectClientFromModal(client)" class="btn-sm-action primary" title="Selecionar para a Rota">
+                <i class="fas fa-check"></i> Usar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -1285,12 +1673,6 @@ const exportOptimizedRoute = () => {
   display: flex;
   align-items: center;
   gap: 5px;
-  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.2);
-  transition: all 0.2s ease;
-}
-
-.btn-add-stop:hover {
-  transform: translateY(-1px);
   box-shadow: 0 6px 12px rgba(59, 130, 246, 0.35);
 }
 
