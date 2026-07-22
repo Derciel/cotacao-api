@@ -968,7 +968,12 @@ const fetchAndDrawTolls = async (routeGeometry: any, allCoords: [number, number]
 
   try {
     const overpassUrl = 'https://overpass-api.de/api/interpreter';
-    const query = `[out:json][timeout:15];node["barrier"="toll_booth"](${minLat.toFixed(4)},${minLon.toFixed(4)},${maxLat.toFixed(4)},${maxLon.toFixed(4)});out body;`;
+    const query = `[out:json][timeout:15];
+(
+  node["barrier"="toll_booth"](${minLat.toFixed(4)},${minLon.toFixed(4)},${maxLat.toFixed(4)},${maxLon.toFixed(4)});
+  node["highway"="toll_gantry"](${minLat.toFixed(4)},${minLon.toFixed(4)},${maxLat.toFixed(4)},${maxLon.toFixed(4)});
+);
+out body;`;
     
     const res = await fetch(overpassUrl, {
       method: 'POST',
@@ -985,8 +990,10 @@ const fetchAndDrawTolls = async (routeGeometry: any, allCoords: [number, number]
 
     let count = 0;
     data.elements.forEach((node: any) => {
-      const tLat = node.lat;
-      const tLon = node.lon;
+      const tLat = node.lat || (node.center && node.center.lat);
+      const tLon = node.lon || (node.center && node.center.lon);
+      if (!tLat || !tLon) return;
+
       const tags = node.tags || {};
 
       let isNear = false;
@@ -1001,12 +1008,17 @@ const fetchAndDrawTolls = async (routeGeometry: any, allCoords: [number, number]
 
       if (isNear) {
         count++;
-        const name = tags.name || tags.operator || tags.ref || `Praça de Pedágio ${count}`;
+        const isFreeFlow = tags.highway === 'toll_gantry' || tags['toll:type'] === 'free_flow' || tags['payment:free_flow'] === 'yes' || (tags.name && tags.name.toLowerCase().includes('free flow'));
+        const name = tags.name || tags.operator || tags.ref || (isFreeFlow ? `Pórtico Free Flow ${count}` : `Praça de Pedágio ${count}`);
         const highway = tags.ref || tags.via || 'Rodovia Concedida';
         const operator = tags.operator ? `<br><b>Concessionária:</b> ${tags.operator}` : '';
 
+        const badgeHtml = isFreeFlow 
+          ? '<span style="display:inline-block; margin-top:6px; font-size:11px; background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:4px; font-weight:700;"><i class="fas fa-bolt"></i> Pórtico Free Flow (Sem Cancela)</span>'
+          : '<span style="display:inline-block; margin-top:6px; font-size:11px; background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:4px; font-weight:600;">Praça de Pedágio Convencional</span>';
+
         const iconToll = L.divIcon({
-          html: `<div class="marker-pin pin-toll" title="${name}"><i class="fas fa-hand-holding-usd"></i></div>`,
+          html: `<div class="marker-pin ${isFreeFlow ? 'pin-toll-freeflow' : 'pin-toll'}" title="${name}"><i class="fas ${isFreeFlow ? 'fa-bolt' : 'fa-hand-holding-usd'}"></i></div>`,
           className: 'custom-div-icon',
           iconSize: [34, 34],
           iconAnchor: [17, 34]
@@ -1015,9 +1027,9 @@ const fetchAndDrawTolls = async (routeGeometry: any, allCoords: [number, number]
         const markerToll = L.marker([tLat, tLon], { icon: iconToll })
           .bindPopup(`
             <div style="font-family: sans-serif; padding: 2px;">
-              <strong style="color: #d97706;"><i class="fas fa-hand-holding-usd"></i> ${name}</strong><br>
+              <strong style="color: ${isFreeFlow ? '#2563eb' : '#d97706'};"><i class="fas ${isFreeFlow ? 'fa-bolt' : 'fa-hand-holding-usd'}"></i> ${name}</strong><br>
               <small><b>ANTT/DNIT:</b> ${highway}${operator}</small><br>
-              <span style="display:inline-block; margin-top:6px; font-size:11px; background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:4px; font-weight:600;">Praça de Pedágio Cadastrada</span>
+              ${badgeHtml}
             </div>
           `)
           .addTo(map.value);
@@ -1028,7 +1040,7 @@ const fetchAndDrawTolls = async (routeGeometry: any, allCoords: [number, number]
 
     routeDetails.value.tollsCount = count;
     if (count > 0) {
-      window.showToast(`Identificadas ${count} praça(s) de pedágio no percurso!`, 'info');
+      window.showToast(`Identificadas ${count} praça(s) de pedágio/free flow no percurso!`, 'info');
     } else {
       routeDetails.value.tollsCount = 0;
     }
@@ -2501,6 +2513,8 @@ const exportOptimizedRoute = () => {
 
 :deep(.pin-toll) { background: #f59e0b; border-color: #ffffff; width: 34px; height: 34px; }
 :deep(.pin-toll i) { transform: rotate(45deg); color: #ffffff; font-size: 0.85rem; }
+:deep(.pin-toll-freeflow) { background: #2563eb; border-color: #ffffff; width: 34px; height: 34px; }
+:deep(.pin-toll-freeflow i) { transform: rotate(45deg); color: #ffffff; font-size: 0.85rem; }
 
 .icon-amber { color: #f59e0b; }
 .text-amber { color: #f59e0b; }
