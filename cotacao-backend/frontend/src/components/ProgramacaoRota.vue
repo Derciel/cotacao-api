@@ -942,8 +942,7 @@ const processAndCalculateRoute = async () => {
 
     // 7. Identificar Praças de Pedágio e Custo Total na Rota
     await fetchGoogleTollCosts(allCoords); // Busca custo Google
-    await fetchAndDrawTolls(routeGeometry, allCoords); // Busca praças no mapa (visual)
-    await fetchAndDrawRuralRoads(routeGeometry, allCoords); // Busca e destaca estradas rurais/não pavimentadas na região
+    await fetchAndDrawTollsAndRuralRoads(routeGeometry, allCoords); // Busca pedágios e estradas rurais em 1 única chamada otimizada
 
     routeCalculated.value = true;
     window.showToast('Circuito logístico completo calculado com sucesso!', 'success');
@@ -1008,19 +1007,14 @@ const fetchGoogleTollCosts = async (allCoords: [number, number][]) => {
       }
     }
 
-    // MULTIPLICADOR DE EIXOS
-    const multiplier = vehicleType.value === 'driving-hgv' ? (truckAxles.value || 2) : 1;
-    routeDetails.value.tollCost = baseTollCost * multiplier;
-    routeDetails.value.cost += routeDetails.value.tollCost; // Soma o pedágio ao custo total (combustível)
-    
   } catch (err) {
     console.error('Erro na requisição ao Google Maps Tolls:', err);
     routeDetails.value.tollCost = 0;
   }
 };
 
-// BUSCA E DESENHO DE PRAÇAS DE PEDÁGIO (ANTT / OVERPASS API)
-const fetchAndDrawTolls = async (routeGeometry: any, allCoords: [number, number][]) => {
+// BUSCA E DESENHO DE PEDÁGIO E ESTRADAS RURAIS (SINGLE OVERPASS API QUERY)
+const fetchAndDrawTollsAndRuralRoads = async (routeGeometry: any, allCoords: [number, number][]) => {
   if (!map.value || !window.L) return;
   const L = window.L;
 
@@ -1042,21 +1036,24 @@ const fetchAndDrawTolls = async (routeGeometry: any, allCoords: [number, number]
     if (lon > maxLon) maxLon = lon;
   });
 
-  minLat -= 0.04; maxLat += 0.04;
-  minLon -= 0.04; maxLon += 0.04;
+  minLat -= 0.08; maxLat += 0.08;
+  minLon -= 0.08; maxLon += 0.08;
 
   try {
-    const query = `[out:json][timeout:15];
+    const query = `[out:json][timeout:25];
 (
   node["barrier"="toll_booth"](${minLat.toFixed(4)},${minLon.toFixed(4)},${maxLat.toFixed(4)},${maxLon.toFixed(4)});
   node["highway"="toll_gantry"](${minLat.toFixed(4)},${minLon.toFixed(4)},${maxLat.toFixed(4)},${maxLon.toFixed(4)});
+  way["surface"~"unpaved|dirt|earth|gravel|ground"](${minLat.toFixed(4)},${minLon.toFixed(4)},${maxLat.toFixed(4)},${maxLon.toFixed(4)});
+  way["highway"="track"](${minLat.toFixed(4)},${minLon.toFixed(4)},${maxLat.toFixed(4)},${maxLon.toFixed(4)});
 );
-out body;`;
+out body geom;`;
 
     const overpassUrls = [
       'https://lz4.overpass-api.de/api/interpreter',
       'https://z.overpass-api.de/api/interpreter',
-      'https://overpass-api.de/api/interpreter'
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter'
     ];
 
     let res = null;
@@ -1075,48 +1072,96 @@ out body;`;
 
     if (!res || !res.ok) {
       console.warn('Todos os servidores Overpass falharam ou deram Timeout.');
-      routeDetails.value.tollsCount = 0;
       return;
     }
 
     const data = await res.json();
-    if (!data.elements || data.elements.length === 0) {
+    const elements = data.elements || [];
+    if (elements.length === 0) {
       routeDetails.value.tollsCount = 0;
       return;
     }
 
+    detectedTolls.value = [];
     let count = 0;
     const tollMarkersToBind: any[] = [];
+    let ruralCount = 0;
 
-    data.elements.forEach((node: any) => {
-      const tLat = node.lat || (node.center && node.center.lat);
-      const tLon = node.lon || (node.center && node.center.lon);
-      if (!tLat || !tLon) return;
+    elements.forEach((el: any) => {
+      // 1. Processa Nó de Pedágio (node)
+      if (el.type === 'node') {
+        const tLat = el.lat || (el.center && el.center.lat);
+        const tLon = el.lon || (el.center && el.center.lon);
+        if (!tLat || !tLon) return;
 
-      const tags = node.tags || {};
+        const tags = el.tags || {};
 
-      let isNear = false;
-      for (const [rLat, rLon] of routeLineCoords) {
-        const dLat = (tLat - rLat) * 111.32;
-        const dLon = (tLon - rLon) * 111.32 * Math.cos(rLat * (Math.PI / 180));
-        if (Math.hypot(dLat, dLon) <= 1.2) {
-          isNear = true;
-          break;
+        let isNear = false;
+        for (const [rLat, rLon] of routeLineCoords) {
+          const dLat = (tLat - rLat) * 111.32;
+          const dLon = (tLon - rLon) * 111.32 * Math.cos(rLat * (Math.PI / 180));
+          if (Math.hypot(dLat, dLon) <= 3.0) { // Tolerância de 3km em torno do traçado
+            isNear = true;
+            break;
+          }
+        }
+
+        if (isNear) {
+          count++;
+          const isFreeFlow = tags.highway === 'toll_gantry' || tags['toll:type'] === 'free_flow' || tags['payment:free_flow'] === 'yes' || (tags.name && tags.name.toLowerCase().includes('free flow'));
+          const name = tags.name || tags.operator || tags.ref || (isFreeFlow ? `Pórtico Free Flow ${count}` : `Praça de Pedágio ${count}`);
+          const highway = tags.ref || tags.via || 'Rodovia Concedida';
+          const operatorName = tags.operator || '';
+          const operatorHtml = operatorName ? `<br><b>Concessionária:</b> ${operatorName}` : '';
+
+          const badgeHtml = isFreeFlow 
+            ? '<span style="display:inline-block; margin-top:6px; font-size:11px; background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:4px; font-weight:700;"><i class="fas fa-bolt"></i> Pórtico Free Flow (Sem Cancela)</span>'
+            : '<span style="display:inline-block; margin-top:6px; font-size:11px; background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:4px; font-weight:600;">Praça de Pedágio Convencional</span>';
+
+          tollMarkersToBind.push({ lat: tLat, lon: tLon, name, highway, operator: operatorHtml, rawOperator: operatorName, isFreeFlow, badgeHtml });
         }
       }
 
-      if (isNear) {
-        count++;
-        const isFreeFlow = tags.highway === 'toll_gantry' || tags['toll:type'] === 'free_flow' || tags['payment:free_flow'] === 'yes' || (tags.name && tags.name.toLowerCase().includes('free flow'));
-        const name = tags.name || tags.operator || tags.ref || (isFreeFlow ? `Pórtico Free Flow ${count}` : `Praça de Pedágio ${count}`);
-        const highway = tags.ref || tags.via || 'Rodovia Concedida';
-        const operator = tags.operator ? `<br><b>Concessionária:</b> ${tags.operator}` : '';
+      // 2. Processa Estradas Rurais (way) se o destaque estiver ativo
+      if (el.type === 'way' && highlightRuralRoads.value && el.geometry && el.geometry.length > 0) {
+        const latLngs = el.geometry.map((pt: any) => [pt.lat, pt.lon]);
 
-        const badgeHtml = isFreeFlow 
-          ? '<span style="display:inline-block; margin-top:6px; font-size:11px; background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:4px; font-weight:700;"><i class="fas fa-bolt"></i> Pórtico Free Flow (Sem Cancela)</span>'
-          : '<span style="display:inline-block; margin-top:6px; font-size:11px; background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:4px; font-weight:600;">Praça de Pedágio Convencional</span>';
+        let isNearRoute = false;
+        for (const pt of el.geometry) {
+          for (const [rLat, rLon] of routeLineCoords) {
+            const dLat = (pt.lat - rLat) * 111.32;
+            const dLon = (pt.lon - rLon) * 111.32 * Math.cos(rLat * (Math.PI / 180));
+            if (Math.hypot(dLat, dLon) <= 4.0) {
+              isNearRoute = true;
+              break;
+            }
+          }
+          if (isNearRoute) break;
+        }
 
-        tollMarkersToBind.push({ lat: tLat, lon: tLon, name, highway, operator, isFreeFlow, badgeHtml });
+        if (isNearRoute) {
+          ruralCount++;
+          const tags = el.tags || {};
+          const roadName = tags.name || tags.ref || 'Estrada Rural / Não Pavimentada';
+          const surface = tags.surface || 'terra/cascalho';
+
+          const polyline = L.polyline(latLngs, {
+            color: '#dc2626',
+            weight: 5,
+            dashArray: '8, 8',
+            opacity: 0.85
+          }).bindPopup(`
+            <div style="font-family: sans-serif; padding: 4px;">
+              <strong style="color: #dc2626; font-size: 13px;"><i class="fas fa-exclamation-triangle"></i> ${roadName}</strong><br>
+              <small style="color: #475569;"><b>Superfície:</b> ${surface}</small><br>
+              <span style="display:inline-block; margin-top:4px; font-size:11px; background:#fef2f2; color:#991b1b; padding:2px 6px; border-radius:4px; font-weight:700;">
+                <i class="fas fa-ban"></i> Estrada de Terra/Rural (Evitada no Roteamento)
+              </span>
+            </div>
+          `).addTo(map.value);
+
+          ruralRoadLayers.value.push(polyline);
+        }
       }
     });
 
@@ -1133,12 +1178,21 @@ out body;`;
 
     // Calcula valor médio de cada pedágio baseado no custo total do Google ou Fallback
     const avgPrice = count > 0 ? (routeDetails.value.tollCost / count) : 0;
-    
-    const avgPriceStr = avgPrice > 0 
-      ? `<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; font-size:13px; color:#1e293b;"><b>Valor Estimado (Média):</b> ${avgPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>`
-      : '';
 
-    // Renderiza os marcadores no mapa com os dados consolidados (incluindo lat, lon e valor)
+    // Armazena no estado para o relatório Excel
+    tollMarkersToBind.forEach(tm => {
+      detectedTolls.value.push({
+        name: tm.name,
+        highway: tm.highway,
+        operator: tm.rawOperator || 'N/A',
+        isFreeFlow: tm.isFreeFlow,
+        lat: tm.lat,
+        lon: tm.lon,
+        cost: avgPrice
+      });
+    });
+
+    // Renderiza os marcadores de pedágio no mapa
     tollMarkersToBind.forEach(tm => {
       const iconToll = L.divIcon({
         html: `<div class="marker-pin ${tm.isFreeFlow ? 'pin-toll-freeflow' : 'pin-toll'}" title="${tm.name}"><i class="fas ${tm.isFreeFlow ? 'fa-bolt' : 'fa-hand-holding-usd'}"></i></div>`,
@@ -1167,122 +1221,14 @@ out body;`;
 
       markers.value.push(markerToll);
     });
+
     if (count > 0) {
       window.showToast(`Identificadas ${count} praça(s) de pedágio/free flow no percurso!`, 'info');
-    } else {
-      routeDetails.value.tollsCount = 0;
     }
   } catch (e) {
-    console.error('Erro ao buscar pedágios na rota:', e);
+    console.error('Erro ao buscar pedágios/estradas rurais:', e);
   }
-};
-
-// BUSCA E DESENHO DE ESTRADAS RURAIS / NÃO PAVIMENTADAS (OVERPASS API)
-const fetchAndDrawRuralRoads = async (routeGeometry: any, allCoords: [number, number][]) => {
-  if (!map.value || !window.L || !highlightRuralRoads.value) return;
-  const L = window.L;
-
-  let routeLineCoords: [number, number][] = [];
-  if (routeGeometry && routeGeometry.coordinates) {
-    if (Array.isArray(routeGeometry.coordinates[0])) {
-      routeLineCoords = routeGeometry.coordinates.map((c: any) => [c[1], c[0]]);
-    }
-  }
-  if (routeLineCoords.length === 0) {
-    routeLineCoords = allCoords;
-  }
-
-  let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
-  routeLineCoords.forEach(([lat, lon]) => {
-    if (lat < minLat) minLat = lat;
-    if (lat > maxLat) maxLat = lat;
-    if (lon < minLon) minLon = lon;
-    if (lon > maxLon) maxLon = lon;
-  });
-
-  minLat -= 0.04; maxLat += 0.04;
-  minLon -= 0.04; maxLon += 0.04;
-
-  try {
-    const query = `[out:json][timeout:15];
-(
-  way["surface"~"unpaved|dirt|earth|gravel|ground"](${minLat.toFixed(4)},${minLon.toFixed(4)},${maxLat.toFixed(4)},${maxLon.toFixed(4)});
-  way["highway"="track"](${minLat.toFixed(4)},${minLon.toFixed(4)},${maxLat.toFixed(4)},${maxLon.toFixed(4)});
-);
-out geom;`;
-
-    const overpassUrls = [
-      'https://lz4.overpass-api.de/api/interpreter',
-      'https://z.overpass-api.de/api/interpreter',
-      'https://overpass-api.de/api/interpreter'
-    ];
-
-    let res = null;
-    for (const url of overpassUrls) {
-      try {
-        res = await fetch(url, {
-          method: 'POST',
-          body: 'data=' + encodeURIComponent(query),
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-        });
-        if (res.ok) break;
-      } catch (e) {
-        console.warn(`Falha no servidor Overpass para estradas rurais: ${url}`);
-      }
-    }
-
-    if (!res || !res.ok) return;
-
-    const data = await res.json();
-    const ways = data.elements || [];
-    if (ways.length === 0) return;
-
-    let ruralCount = 0;
-    ways.forEach((way: any) => {
-      if (!way.geometry || way.geometry.length === 0) return;
-      const latLngs = way.geometry.map((pt: any) => [pt.lat, pt.lon]);
-
-      // Verifica se a via rural está próxima da rota (raio 4km)
-      let isNearRoute = false;
-      for (const pt of way.geometry) {
-        for (const [rLat, rLon] of routeLineCoords) {
-          const dLat = (pt.lat - rLat) * 111.32;
-          const dLon = (pt.lon - rLon) * 111.32 * Math.cos(rLat * (Math.PI / 180));
-          if (Math.hypot(dLat, dLon) <= 4.0) {
-            isNearRoute = true;
-            break;
-          }
-        }
-        if (isNearRoute) break;
-      }
-
-      if (!isNearRoute) return;
-      ruralCount++;
-
-      const tags = way.tags || {};
-      const roadName = tags.name || tags.ref || 'Estrada Rural / Não Pavimentada';
-      const surface = tags.surface || 'terra/cascalho';
-
-      const polyline = L.polyline(latLngs, {
-        color: '#dc2626',
-        weight: 5,
-        dashArray: '8, 8',
-        opacity: 0.85
-      }).bindPopup(`
-        <div style="font-family: sans-serif; padding: 4px;">
-          <strong style="color: #dc2626; font-size: 13px;"><i class="fas fa-exclamation-triangle"></i> ${roadName}</strong><br>
-          <small style="color: #475569;"><b>Superfície:</b> ${surface}</small><br>
-          <span style="display:inline-block; margin-top:4px; font-size:11px; background:#fef2f2; color:#991b1b; padding:2px 6px; border-radius:4px; font-weight:700;">
-            <i class="fas fa-ban"></i> Estrada de Terra/Rural (Evitada no Roteamento)
-          </span>
-        </div>
-      `).addTo(map.value);
-
-      ruralRoadLayers.value.push(polyline);
-    });
-
-    if (ruralCount > 0) {
-      window.showToast(`Mapeados ${ruralCount} trechos de estradas rurais (em vermelho tracejado) evitadas no percurso!`, 'info');
+};urais (em vermelho tracejado) evitadas no percurso!`, 'info');
     }
   } catch (e) {
     console.error('Erro ao buscar estradas rurais:', e);
