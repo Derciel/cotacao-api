@@ -1072,6 +1072,8 @@ out body;`;
     }
 
     let count = 0;
+    const tollMarkersToBind: any[] = [];
+
     data.elements.forEach((node: any) => {
       const tLat = node.lat || (node.center && node.center.lat);
       const tLon = node.lon || (node.center && node.center.lon);
@@ -1100,28 +1102,43 @@ out body;`;
           ? '<span style="display:inline-block; margin-top:6px; font-size:11px; background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:4px; font-weight:700;"><i class="fas fa-bolt"></i> Pórtico Free Flow (Sem Cancela)</span>'
           : '<span style="display:inline-block; margin-top:6px; font-size:11px; background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:4px; font-weight:600;">Praça de Pedágio Convencional</span>';
 
-        const iconToll = L.divIcon({
-          html: `<div class="marker-pin ${isFreeFlow ? 'pin-toll-freeflow' : 'pin-toll'}" title="${name}"><i class="fas ${isFreeFlow ? 'fa-bolt' : 'fa-hand-holding-usd'}"></i></div>`,
-          className: 'custom-div-icon',
-          iconSize: [34, 34],
-          iconAnchor: [17, 34]
-        });
-
-        const markerToll = L.marker([tLat, tLon], { icon: iconToll })
-          .bindPopup(`
-            <div style="font-family: sans-serif; padding: 2px;">
-              <strong style="color: ${isFreeFlow ? '#2563eb' : '#d97706'};"><i class="fas ${isFreeFlow ? 'fa-bolt' : 'fa-hand-holding-usd'}"></i> ${name}</strong><br>
-              <small><b>ANTT/DNIT:</b> ${highway}${operator}</small><br>
-              ${badgeHtml}
-            </div>
-          `)
-          .addTo(map.value);
-
-        markers.value.push(markerToll);
+        tollMarkersToBind.push({ lat: tLat, lon: tLon, name, highway, operator, isFreeFlow, badgeHtml });
       }
     });
 
     routeDetails.value.tollsCount = count;
+
+    // Calcula valor médio de cada pedágio baseado no custo total do Google
+    const avgPrice = (count > 0 && routeDetails.value.tollCost > 0) 
+      ? (routeDetails.value.tollCost / count) 
+      : 0;
+    
+    const avgPriceStr = avgPrice > 0 
+      ? `<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; font-size:13px; color:#1e293b;"><b>Valor Estimado (Média):</b> ${avgPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>`
+      : '';
+
+    // Renderiza os marcadores no mapa com os dados consolidados
+    tollMarkersToBind.forEach(tm => {
+      const iconToll = L.divIcon({
+        html: `<div class="marker-pin ${tm.isFreeFlow ? 'pin-toll-freeflow' : 'pin-toll'}" title="${tm.name}"><i class="fas ${tm.isFreeFlow ? 'fa-bolt' : 'fa-hand-holding-usd'}"></i></div>`,
+        className: 'custom-div-icon',
+        iconSize: [34, 34],
+        iconAnchor: [17, 34]
+      });
+
+      const markerToll = L.marker([tm.lat, tm.lon], { icon: iconToll })
+        .bindPopup(`
+          <div style="font-family: sans-serif; padding: 2px;">
+            <strong style="color: ${tm.isFreeFlow ? '#2563eb' : '#d97706'};"><i class="fas ${tm.isFreeFlow ? 'fa-bolt' : 'fa-hand-holding-usd'}"></i> ${tm.name}</strong><br>
+            <small><b>ANTT/DNIT:</b> ${tm.highway}${tm.operator}</small><br>
+            ${tm.badgeHtml}
+            ${avgPriceStr}
+          </div>
+        `)
+        .addTo(map.value);
+
+      markers.value.push(markerToll);
+    });
     if (count > 0) {
       window.showToast(`Identificadas ${count} praça(s) de pedágio/free flow no percurso!`, 'info');
     } else {
