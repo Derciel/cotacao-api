@@ -54,7 +54,8 @@ const routeDetails = ref({
   distance: 0,
   duration: '',
   liters: 0,
-  cost: 0
+  cost: 0,
+  tollsCount: 0
 });
 
 // Paradas ordenadas finais da rota atual
@@ -921,6 +922,9 @@ const processAndCalculateRoute = async () => {
     const bounds = L.latLngBounds(allCoords);
     map.value.fitBounds(bounds, { padding: [50, 50] });
 
+    // 7. Identificar Praças de Pedágio (ANTT / OpenStreetMap) na Rota
+    await fetchAndDrawTolls(routeGeometry, allCoords);
+
     routeCalculated.value = true;
     finalRouteStops.value = orderedStops;
     window.showToast('Circuito logístico completo calculado com sucesso!', 'success');
@@ -929,6 +933,103 @@ const processAndCalculateRoute = async () => {
     window.showToast('Erro interno ao traçar circuito logístico pelas estradas: ' + err.message, 'error');
   } finally {
     isSearching.value = false;
+  }
+};
+
+// BUSCA E DESENHO DE PRAÇAS DE PEDÁGIO (ANTT / OVERPASS API)
+const fetchAndDrawTolls = async (routeGeometry: any, allCoords: [number, number][]) => {
+  if (!map.value || !window.L) return;
+  const L = window.L;
+
+  let routeLineCoords: [number, number][] = [];
+  if (routeGeometry && routeGeometry.coordinates) {
+    if (Array.isArray(routeGeometry.coordinates[0])) {
+      routeLineCoords = routeGeometry.coordinates.map((c: any) => [c[1], c[0]]);
+    }
+  }
+  if (routeLineCoords.length === 0) {
+    routeLineCoords = allCoords;
+  }
+
+  let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+  routeLineCoords.forEach(([lat, lon]) => {
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+    if (lon < minLon) minLon = lon;
+    if (lon > maxLon) maxLon = lon;
+  });
+
+  minLat -= 0.04; maxLat += 0.04;
+  minLon -= 0.04; maxLon += 0.04;
+
+  try {
+    const overpassUrl = 'https://overpass-api.de/api/interpreter';
+    const query = `[out:json][timeout:15];node["barrier"="toll_booth"](${minLat.toFixed(4)},${minLon.toFixed(4)},${maxLat.toFixed(4)},${maxLon.toFixed(4)});out body;`;
+    
+    const res = await fetch(overpassUrl, {
+      method: 'POST',
+      body: 'data=' + encodeURIComponent(query),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.elements || data.elements.length === 0) {
+      routeDetails.value.tollsCount = 0;
+      return;
+    }
+
+    let count = 0;
+    data.elements.forEach((node: any) => {
+      const tLat = node.lat;
+      const tLon = node.lon;
+      const tags = node.tags || {};
+
+      let isNear = false;
+      for (const [rLat, rLon] of routeLineCoords) {
+        const dLat = (tLat - rLat) * 111.32;
+        const dLon = (tLon - rLon) * 111.32 * Math.cos(rLat * (Math.PI / 180));
+        if (Math.hypot(dLat, dLon) <= 1.2) {
+          isNear = true;
+          break;
+        }
+      }
+
+      if (isNear) {
+        count++;
+        const name = tags.name || tags.operator || tags.ref || `Praça de Pedágio ${count}`;
+        const highway = tags.ref || tags.via || 'Rodovia Concedida';
+        const operator = tags.operator ? `<br><b>Concessionária:</b> ${tags.operator}` : '';
+
+        const iconToll = L.divIcon({
+          html: `<div class="marker-pin pin-toll" title="${name}"><i class="fas fa-hand-holding-usd"></i></div>`,
+          className: 'custom-div-icon',
+          iconSize: [34, 34],
+          iconAnchor: [17, 34]
+        });
+
+        const markerToll = L.marker([tLat, tLon], { icon: iconToll })
+          .bindPopup(`
+            <div style="font-family: sans-serif; padding: 2px;">
+              <strong style="color: #d97706;"><i class="fas fa-hand-holding-usd"></i> ${name}</strong><br>
+              <small><b>ANTT/DNIT:</b> ${highway}${operator}</small><br>
+              <span style="display:inline-block; margin-top:6px; font-size:11px; background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:4px; font-weight:600;">Praça de Pedágio Cadastrada</span>
+            </div>
+          `)
+          .addTo(map.value);
+
+        markers.value.push(markerToll);
+      }
+    });
+
+    routeDetails.value.tollsCount = count;
+    if (count > 0) {
+      window.showToast(`Identificadas ${count} praça(s) de pedágio no percurso!`, 'info');
+    } else {
+      routeDetails.value.tollsCount = 0;
+    }
+  } catch (e) {
+    console.error('Erro ao buscar pedágios na rota:', e);
   }
 };
 
@@ -1185,6 +1286,13 @@ const exportOptimizedRoute = () => {
             <div>
               <span class="res-label">Consumo</span>
               <span class="res-value">{{ routeDetails.liters }} L</span>
+            </div>
+          </div>
+          <div class="res-item highlight-toll">
+            <i class="fas fa-hand-holding-usd icon-amber"></i>
+            <div>
+              <span class="res-label">Pedágios (ANTT)</span>
+              <span class="res-value text-amber">{{ routeDetails.tollsCount || 0 }} praça(s)</span>
             </div>
           </div>
           <div class="res-item highlight">
@@ -1893,6 +2001,12 @@ const exportOptimizedRoute = () => {
 }
 :deep(.pin-origin) { background: #3b82f6; }
 :deep(.pin-dest) { background: #10b981; }
+:deep(.pin-toll) { background: #f59e0b; border-color: #ffffff; width: 34px; height: 34px; }
+:deep(.pin-toll i) { transform: rotate(45deg); color: #ffffff; font-size: 0.85rem; }
+
+.icon-amber { color: #f59e0b; }
+.text-amber { color: #f59e0b; }
+.highlight-toll { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); }
 
 /* FIX FOR LEAFLET TILE GAPS (WHITE/GREY LINES BETWEEN TILES) */
 :deep(.leaflet-tile) {
