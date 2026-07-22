@@ -60,6 +60,17 @@ const routeDetails = ref({
   tollCost: 0 // Valor total do pedágio estimado
 });
 
+// Praças de pedágio detectadas na rota atual
+const detectedTolls = ref<Array<{
+  name: string;
+  highway: string;
+  operator: string;
+  isFreeFlow: boolean;
+  lat: number;
+  lon: number;
+  cost: number;
+}>>([]);
+
 // Paradas ordenadas finais da rota atual
 const finalRouteStops = ref<ClientStop[]>([]);
 
@@ -1071,6 +1082,7 @@ out body;`;
       return;
     }
 
+    detectedTolls.value = [];
     let count = 0;
     const tollMarkersToBind: any[] = [];
 
@@ -1096,13 +1108,14 @@ out body;`;
         const isFreeFlow = tags.highway === 'toll_gantry' || tags['toll:type'] === 'free_flow' || tags['payment:free_flow'] === 'yes' || (tags.name && tags.name.toLowerCase().includes('free flow'));
         const name = tags.name || tags.operator || tags.ref || (isFreeFlow ? `Pórtico Free Flow ${count}` : `Praça de Pedágio ${count}`);
         const highway = tags.ref || tags.via || 'Rodovia Concedida';
-        const operator = tags.operator ? `<br><b>Concessionária:</b> ${tags.operator}` : '';
+        const operatorName = tags.operator || '';
+        const operatorHtml = operatorName ? `<br><b>Concessionária:</b> ${operatorName}` : '';
 
         const badgeHtml = isFreeFlow 
           ? '<span style="display:inline-block; margin-top:6px; font-size:11px; background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:4px; font-weight:700;"><i class="fas fa-bolt"></i> Pórtico Free Flow (Sem Cancela)</span>'
           : '<span style="display:inline-block; margin-top:6px; font-size:11px; background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:4px; font-weight:600;">Praça de Pedágio Convencional</span>';
 
-        tollMarkersToBind.push({ lat: tLat, lon: tLon, name, highway, operator, isFreeFlow, badgeHtml });
+        tollMarkersToBind.push({ lat: tLat, lon: tLon, name, highway, operator: operatorHtml, rawOperator: operatorName, isFreeFlow, badgeHtml });
       }
     });
 
@@ -1112,12 +1125,21 @@ out body;`;
     const avgPrice = (count > 0 && routeDetails.value.tollCost > 0) 
       ? (routeDetails.value.tollCost / count) 
       : 0;
-    
-    const avgPriceStr = avgPrice > 0 
-      ? `<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; font-size:13px; color:#1e293b;"><b>Valor Estimado (Média):</b> ${avgPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>`
-      : '';
 
-    // Renderiza os marcadores no mapa com os dados consolidados
+    // Armazena no estado para o relatório Excel
+    tollMarkersToBind.forEach(tm => {
+      detectedTolls.value.push({
+        name: tm.name,
+        highway: tm.highway,
+        operator: tm.rawOperator || 'N/A',
+        isFreeFlow: tm.isFreeFlow,
+        lat: tm.lat,
+        lon: tm.lon,
+        cost: avgPrice
+      });
+    });
+
+    // Renderiza os marcadores no mapa com os dados consolidados (incluindo lat, lon e valor)
     tollMarkersToBind.forEach(tm => {
       const iconToll = L.divIcon({
         html: `<div class="marker-pin ${tm.isFreeFlow ? 'pin-toll-freeflow' : 'pin-toll'}" title="${tm.name}"><i class="fas ${tm.isFreeFlow ? 'fa-bolt' : 'fa-hand-holding-usd'}"></i></div>`,
@@ -1126,19 +1148,27 @@ out body;`;
         iconAnchor: [17, 34]
       });
 
+      const priceText = avgPrice > 0 
+        ? avgPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+        : 'R$ 0,00 (Não informado)';
+
       const markerToll = L.marker([tm.lat, tm.lon], { icon: iconToll })
         .bindPopup(`
-          <div style="font-family: sans-serif; padding: 2px;">
-            <strong style="color: ${tm.isFreeFlow ? '#2563eb' : '#d97706'};"><i class="fas ${tm.isFreeFlow ? 'fa-bolt' : 'fa-hand-holding-usd'}"></i> ${tm.name}</strong><br>
-            <small><b>ANTT/DNIT:</b> ${tm.highway}${tm.operator}</small><br>
+          <div style="font-family: sans-serif; padding: 4px; min-width: 200px;">
+            <strong style="color: ${tm.isFreeFlow ? '#2563eb' : '#d97706'}; font-size: 14px;"><i class="fas ${tm.isFreeFlow ? 'fa-bolt' : 'fa-hand-holding-usd'}"></i> ${tm.name}</strong><br>
+            <small style="color: #475569;"><b>ANTT/DNIT:</b> ${tm.highway}${tm.operator}</small><br>
+            <small style="color: #475569;"><b>Coordenadas:</b> Lat ${tm.lat.toFixed(6)}, Lon ${tm.lon.toFixed(6)}</small><br>
             ${tm.badgeHtml}
-            ${avgPriceStr}
+            <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; font-size:13px; color:#1e293b; font-weight: bold;">
+              <b>Valor Estimado:</b> ${priceText}
+            </div>
           </div>
         `)
         .addTo(map.value);
 
       markers.value.push(markerToll);
     });
+
     if (count > 0) {
       window.showToast(`Identificadas ${count} praça(s) de pedágio/free flow no percurso!`, 'info');
     } else {
@@ -1156,11 +1186,14 @@ const exportOptimizedRoute = () => {
   }
 
   try {
-    const dataToExport: any[] = [];
+    const workbook = XLSX.utils.book_new();
+
+    // Aba 1: Roteiro de Entregas
+    const deliveriesData: any[] = [];
     finalRouteStops.value.forEach(stop => {
       if (stop.itemsList && stop.itemsList.length > 0) {
         stop.itemsList.forEach((it: any) => {
-          dataToExport.push({
+          deliveriesData.push({
             'Parada': stop.sequence,
             'Razão Social': stop.razao_social,
             'CNPJ': stop.cnpj,
@@ -1176,7 +1209,7 @@ const exportOptimizedRoute = () => {
           });
         });
       } else {
-        dataToExport.push({
+        deliveriesData.push({
           'Parada': stop.sequence,
           'Razão Social': stop.razao_social,
           'CNPJ': stop.cnpj,
@@ -1193,14 +1226,10 @@ const exportOptimizedRoute = () => {
       }
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Roteiro de Entregas');
-
-    // Estilização simples de colunas
-    const max_width = dataToExport.reduce((w, r) => Math.max(w, String(r['Razão Social'] || '').length), 15);
-    const max_item_width = dataToExport.reduce((w, r) => Math.max(w, String(r['Item / Produto'] || '').length), 15);
-    worksheet['!cols'] = [
+    const deliveriesWs = XLSX.utils.json_to_sheet(deliveriesData);
+    const max_width = deliveriesData.reduce((w, r) => Math.max(w, String(r['Razão Social'] || '').length), 15);
+    const max_item_width = deliveriesData.reduce((w, r) => Math.max(w, String(r['Item / Produto'] || '').length), 15);
+    deliveriesWs['!cols'] = [
       { wch: 8 }, 
       { wch: max_width + 5 }, 
       { wch: 18 }, 
@@ -1214,9 +1243,56 @@ const exportOptimizedRoute = () => {
       { wch: 10 },
       { wch: 25 }
     ];
+    XLSX.utils.book_append_sheet(workbook, deliveriesWs, 'Roteiro de Entregas');
+
+    // Aba 2: Detalhamento de Pedágios
+    const tollsData = detectedTolls.value.map((toll, index) => ({
+      'Nº': index + 1,
+      'Praça / Pórtico': toll.name,
+      'Tipo': toll.isFreeFlow ? 'Pórtico Free Flow' : 'Praça Convencional',
+      'Rodovia / ANTT': toll.highway,
+      'Concessionária': toll.operator || 'N/A',
+      'Latitude': toll.lat,
+      'Longitude': toll.lon,
+      'Valor Estimado (R$)': Number(toll.cost.toFixed(2))
+    }));
+
+    if (tollsData.length > 0) {
+      const tollsWs = XLSX.utils.json_to_sheet(tollsData);
+      tollsWs['!cols'] = [
+        { wch: 6 },
+        { wch: 30 },
+        { wch: 22 },
+        { wch: 20 },
+        { wch: 25 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 20 }
+      ];
+      XLSX.utils.book_append_sheet(workbook, tollsWs, 'Detalhamento de Pedágios');
+    }
+
+    // Aba 3: Resumo da Viagem
+    const fuelCost = routeDetails.value.cost - routeDetails.value.tollCost;
+    const summaryData = [
+      { 'Métrica': 'Distância Total', 'Valor': `${routeDetails.value.distance} km` },
+      { 'Métrica': 'Tempo Estimado', 'Valor': routeDetails.value.duration },
+      { 'Métrica': 'Consumo Estimado (L)', 'Valor': `${routeDetails.value.liters} L` },
+      { 'Métrica': 'Preço Combustível (R$/L)', 'Valor': `R$ ${fuelPrice.value.toFixed(2)}` },
+      { 'Métrica': 'Custo de Combustível (R$)', 'Valor': `R$ ${fuelCost.toFixed(2)}` },
+      { 'Métrica': 'Quantidade de Pedágios', 'Valor': `${routeDetails.value.tollsCount} praça(s)` },
+      { 'Métrica': 'Custo Total de Pedágios (R$)', 'Valor': `R$ ${routeDetails.value.tollCost.toFixed(2)}` },
+      { 'Métrica': 'CUSTO TOTAL DA ROTA (R$)', 'Valor': `R$ ${routeDetails.value.cost.toFixed(2)}` }
+    ];
+    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+    summaryWs['!cols'] = [
+      { wch: 32 },
+      { wch: 25 }
+    ];
+    XLSX.utils.book_append_sheet(workbook, summaryWs, 'Resumo da Viagem');
 
     XLSX.writeFile(workbook, `Roteiro_Entregas_Londrina_${new Date().toISOString().split('T')[0]}.xlsx`);
-    window.showToast('Relatório de Roteiro exportado com sucesso!', 'success');
+    window.showToast('Relatório completo exportado com sucesso!', 'success');
   } catch (e: any) {
     console.error(e);
     window.showToast('Erro ao exportar planilha Excel: ' + e.message, 'error');

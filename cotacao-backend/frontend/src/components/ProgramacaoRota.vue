@@ -1118,7 +1118,7 @@ out body;`;
       ? `<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; font-size:13px; color:#1e293b;"><b>Valor Estimado (Média):</b> ${avgPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>`
       : '';
 
-    // Renderiza os marcadores no mapa com os dados consolidados
+    // Renderiza os marcadores no mapa com os dados consolidados (incluindo lat, lon e valor)
     tollMarkersToBind.forEach(tm => {
       const iconToll = L.divIcon({
         html: `<div class="marker-pin ${tm.isFreeFlow ? 'pin-toll-freeflow' : 'pin-toll'}" title="${tm.name}"><i class="fas ${tm.isFreeFlow ? 'fa-bolt' : 'fa-hand-holding-usd'}"></i></div>`,
@@ -1127,13 +1127,20 @@ out body;`;
         iconAnchor: [17, 34]
       });
 
+      const priceText = avgPrice > 0 
+        ? avgPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+        : 'R$ 0,00 (Não informado)';
+
       const markerToll = L.marker([tm.lat, tm.lon], { icon: iconToll })
         .bindPopup(`
-          <div style="font-family: sans-serif; padding: 2px;">
-            <strong style="color: ${tm.isFreeFlow ? '#2563eb' : '#d97706'};"><i class="fas ${tm.isFreeFlow ? 'fa-bolt' : 'fa-hand-holding-usd'}"></i> ${tm.name}</strong><br>
-            <small><b>ANTT/DNIT:</b> ${tm.highway}${tm.operator}</small><br>
+          <div style="font-family: sans-serif; padding: 4px; min-width: 200px;">
+            <strong style="color: ${tm.isFreeFlow ? '#2563eb' : '#d97706'}; font-size: 14px;"><i class="fas ${tm.isFreeFlow ? 'fa-bolt' : 'fa-hand-holding-usd'}"></i> ${tm.name}</strong><br>
+            <small style="color: #475569;"><b>ANTT/DNIT:</b> ${tm.highway}${tm.operator}</small><br>
+            <small style="color: #475569;"><b>Coordenadas:</b> Lat ${tm.lat.toFixed(6)}, Lon ${tm.lon.toFixed(6)}</small><br>
             ${tm.badgeHtml}
-            ${avgPriceStr}
+            <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; font-size:13px; color:#1e293b; font-weight: bold;">
+              <b>Valor Estimado:</b> ${priceText}
+            </div>
           </div>
         `)
         .addTo(map.value);
