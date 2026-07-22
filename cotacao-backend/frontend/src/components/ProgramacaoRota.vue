@@ -1109,10 +1109,17 @@ out body;`;
 
     routeDetails.value.tollsCount = count;
 
-    // Calcula valor médio de cada pedágio baseado no custo total do Google
-    const avgPrice = (count > 0 && routeDetails.value.tollCost > 0) 
-      ? (routeDetails.value.tollCost / count) 
-      : 0;
+    // Fallback de pedágio se a API do Google não retornou valores ou não há chave configurada
+    const multiplier = vehicleType.value === 'driving-hgv' ? (truckAxles.value || 2) : 1;
+    const baseTollPerPlaza = 11.50; // Tarifa média estimada por eixo em praças concessionadas
+
+    if (routeDetails.value.tollCost <= 0 && count > 0) {
+      routeDetails.value.tollCost = count * (baseTollPerPlaza * multiplier);
+      routeDetails.value.cost += routeDetails.value.tollCost;
+    }
+
+    // Calcula valor médio de cada pedágio baseado no custo total do Google ou Fallback
+    const avgPrice = count > 0 ? (routeDetails.value.tollCost / count) : 0;
     
     const avgPriceStr = avgPrice > 0 
       ? `<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; font-size:13px; color:#1e293b;"><b>Valor Estimado (Média):</b> ${avgPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>`

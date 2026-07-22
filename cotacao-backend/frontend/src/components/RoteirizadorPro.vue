@@ -1121,10 +1121,17 @@ out body;`;
 
     routeDetails.value.tollsCount = count;
 
-    // Calcula valor médio de cada pedágio baseado no custo total do Google
-    const avgPrice = (count > 0 && routeDetails.value.tollCost > 0) 
-      ? (routeDetails.value.tollCost / count) 
-      : 0;
+    // Fallback de pedágio se a API do Google não retornou valores ou não há chave configurada
+    const multiplier = vehicleType.value === 'driving-hgv' ? (truckAxles.value || 2) : 1;
+    const baseTollPerPlaza = 11.50; // Tarifa média estimada por eixo em praças concessionadas
+
+    if (routeDetails.value.tollCost <= 0 && count > 0) {
+      routeDetails.value.tollCost = count * (baseTollPerPlaza * multiplier);
+      routeDetails.value.cost += routeDetails.value.tollCost;
+    }
+
+    // Calcula valor médio de cada pedágio baseado no custo total do Google ou Fallback
+    const avgPrice = count > 0 ? (routeDetails.value.tollCost / count) : 0;
 
     // Armazena no estado para o relatório Excel
     tollMarkersToBind.forEach(tm => {
