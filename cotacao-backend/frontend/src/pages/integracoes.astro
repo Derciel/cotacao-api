@@ -114,7 +114,7 @@ import MainLayout from '../layouts/MainLayout.astro';
           <div class="form-section ux-square">
             <h3 class="section-title"><i class="fas fa-info-circle"></i> Configuração da Chave</h3>
             <div class="form-group">
-              <label for="key-name">Nome Identificador label</label>
+              <label for="key-name">Nome Identificador</label>
               <input type="text" id="key-name" required placeholder="Ex: Planilha de Faturamento Excel" />
             </div>
             <div class="form-grid-inner">
@@ -229,9 +229,9 @@ import MainLayout from '../layouts/MainLayout.astro';
     // Formulário de Criação
     keyForm.onsubmit = async (e) => {
       e.preventDefault();
-      const name = document.getElementById('key-name').value;
-      const expiresDays = +document.getElementById('key-validity').value;
-      const role = document.getElementById('key-role')?.value || 'READ_ONLY';
+      const name = (document.getElementById('key-name') as HTMLInputElement).value;
+      const expiresDays = +(document.getElementById('key-validity') as HTMLSelectElement).value;
+      const role = (document.getElementById('key-role') as HTMLSelectElement)?.value || 'READ_ONLY';
 
       try {
         const res = await window.safeFetch('/api/api-keys', {
