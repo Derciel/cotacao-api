@@ -222,9 +222,20 @@ import MainLayout from '../layouts/MainLayout.astro';
     loadKeys();
 
     // Modal
-    btnNewKey.onclick = () => modal.style.display = 'flex';
-    closeModalBtns.forEach(btn => btn.onclick = () => modal.style.display = 'none');
-    window.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+    btnNewKey.onclick = () => {
+      const targetModal = document.getElementById('key-modal');
+      if (targetModal) targetModal.style.display = 'flex';
+    };
+    closeModalBtns.forEach(btn => {
+      btn.onclick = () => {
+        const targetModal = document.getElementById('key-modal');
+        if (targetModal) targetModal.style.display = 'none';
+      };
+    });
+    window.onclick = (e) => {
+      const targetModal = document.getElementById('key-modal');
+      if (e.target === targetModal && targetModal) targetModal.style.display = 'none';
+    };
 
     // Formulário de Criação
     keyForm.onsubmit = async (e) => {
@@ -242,7 +253,8 @@ import MainLayout from '../layouts/MainLayout.astro';
 
         if (res.ok) {
           window.showToast('Chave de API criada com sucesso!', 'success');
-          modal.style.display = 'none';
+          const targetModal = document.getElementById('key-modal');
+          if (targetModal) targetModal.style.display = 'none';
           
           // Exibe o card do token gerado temporariamente
           successCard.style.display = 'block';
