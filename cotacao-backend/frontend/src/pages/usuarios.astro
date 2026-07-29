@@ -598,8 +598,12 @@ import Layout from '../layouts/MainLayout.astro';
     /* Modal Framework */
     .page-usuarios .modal {
       position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);
-      z-index: 2000; display: none; justify-content: center; align-items: center;
+      z-index: 2000; display: none !important; justify-content: center; align-items: center;
       padding: 20px;
+    }
+    .page-usuarios .modal[style*="display: block"], 
+    .page-usuarios .modal[style*="display: flex"] {
+      display: flex !important;
     }
     
     .page-usuarios .modal-content {
