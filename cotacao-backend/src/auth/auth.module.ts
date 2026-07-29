@@ -6,12 +6,15 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service.js';
 import { AuthController } from './auth.controller.js';
 import { User } from './entities/user.entity.js';
+import { ApiKey } from './entities/api-key.entity.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
+import { ApiKeysController } from './api-keys.controller.js';
+import { ApiKeyGuard } from './guards/api-key.guard.js';
 
 @Global()
 @Module({
     imports: [
-        TypeOrmModule.forFeature([User]),
+        TypeOrmModule.forFeature([User, ApiKey]),
         PassportModule,
         JwtModule.registerAsync({
             inject: [ConfigService],
@@ -21,8 +24,8 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
             }),
         }),
     ],
-    providers: [AuthService, JwtStrategy],
-    controllers: [AuthController],
-    exports: [AuthService, PassportModule, JwtModule],
+    providers: [AuthService, JwtStrategy, ApiKeyGuard],
+    controllers: [AuthController, ApiKeysController],
+    exports: [AuthService, PassportModule, JwtModule, TypeOrmModule, ApiKeyGuard],
 })
 export class AuthModule { }

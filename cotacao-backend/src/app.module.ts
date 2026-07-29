@@ -14,6 +14,8 @@ import { UsersModule } from './users/users.module.js';
 import { AiModule } from './ai/ai.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { FuelsModule } from './fuels/fuels.module.js';
+import { IntegrationsModule } from './integrations/integrations.module.js';
+import { GraphQLIntegrationModule } from './graphql/graphql-integration.module.js';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -73,6 +75,8 @@ const __dirname = dirname(__filename);
     AiModule,
     AuditModule,
     FuelsModule,
+    IntegrationsModule,
+    GraphQLIntegrationModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'frontend', 'dist'),
       exclude: ['/api*'], 

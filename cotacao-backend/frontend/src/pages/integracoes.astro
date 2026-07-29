@@ -1,0 +1,396 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+---
+
+<MainLayout title="Integrações & Chaves de API | Nicopel Cargo">
+  <div class="page-integracoes">
+    <div class="header-section">
+      <div class="title-group">
+        <h1><i class="fas fa-key"></i> Integrações & Chaves de API</h1>
+        <p>Gere e gerencie chaves de API com validade para integrar a Nicopel Cargo com sistemas externos e planilhas do Excel.</p>
+      </div>
+      <button id="btn-new-key" class="btn-primary">
+        <i class="fas fa-plus"></i> Gerar Nova Chave
+      </button>
+    </div>
+
+    <!-- Container do Token Gerado (Exibido uma única vez por segurança) -->
+    <div id="new-key-success-card" class="glass-card new-key-success" style="display: none;">
+      <div class="success-header">
+        <i class="fas fa-check-circle"></i>
+        <h3>Chave de API Gerada com Sucesso!</h3>
+      </div>
+      <p class="warning-text"><i class="fas fa-exclamation-triangle"></i> Por motivos de segurança, copie a chave agora. Você não poderá visualizá-la novamente.</p>
+      <div class="key-display-box">
+        <code id="raw-key-value">np_live_...</code>
+        <button id="btn-copy-raw-key" class="btn-icon" title="Copiar Chave"><i class="fas fa-copy"></i></button>
+      </div>
+    </div>
+
+    <div class="grid-layout">
+      <!-- Painel Esquerdo: Minhas Chaves -->
+      <div class="glass-card animate-fade-in">
+        <h2 class="card-title"><i class="fas fa-list"></i> Chaves de API Ativas</h2>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Usuário</th>
+                <th>Permissão</th>
+                <th>Expira em</th>
+                <th>Criada em</th>
+                <th class="text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="keys-table-body">
+              <tr>
+                <td colspan="6" class="loading-td">
+                  <i class="fas fa-circle-notch fa-spin"></i> Carregando chaves...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Painel Direito: Guias Práticos -->
+      <div class="glass-card instructions-card">
+        <h2 class="card-title"><i class="fas fa-book"></i> Guias de Integração</h2>
+        
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="tab-excel"><i class="fas fa-file-excel"></i> Microsoft Excel</button>
+          <button class="tab-btn" data-tab="tab-graphql"><i class="fas fa-code"></i> GraphQL API</button>
+        </div>
+
+        <div class="tab-content active" id="tab-excel">
+          <h3>Como usar os dados no Excel / Power Query:</h3>
+          <ol class="steps-list">
+            <li>Gere uma chave de API do tipo <strong>Apenas Leitura (READ_ONLY)</strong> no botão acima.</li>
+            <li>No Excel, vá na aba <strong>Dados</strong> > <strong>Obter Dados</strong> > <strong>De Outras Fontes</strong> > <strong>Da Web</strong>.</li>
+            <li>Selecione a opção <strong>Básico</strong> e cole a URL de exportação abaixo:
+              <div class="code-copy-box">
+                <code id="excel-url-display">https://cotacao.nicopel.com.br/api/integration/excel/quotations?apiKey=SUA_CHAVE_AQUI</code>
+                <button id="btn-copy-excel-url" class="btn-icon"><i class="fas fa-copy"></i></button>
+              </div>
+            </li>
+            <li>Clique em <strong>OK</strong>. O Excel importará os dados formatados em colunas automaticamente.</li>
+          </ol>
+        </div>
+
+        <div class="tab-content" id="tab-graphql">
+          <h3>Como interagir com a GraphQL API:</h3>
+          <p>Você pode testar e consumir a API executando requisições POST para <code>/graphql</code> enviando o header <code>X-API-Key</code>.</p>
+          <pre class="code-block"><code>{`query {
+  externalQuotations(limit: 10) {
+    id
+    status
+    valor_total_produtos
+    client {
+      razao_social
+      cnpj
+    }
+  }
+}`}</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Nova Chave -->
+  <div id="key-modal" class="modal">
+    <div class="modal-content glass-premium">
+      <div class="modal-header">
+        <h2>Gerar Chave de API</h2>
+        <button class="close-modal">&times;</button>
+      </div>
+      <form id="key-form">
+        <div class="form-group">
+          <label for="key-name">Nome Identificador</label>
+          <input type="text" id="key-name" required placeholder="Ex: Planilha de Faturamento Excel" />
+        </div>
+        <div class="form-grid-inner">
+          <div class="form-group">
+            <label for="key-validity">Validade da Chave</label>
+            <select id="key-validity" required>
+              <option value="30">30 dias</option>
+              <option value="90">90 dias</option>
+              <option value="365">365 dias (1 ano)</option>
+            </select>
+          </div>
+          <div class="form-group" id="role-group" style="display: none;">
+            <label for="key-role">Nível de Permissão</label>
+            <select id="key-role">
+              <option value="READ_ONLY">Apenas Leitura (READ_ONLY)</option>
+              <option value="FULL_ACCESS">Acesso Total (FULL_ACCESS)</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn-primary">Confirmar e Gerar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</MainLayout>
+
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', () => {
+    const tableBody = document.getElementById('keys-table-body');
+    const modal = document.getElementById('key-modal');
+    const btnNewKey = document.getElementById('btn-new-key');
+    const closeModal = document.querySelector('.close-modal');
+    const keyForm = document.getElementById('key-form');
+    const successCard = document.getElementById('new-key-success-card');
+    const rawKeyValue = document.getElementById('raw-key-value');
+    const btnCopyRawKey = document.getElementById('btn-copy-raw-key');
+    const roleGroup = document.getElementById('role-group');
+    const excelUrlDisplay = document.getElementById('excel-url-display');
+    const btnCopyExcelUrl = document.getElementById('btn-copy-excel-url');
+
+    const user = JSON.parse(localStorage.getItem('user_info') || '{}');
+
+    // Mostra opção de nível apenas para Admins
+    if (user.role === 'ADMIN') {
+      roleGroup.style.display = 'block';
+    }
+
+    // Configura a URL base de exemplo do Excel
+    const apiBase = window.PUBLIC_API_URL || window.location.origin;
+    const excelExportUrl = `${apiBase}/api/integration/excel/quotations?apiKey=SUA_CHAVE_AQUI`;
+    excelUrlDisplay.textContent = excelExportUrl;
+
+    // Busca e renderiza as chaves
+    async function loadKeys() {
+      try {
+        const res = await window.safeFetch('/api/api-keys');
+        if (!res.ok) throw new Error();
+        const keys = res.data || [];
+        
+        if (keys.length === 0) {
+          tableBody.innerHTML = `<tr><td colspan="6" class="text-center">Nenhuma chave de API gerada.</td></tr>`;
+          return;
+        }
+
+        tableBody.innerHTML = keys.map(k => `
+          <tr>
+            <td><strong>${k.name}</strong></td>
+            <td>${k.user?.username || 'Você'}</td>
+            <td><span class="badge ${k.role === 'FULL_ACCESS' ? 'badge-danger' : 'badge-info'}">${k.role}</span></td>
+            <td>${new Date(k.expiresAt).toLocaleDateString('pt-BR')}</td>
+            <td>${new Date(k.createdAt).toLocaleDateString('pt-BR')}</td>
+            <td class="text-right">
+              <button class="btn-danger btn-sm btn-delete-key" data-id="${k.id}">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `).join('');
+
+        // Vincula botões de delete
+        document.querySelectorAll('.btn-delete-key').forEach(btn => {
+          btn.onclick = async () => {
+            if (confirm('Tem certeza que deseja revogar esta chave de API? Ela parará de funcionar imediatamente.')) {
+              await window.safeFetch(`/api/api-keys/${btn.dataset.id}`, { method: 'DELETE' });
+              window.showToast('Chave de API revogada com sucesso.', 'info');
+              loadKeys();
+            }
+          };
+        });
+      } catch (err) {
+        tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Erro ao carregar chaves de API.</td></tr>`;
+      }
+    }
+
+    loadKeys();
+
+    // Modal
+    btnNewKey.onclick = () => modal.classList.add('show');
+    closeModal.onclick = () => modal.classList.remove('show');
+    window.onclick = (e) => { if (e.target === modal) modal.classList.remove('show'); };
+
+    // Formulário de Criação
+    keyForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('key-name').value;
+      const expiresDays = +document.getElementById('key-validity').value;
+      const role = document.getElementById('key-role')?.value || 'READ_ONLY';
+
+      try {
+        const res = await window.safeFetch('/api/api-keys', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, expiresDays, role })
+        });
+
+        if (res.ok) {
+          window.showToast('Chave de API criada com sucesso!', 'success');
+          modal.classList.remove('show');
+          
+          // Exibe o card do token gerado temporariamente
+          successCard.style.display = 'block';
+          rawKeyValue.textContent = res.data.rawKey;
+          
+          // Atualiza a URL do Excel de exemplo com a chave criada
+          excelUrlDisplay.textContent = `${apiBase}/api/integration/excel/quotations?apiKey=${res.data.rawKey}`;
+
+          btnCopyRawKey.onclick = () => {
+            navigator.clipboard.writeText(res.data.rawKey);
+            window.showToast('Chave copiada para a área de transferência!', 'success');
+          };
+
+          keyForm.reset();
+          loadKeys();
+        } else {
+          window.showToast('Erro ao gerar chave de API.', 'error');
+        }
+      } catch (err) {
+        window.showToast('Erro de conexão.', 'error');
+      }
+    };
+
+    // Copiar URL do Excel
+    btnCopyExcelUrl.onclick = () => {
+      navigator.clipboard.writeText(excelUrlDisplay.textContent);
+      window.showToast('URL de exportação copiada!', 'success');
+    };
+
+    // Tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      };
+    });
+  });
+</script>
+
+<style>
+  .page-integracoes {
+    padding: 2rem 0;
+  }
+  .header-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+  .title-group h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .grid-layout {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 2rem;
+    align-items: start;
+  }
+  @media (max-width: 992px) {
+    .grid-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+  .new-key-success {
+    background: rgba(16, 185, 129, 0.1) !important;
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+  }
+  .success-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #10b981;
+    margin-bottom: 0.5rem;
+  }
+  .warning-text {
+    font-size: 0.9rem;
+    color: #f59e0b;
+    margin-bottom: 1rem;
+  }
+  .key-display-box {
+    display: flex;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .key-display-box code {
+    color: #38bdf8;
+    font-size: 1.1rem;
+    word-break: break-all;
+  }
+  .badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge-info {
+    background: rgba(56, 189, 248, 0.2);
+    color: #38bdf8;
+  }
+  .badge-danger {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+  }
+  .tabs {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 1rem;
+  }
+  .tab-btn {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .tab-btn.active {
+    color: #3b82f6;
+    border-bottom: 2px solid #3b82f6;
+  }
+  .tab-content {
+    display: none;
+  }
+  .tab-content.active {
+    display: block;
+  }
+  .steps-list {
+    padding-left: 1.25rem;
+    line-height: 1.6;
+  }
+  .code-copy-box {
+    display: flex;
+    background: rgba(0, 0, 0, 0.15);
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    gap: 1rem;
+  }
+  .code-copy-box code {
+    font-size: 0.85rem;
+    word-break: break-all;
+  }
+  .code-block {
+    background: #090d16;
+    padding: 1rem;
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-size: 0.85rem;
+    overflow-x: auto;
+  }
+</style>

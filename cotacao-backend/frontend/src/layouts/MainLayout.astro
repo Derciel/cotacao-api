@@ -85,6 +85,9 @@ const buildTimestamp = new Date().getTime(); // Timestamp gerado no momento do b
         <a href="/rotas-pro" class={`nav-item ${pathname === '/rotas-pro' ? 'active-pill' : ''}`} data-role="ANY">
           <i class="fas fa-route"></i> <span style="color: #3b82f6; font-weight: 800;">Roteirizador Pro</span>
         </a>
+        <a href="/integracoes" class={`nav-item ${pathname === '/integracoes' ? 'active-pill' : ''}`} data-role="ANY">
+          <i class="fas fa-key"></i> <span>Integrações</span>
+        </a>
         <a href="/usuarios" class={`nav-item ${pathname === '/usuarios' ? 'active-pill' : ''}`} data-role="ADMIN">
           <i class="fas fa-users-cog"></i> <span>Usuários</span>
         </a>
@@ -263,11 +266,12 @@ const buildTimestamp = new Date().getTime(); // Timestamp gerado no momento do b
       const allNavLinks = document.querySelectorAll('.nav-links .nav-item');
       allNavLinks.forEach(link => {
          const href = link.getAttribute('href');
-         // ADMIN deve ter acesso irrestrito ao gerenciador de usuários (/usuarios)
-         // e ao dashboard principal (/) para evitar bloqueios acidentais e loops de redirect.
-         const isAlwaysAllowed = href === '/' || href === '/usuarios';
-         const hasPermission = (user.permissions && user.permissions.includes(href)) || 
-                               (user.role === 'ADMIN' && isAlwaysAllowed);
+          // ADMIN deve ter acesso irrestrito ao gerenciador de usuários (/usuarios)
+          // e ao dashboard principal (/) para evitar bloqueios acidentais e loops de redirect.
+          const isAlwaysAllowed = href === '/' || href === '/usuarios' || href === '/integracoes';
+          const hasPermission = (user.permissions && user.permissions.includes(href)) || 
+                                (user.role === 'ADMIN' && isAlwaysAllowed) ||
+                                (href === '/integracoes');
          
          link.style.display = hasPermission ? 'flex' : 'none';
          if (pathname === href && !hasPermission && href !== '/') {
