@@ -102,7 +102,7 @@ import MainLayout from '../layouts/MainLayout.astro';
     </div>
   </div>
 
-  <!-- Modal de Nova Chave -->
+  <!-- Modal de Nova Chave (dentro do scope .page-integracoes) -->
   <div id="key-modal" class="modal-key">
     <div class="modal-content glass-premium">
       <div class="modal-header">
@@ -240,9 +240,9 @@ import MainLayout from '../layouts/MainLayout.astro';
     // Formulário de Criação
     keyForm.onsubmit = async (e) => {
       e.preventDefault();
-      const name = (document.getElementById('key-name') as HTMLInputElement).value;
-      const expiresDays = +(document.getElementById('key-validity') as HTMLSelectElement).value;
-      const role = (document.getElementById('key-role') as HTMLSelectElement)?.value || 'READ_ONLY';
+      const name = document.getElementById('key-name').value;
+      const expiresDays = +document.getElementById('key-validity').value;
+      const role = document.getElementById('key-role')?.value || 'READ_ONLY';
 
       try {
         const res = await window.safeFetch('/api/api-keys', {
