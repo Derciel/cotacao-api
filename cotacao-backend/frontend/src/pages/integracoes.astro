@@ -102,15 +102,15 @@ import MainLayout from '../layouts/MainLayout.astro';
     </div>
   </div>
 
-  <!-- Modal de Nova Chave (dentro do scope .page-integracoes) -->
-  <div id="key-modal" class="modal-key">
-    <div class="modal-content glass-premium">
-      <div class="modal-header">
+  <!-- Modal de Nova Chave -->
+  <div id="key-modal" class="modal-key-dialog">
+    <div class="modal-key-card">
+      <div class="modal-key-header">
         <h2>Gerar Chave de API</h2>
-        <button class="close-modal">&times;</button>
+        <button type="button" class="close-modal">&times;</button>
       </div>
       <form id="key-form">
-        <div class="modal-body-scroll">
+        <div class="modal-key-body">
           <div class="form-section ux-square">
             <h3 class="section-title"><i class="fas fa-info-circle"></i> Configuração da Chave</h3>
             <div class="form-group">
@@ -136,7 +136,7 @@ import MainLayout from '../layouts/MainLayout.astro';
             </div>
           </div>
         </div>
-        <div class="modal-footer">
+        <div class="modal-key-footer">
           <button type="button" class="btn-secondary close-modal">Cancelar</button>
           <button type="submit" class="btn-primary">Confirmar e Gerar</button>
         </div>
@@ -411,29 +411,36 @@ import MainLayout from '../layouts/MainLayout.astro';
   .page-integracoes .code-copy-box code { font-size: 0.85rem; font-family: monospace; color: #004a99; font-weight: 800; word-break: break-all; }
   .page-integracoes .code-block { background: #0f172a; padding: 20px; border-radius: 16px; color: #e2e8f0; font-size: 0.85rem; overflow-x: auto; margin-top: 10px; }
 
-  /* Modal Framework */
-  .page-integracoes .modal-key {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.6);
-    backdrop-filter: blur(8px);
-    z-index: 2000;
+  /* Modal Framework isolado de integrações */
+  .modal-key-dialog {
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(15, 23, 42, 0.6) !important;
+    backdrop-filter: blur(8px) !important;
+    z-index: 9999 !important;
     display: none;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
+    justify-content: center !important;
+    align-items: center !important;
+    padding: 20px !important;
   }
-  .page-integracoes .modal-content {
-    background: white; width: 100%; max-width: 600px; border-radius: 28px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3);
-    display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);
+  .modal-key-card {
+    background: white !important;
+    width: 100% !important;
+    max-width: 600px !important;
+    border-radius: 28px !important;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
   }
-  .page-integracoes .modal-header { padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; }
-  .page-integracoes .modal-header h2 { font-size: 1.4rem; font-weight: 900; color: #0f172a; letter-spacing: -0.02em; }
-  .page-integracoes .close-modal { background: #f1f5f9; border: none; width: 36px; height: 36px; border-radius: 50%; color: #64748b; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-  .page-integracoes .close-modal:hover { background: #fee2e2; color: #ef4444; transform: rotate(90deg); }
+  .modal-key-header { padding: 20px 30px !important; display: flex !important; justify-content: space-between !important; align-items: center !important; border-bottom: 1px solid #f1f5f9 !important; }
+  .modal-key-header h2 { font-size: 1.4rem !important; font-weight: 900 !important; color: #0f172a !important; letter-spacing: -0.02em !important; }
+  .modal-key-dialog .close-modal { background: #f1f5f9 !important; border: none !important; width: 36px !important; height: 36px !important; border-radius: 50% !important; color: #64748b !important; font-size: 1.2rem !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; transition: 0.2s !important; }
+  .modal-key-dialog .close-modal:hover { background: #fee2e2 !important; color: #ef4444 !important; transform: rotate(90deg) !important; }
 
-  .page-integracoes .modal-body-scroll { padding: 25px 30px; overflow-y: auto; max-height: 60vh; }
-  .page-integracoes .modal-footer { padding: 16px 30px; border-top: 1px solid #f1f5f9; background: #fbfcfe; display: flex; justify-content: flex-end; gap: 16px; }
+  .modal-key-body { padding: 25px 30px !important; overflow-y: auto !important; max-height: 60vh !important; }
+  .modal-key-footer { padding: 16px 30px !important; border-top: 1px solid #f1f5f9 !important; background: #fbfcfe !important; display: flex !important; justify-content: flex-end !important; gap: 16px !important; }
 
   /* UX Form Elements */
   .page-integracoes .form-section.ux-square { background: #f8fafc; padding: 20px; border-radius: 20px; border: 1.5px solid #e2e8f0; }

@@ -93,8 +93,8 @@ body {
 }
 
 /* Inputs Globais (Estilo Pill) */
-input,
-select,
+input.pill-input,
+select.pill-input,
 .pill-input {
     width: 100%;
     padding: 14px 20px;
