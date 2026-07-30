@@ -442,14 +442,42 @@ import MainLayout from '../layouts/MainLayout.astro';
   .modal-key-body { padding: 25px 30px !important; overflow-y: auto !important; max-height: 60vh !important; }
   .modal-key-footer { padding: 16px 30px !important; border-top: 1px solid #f1f5f9 !important; background: #fbfcfe !important; display: flex !important; justify-content: flex-end !important; gap: 16px !important; }
 
-  /* UX Form Elements */
-  .page-integracoes .form-section.ux-square { background: #f8fafc; padding: 20px; border-radius: 20px; border: 1.5px solid #e2e8f0; }
-  .page-integracoes .section-title { font-size: 0.75rem; font-weight: 900; color: #004a99; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; text-transform: uppercase; letter-spacing: 0.1em; }
-  .page-integracoes .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 15px; }
-  .page-integracoes .form-group label { font-weight: 800; color: #334155; font-size: 0.8rem; padding-left: 4px; }
-  .page-integracoes .form-group input, .page-integracoes .form-group select {
-    padding: 10px 14px !important; border-radius: 12px !important; border: 1.5px solid #e2e8f0 !important; outline: none; transition: 0.2s; font-size: 0.9rem; color: #0f172a; background: white !important;
+  /* UX Form Elements & Inputs para Modal Key */
+  .modal-key-dialog .form-section.ux-square { background: #f8fafc !important; padding: 20px !important; border-radius: 20px !important; border: 1.5px solid #e2e8f0 !important; }
+  .modal-key-dialog .section-title { font-size: 0.75rem !important; font-weight: 900 !important; color: #004a99 !important; margin-bottom: 15px !important; display: flex !important; align-items: center !important; gap: 10px !important; text-transform: uppercase !important; letter-spacing: 0.1em !important; }
+  .modal-key-dialog .form-group { display: flex !important; flex-direction: column !important; gap: 6px !important; margin-bottom: 15px !important; }
+  .modal-key-dialog .form-group label { font-weight: 800 !important; color: #334155 !important; font-size: 0.8rem !important; padding-left: 4px !important; }
+  .modal-key-dialog .form-group input, 
+  .modal-key-dialog .form-group select {
+    width: 100% !important;
+    padding: 12px 16px !important;
+    border-radius: 12px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    outline: none !important;
+    transition: 0.2s !important;
+    font-size: 0.9rem !important;
+    color: #0f172a !important;
+    background: white !important;
+    box-sizing: border-box !important;
   }
-  .page-integracoes .form-group input:focus, .page-integracoes .form-group select:focus { border-color: #004a99 !important; box-shadow: 0 0 0 4px rgba(0, 74, 153, 0.1) !important; }
-  .page-integracoes .form-grid-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+  .modal-key-dialog .form-group input:focus, 
+  .modal-key-dialog .form-group select:focus {
+    border-color: #004a99 !important;
+    box-shadow: 0 0 0 4px rgba(0, 74, 153, 0.1) !important;
+  }
+  .modal-key-dialog .form-grid-inner { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 15px !important; }
+
+  .modal-key-dialog .btn-primary { 
+    background: linear-gradient(135deg, #004a99, #003366) !important; color: white !important; border: none !important;
+    padding: 12px 24px !important; border-radius: 12px !important; font-weight: 800 !important; font-size: 0.9rem !important;
+    cursor: pointer !important; transition: 0.3s !important; display: flex !important; align-items: center !important; gap: 10px !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 74, 153, 0.3) !important;
+  }
+  .modal-key-dialog .btn-primary:hover { transform: translateY(-2px) !important; filter: brightness(1.1) !important; box-shadow: 0 15px 25px -5px rgba(0, 74, 153, 0.4) !important; }
+
+  .modal-key-dialog .btn-secondary { 
+    background: #f1f5f9 !important; color: #475569 !important; border: none !important; padding: 12px 20px !important; 
+    border-radius: 12px !important; font-weight: 800 !important; cursor: pointer !important; transition: 0.2s !important;
+  }
+  .modal-key-dialog .btn-secondary:hover { background: #e2e8f0 !important; color: #1e293b !important; }
 </style>
