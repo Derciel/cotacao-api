@@ -16,6 +16,7 @@ import { AuditModule } from './audit/audit.module.js';
 import { FuelsModule } from './fuels/fuels.module.js';
 import { IntegrationsModule } from './integrations/integrations.module.js';
 import { GraphQLIntegrationModule } from './graphql/graphql-integration.module.js';
+import { SystemsatxModule } from './systemsatx/systemsatx.module.js';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -77,9 +78,10 @@ const __dirname = dirname(__filename);
     FuelsModule,
     IntegrationsModule,
     GraphQLIntegrationModule,
+    SystemsatxModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'frontend', 'dist'),
-      exclude: ['/api*'], 
+      exclude: ['/api*'],
     }),
   ],
   controllers: [AppController],

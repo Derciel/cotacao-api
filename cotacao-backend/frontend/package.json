@@ -12,6 +12,7 @@
         "@astrojs/vue": "^7.0.1",
         "astro": "^7.0.9",
         "open-location-code": "^1.0.3",
+        "socket.io-client": "^4.7.2",
         "typescript": "^5.7.3",
         "vue": "^3.5.27",
         "xlsx": "^0.18.5"

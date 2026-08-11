@@ -7,14 +7,17 @@ import { AuthService } from './auth.service.js';
 import { AuthController } from './auth.controller.js';
 import { User } from './entities/user.entity.js';
 import { ApiKey } from './entities/api-key.entity.js';
+import { SystemsatxAuth } from './entities/systemsatx-auth.entity.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { ApiKeysController } from './api-keys.controller.js';
 import { ApiKeyGuard } from './guards/api-key.guard.js';
+import { SystemsatxAuthService } from './services/systemsatx-auth.service.js';
+import { SystemsatxController } from './systemsatx.controller.js';
 
 @Global()
 @Module({
     imports: [
-        TypeOrmModule.forFeature([User, ApiKey]),
+        TypeOrmModule.forFeature([User, ApiKey, SystemsatxAuth]),
         PassportModule,
         JwtModule.registerAsync({
             inject: [ConfigService],
@@ -24,8 +27,8 @@ import { ApiKeyGuard } from './guards/api-key.guard.js';
             }),
         }),
     ],
-    providers: [AuthService, JwtStrategy, ApiKeyGuard],
-    controllers: [AuthController, ApiKeysController],
-    exports: [AuthService, PassportModule, JwtModule, TypeOrmModule, ApiKeyGuard],
+    providers: [AuthService, JwtStrategy, ApiKeyGuard, SystemsatxAuthService],
+    controllers: [AuthController, ApiKeysController, SystemsatxController],
+    exports: [AuthService, PassportModule, JwtModule, TypeOrmModule, ApiKeyGuard, SystemsatxAuthService],
 })
 export class AuthModule { }
