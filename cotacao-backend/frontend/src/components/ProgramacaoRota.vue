@@ -78,7 +78,11 @@ const markers = ref<any[]>([]);
 onMounted(async () => {
   await fetchClients();
   await fetchFuelPrices();
+  setInitialDay();
   initMap();
+  await fetchFleetPositions();
+  if (fleetInterval) clearInterval(fleetInterval);
+  fleetInterval = setInterval(() => { if (fleetAutoRefresh.value) fetchFleetPositions(true); }, 20000);
 });
 
 const fetchClients = async () => {
@@ -97,6 +101,222 @@ const showRegisterModal = ref(false);
 const showViewClientModal = ref(false);
 const viewClientSearch = ref('');
 const inspectedClient = ref<any>(null);
+
+// ==========================================
+// INTEGRAÇÃO SYSTEMSAT (SSX) & CRONOGRAMA DE ROTAS
+// ==========================================
+interface FleetVehicle {
+  id: string;
+  plate: string;
+  description: string;
+  driverName: string;
+  latitude: number;
+  longitude: number;
+  speed: number;
+  ignition: boolean;
+  address?: string;
+  city?: string;
+  state?: string;
+  timestamp: string;
+  status: 'em_transito' | 'parado' | 'desligado' | 'sem_sinal';
+}
+
+interface DayRouteConfig {
+  key: string;
+  label: string;
+  tag: string;
+  cities: string[];
+  description: string;
+}
+
+const weeklySchedule = ref<DayRouteConfig[]>([
+  {
+    key: 'segunda',
+    label: 'Segunda-feira',
+    tag: 'LONDRINA',
+    cities: ['LONDRINA'],
+    description: 'Entregas locais em Londrina'
+  },
+  {
+    key: 'terca',
+    label: 'Terça-feira',
+    tag: 'IBIPORÃ',
+    cities: ['IBIPORÃ', 'IBIPORA'],
+    description: 'Rota Ibiporã e proximidades'
+  },
+  {
+    key: 'quarta',
+    label: 'Quarta-feira',
+    tag: 'LONDRINA',
+    cities: ['LONDRINA'],
+    description: 'Entregas locais em Londrina (2º ciclo)'
+  },
+  {
+    key: 'quinta',
+    label: 'Quinta-feira',
+    tag: 'APUCARANA / ARAPONGAS',
+    cities: ['APUCARANA', 'ARAPONGAS', 'JANDAIA DO SUL', 'CAMBÉ', 'CAMBE', 'ROLÂNDIA', 'ROLANDIA'],
+    description: 'Rota Vale do Ivaí / Região Metropolitana Oeste'
+  },
+  {
+    key: 'sexta',
+    label: 'Sexta-feira',
+    tag: 'MARINGÁ / NOROESTE',
+    cities: ['MARINGÁ', 'MARINGA', 'MANDAGUARI', 'SARANDI', 'MARIALVA', 'CAMBÉ', 'CAMBE', 'CIANORTE', 'PARANAVAÍ', 'PARANAVAI', 'JANDAIA', 'JANDAIA DO SUL'],
+    description: 'Rota Noroeste / Eixo Maringá - Cianorte - Paranavaí'
+  }
+]);
+
+const selectedDayKey = ref<string>('segunda');
+const selectedDaySchedule = computed(() => {
+  return weeklySchedule.value.find(d => d.key === selectedDayKey.value) || weeklySchedule.value[0];
+});
+
+// Estados da Frota Systemsat
+const fleet = ref<FleetVehicle[]>([]);
+const isFetchingFleet = ref(false);
+const showFleetOnMap = ref(true);
+const fleetAutoRefresh = ref(true);
+const selectedVehicleId = ref<string | null>(null);
+const fleetMarkersMap = ref<Map<string, any>>(new Map());
+let fleetInterval: any = null;
+
+// Inicializa o dia atual da semana automaticamente
+const setInitialDay = () => {
+  const dayIndex = new Date().getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sab
+  if (dayIndex === 1) selectedDayKey.value = 'segunda';
+  else if (dayIndex === 2) selectedDayKey.value = 'terca';
+  else if (dayIndex === 3) selectedDayKey.value = 'quarta';
+  else if (dayIndex === 4) selectedDayKey.value = 'quinta';
+  else if (dayIndex === 5) selectedDayKey.value = 'sexta';
+  else selectedDayKey.value = 'segunda';
+};
+
+// Busca posições da frota via API Systemsatx
+const fetchFleetPositions = async (silent = false) => {
+  if (!silent) isFetchingFleet.value = true;
+  try {
+    const res = await safeFetch('/api/systemsatx/fleet');
+    if (res.ok && Array.isArray(res.data)) {
+      fleet.value = res.data;
+      updateFleetMarkersOnMap();
+    }
+  } catch (err) {
+    console.error('Erro ao obter posições da frota Systemsat:', err);
+  } finally {
+    if (!silent) isFetchingFleet.value = false;
+  }
+};
+
+// Cria ou atualiza marcadores dos veículos no mapa Leaflet
+const updateFleetMarkersOnMap = () => {
+  if (!map.value || typeof window.L === 'undefined') return;
+
+  // Se a camada estiver desativada, remove marcadores
+  if (!showFleetOnMap.value) {
+    fleetMarkersMap.value.forEach(m => map.value.removeLayer(m));
+    fleetMarkersMap.value.clear();
+    return;
+  }
+
+  const L = window.L;
+
+  fleet.value.forEach(veh => {
+    if (!veh.latitude || !veh.longitude) return;
+
+    const isTruck = !veh.description.toLowerCase().includes('fiorino') && !veh.description.toLowerCase().includes('carro');
+    const iconColor = veh.status === 'em_transito' ? '#10b981' : veh.status === 'parado' ? '#f59e0b' : '#64748b';
+    const statusText = veh.status === 'em_transito' ? 'Em Trânsito' : veh.status === 'parado' ? 'Parado (Ligado)' : 'Desligado';
+    const speedFormatted = veh.speed > 0 ? `${veh.speed.toFixed(0)} km/h` : '0 km/h';
+
+    const customHtml = `
+      <div class="ssx-vehicle-marker ${veh.status}" style="border-color: ${iconColor};">
+        <div class="ssx-marker-icon" style="background: ${iconColor};">
+          <i class="fas ${isTruck ? 'fa-truck' : 'fa-car'}"></i>
+        </div>
+        <div class="ssx-marker-badge">${veh.plate}</div>
+      </div>
+    `;
+
+    const vehicleIcon = L.divIcon({
+      html: customHtml,
+      className: 'ssx-custom-div-icon',
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
+      popupAnchor: [0, -22]
+    });
+
+    const popupHtml = `
+      <div style="font-family: sans-serif; min-width: 230px; padding: 6px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 6px;">
+          <strong style="color: #0f172a; font-size: 14px;"><i class="fas ${isTruck ? 'fa-truck' : 'fa-car'}" style="color: ${iconColor};"></i> ${veh.plate}</strong>
+          <span style="font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 4px; background: ${iconColor}20; color: ${iconColor};">${statusText}</span>
+        </div>
+        <div style="font-size: 12px; color: #475569; line-height: 1.5;">
+          <div><b>Veículo:</b> ${veh.description}</div>
+          <div><b>Motorista:</b> ${veh.driverName}</div>
+          <div><b>Velocidade:</b> <span style="font-weight: bold; color: #0284c7;">${speedFormatted}</span></div>
+          <div><b>Local:</b> ${veh.address ? veh.address + ' - ' : ''}${veh.city}/${veh.state}</div>
+          <div style="margin-top: 4px; font-size: 11px; color: #94a3b8;"><i class="fas fa-satellite-dish"></i> Systemsat SSX: ${new Date(veh.timestamp).toLocaleTimeString('pt-BR')}</div>
+        </div>
+      </div>
+    `;
+
+    let marker = fleetMarkersMap.value.get(veh.id);
+    if (marker) {
+      marker.setLatLng([veh.latitude, veh.longitude]);
+      marker.setIcon(vehicleIcon);
+      marker.setPopupContent(popupHtml);
+    } else {
+      marker = L.marker([veh.latitude, veh.longitude], { icon: vehicleIcon })
+        .bindPopup(popupHtml)
+        .addTo(map.value);
+      fleetMarkersMap.value.set(veh.id, marker);
+    }
+  });
+};
+
+// Centraliza mapa em um veículo específico
+const focusOnVehicle = (veh: FleetVehicle) => {
+  if (!map.value || !veh.latitude || !veh.longitude) return;
+  selectedVehicleId.value = veh.id;
+  map.value.flyTo([veh.latitude, veh.longitude], 15, { duration: 1.2 });
+  const marker = fleetMarkersMap.value.get(veh.id);
+  if (marker) {
+    marker.openPopup();
+  }
+};
+
+// Filtra paradas da planilha de acordo com as cidades da rota do dia
+const filterOrdersBySelectedDay = () => {
+  if (resolvedExcelStops.value.length === 0) {
+    return window.showToast('Nenhum pedido carregado na planilha para filtrar.', 'warning');
+  }
+
+  const allowedCities = selectedDaySchedule.value.cities.map(c => 
+    c.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim()
+  );
+
+  const matchedStops = resolvedExcelStops.value.filter(s => {
+    const normCity = (s.cidade || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+    return allowedCities.includes(normCity);
+  });
+
+  if (matchedStops.length === 0) {
+    window.showToast(`Nenhum pedido da planilha pertence às cidades da rota de ${selectedDaySchedule.value.label} (${selectedDaySchedule.value.cities.join(', ')}).`, 'info');
+    return;
+  }
+
+  // Re-sequencia as paradas filtradas
+  manualStops.value = matchedStops.map((s, idx) => ({
+    ...s,
+    sequence: idx + 1
+  }));
+
+  activeTab.value = 'simple';
+  window.showToast(`${matchedStops.length} parada(s) de ${selectedDaySchedule.value.label} carregadas na rota! Clique em Calcular Rota.`, 'success');
+};
+
 
 const isSearchingCNPJ = ref(false);
 const isSavingClient = ref(false);
@@ -1225,15 +1445,7 @@ out body geom;`;
     if (count > 0) {
       window.showToast(`Identificadas ${count} praça(s) de pedágio/free flow no percurso!`, 'info');
     }
-  } catch (e) {
-    console.error('Erro ao buscar pedágios/estradas rurais:', e);
-  }
-};urais (em vermelho tracejado) evitadas no percurso!`, 'info');
-    }
-  } catch (e) {
-    console.error('Erro ao buscar estradas rurais:', e);
-  }
-};
+  } catch (e) { console.error('Erro ao buscar pedágios/estradas rurais:', e); } };
 
 // EXPORTAÇÃO DA ROTA OTIMIZADA PARA EXCEL
 const exportOptimizedRoute = () => {
@@ -1320,6 +1532,41 @@ const exportOptimizedRoute = () => {
     </header>
 
     <!-- ABAS PRINCIPAIS -->
+    
+    <!-- CRONOGRAMA SEMANAL DE ROTAS (PLANILHA OFICIAL) -->
+    <div class="weekly-schedule-bar mt-15 animate-fade-in">
+      <div class="schedule-top-row">
+        <div class="schedule-headline">
+          <i class="fas fa-calendar-days text-primary"></i>
+          <div>
+            <strong>Cronograma de Rotas por Dia da Semana</strong>
+            <span>Selecione o dia para filtrar pedidos e mapear o itinerário nas cidades atendidas</span>
+          </div>
+        </div>
+        <div class="active-day-info">
+          <span class="active-day-tag"><i class="fas fa-location-dot"></i> Rota do Dia: <b>{{ selectedDaySchedule.label }}</b></span>
+          <span class="active-cities-summary">{{ selectedDaySchedule.cities.join(' • ') }}</span>
+        </div>
+      </div>
+
+      <div class="days-nav-grid mt-10">
+        <button 
+          v-for="day in weeklySchedule" 
+          :key="day.key"
+          type="button" 
+          class="day-nav-card" 
+          :class="{ active: selectedDayKey === day.key }"
+          @click="selectedDayKey = day.key"
+        >
+          <div class="day-nav-header">
+            <span class="day-name">{{ day.label }}</span>
+            <span class="day-tag-badge">{{ day.tag }}</span>
+          </div>
+          <span class="day-desc">{{ day.description }}</span>
+        </button>
+      </div>
+    </div>
+
     <div class="tabs-container mt-15">
       <button 
         class="tab-btn" 
@@ -1509,6 +1756,18 @@ const exportOptimizedRoute = () => {
                 <span>{{ isResolvingClients ? 'Buscando e Cadastrando Clientes...' : 'Verificar/Cadastrar Clientes via Brasil API' }}</span>
               </button>
 
+              <!-- Ação Rápida: Filtrar pelo Dia da Semana Selecionado -->
+              <button 
+                type="button" 
+                @click="filterOrdersBySelectedDay" 
+                class="btn-filter-day mt-10"
+                :disabled="resolvedExcelStops.length === 0"
+              >
+                <i class="fas fa-filter text-amber"></i>
+                <span>Carregar Apenas Entregas de <b>{{ selectedDaySchedule.label }}</b> ({{ selectedDaySchedule.tag }})</span>
+              </button>
+
+
               <!-- Lista de Clientes Resolvidos e Prontos -->
               <div v-if="resolvedExcelStops.length > 0" class="resolved-stops-wrapper mt-15">
                 <label class="stops-list-label">Clientes Prontos para Entrega ({{ resolvedExcelStops.length }})</label>
@@ -1575,15 +1834,45 @@ const exportOptimizedRoute = () => {
 
       <!-- Painel Direito: Mapa Interativo Leaflet -->
       <div class="glass-card map-card">
+        
         <div class="map-header">
           <div class="header-details">
             <i class="fas fa-map-marked-alt text-primary"></i>
-            <h3>Mapa Logístico do Circuito</h3>
+            <h3>Mapa Logístico do Circuito & Rastreamento Frota</h3>
             <span class="badge" :class="routeCalculated ? 'badge-success' : 'badge-neutral'">
               {{ routeCalculated ? 'Circuito Traçado' : 'Aguardando Seleção' }}
             </span>
           </div>
+
+          <!-- Controles Systemsat SSX -->
+          <div class="map-ssx-controls">
+            <label class="fleet-toggle-label" title="Exibir/Ocultar localização da frota no mapa">
+              <input type="checkbox" v-model="showFleetOnMap" @change="updateFleetMarkersOnMap" />
+              <span><i class="fas fa-satellite-dish"></i> Frota Systemsat ({{ fleet.length }})</span>
+            </label>
+            <button type="button" @click="fetchFleetPositions(false)" class="btn-refresh-fleet" :title="'Atualizar telemetria dos veículos'">
+              <i class="fas fa-sync-alt" :class="{ 'fa-spin': isFetchingFleet }"></i>
+            </button>
+          </div>
         </div>
+
+        <!-- BARRA RÁPIDA DE VEÍCULOS RASTREADOS -->
+        <div v-if="showFleetOnMap && fleet.length > 0" class="fleet-quickbar animate-fade-in">
+          <div 
+            v-for="veh in fleet" 
+            :key="veh.id" 
+            class="fleet-veh-chip"
+            :class="{ active: selectedVehicleId === veh.id, [veh.status]: true }"
+            @click="focusOnVehicle(veh)"
+            :title="veh.description + ' - ' + veh.driverName"
+          >
+            <i class="fas" :class="veh.description.toLowerCase().includes('carro') || veh.description.toLowerCase().includes('fiorino') ? 'fa-car' : 'fa-truck'"></i>
+            <span class="veh-chip-plate">{{ veh.plate }}</span>
+            <span class="veh-chip-speed" v-if="veh.speed > 0">{{ veh.speed.toFixed(0) }} km/h</span>
+            <span class="veh-chip-status" :class="veh.status"></span>
+          </div>
+        </div>
+
         <div id="map-container" class="map-view"></div>
         <div v-if="isSearching" class="map-overlay">
           <div class="spinner-blue"></div>
@@ -2724,4 +3013,316 @@ const exportOptimizedRoute = () => {
 .icon-amber { color: #f59e0b; }
 .text-amber { color: #f59e0b; }
 .highlight-toll { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); }
+
+/* CRONOGRAMA SEMANAL DE ROTAS */
+.weekly-schedule-bar {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 12px;
+  padding: 14px 18px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+}
+
+.schedule-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 10px;
+}
+
+.schedule-headline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.schedule-headline i {
+  font-size: 22px;
+  color: #0284c7;
+}
+
+.schedule-headline strong {
+  display: block;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.schedule-headline span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.active-day-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.active-day-tag {
+  font-size: 13px;
+  color: #0369a1;
+  font-weight: 600;
+}
+
+.active-cities-summary {
+  font-size: 12px;
+  color: #0284c7;
+  font-weight: 500;
+}
+
+.days-nav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.day-nav-card {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.day-nav-card:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.day-nav-card.active {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  border-color: #0284c7;
+  color: white;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+}
+
+.day-nav-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.day-name {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.day-tag-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.08);
+  text-transform: uppercase;
+}
+
+.day-nav-card.active .day-tag-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+}
+
+.day-desc {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+/* BOTÃO FILTRO POR DIA NA PLANILHA */
+.btn-filter-day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+  color: #92400e;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-filter-day:hover:not(:disabled) {
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.btn-filter-day:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* CONTROLES SYSTEMSAT NO MAPA */
+.map-ssx-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fleet-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+
+.fleet-toggle-label input {
+  cursor: pointer;
+}
+
+.btn-refresh-fleet {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-refresh-fleet:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* QUICKBAR DE VEÍCULOS NO MAPA */
+.fleet-quickbar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  overflow-x: auto;
+}
+
+.fleet-veh-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  border: 1px solid #cbd5e1;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.fleet-veh-chip:hover {
+  border-color: #0284c7;
+  background: #f0f9ff;
+}
+
+.fleet-veh-chip.active {
+  border-color: #0284c7;
+  background: #0284c7;
+  color: white;
+}
+
+.veh-chip-plate {
+  font-weight: 700;
+}
+
+.veh-chip-speed {
+  font-size: 11px;
+  color: #0284c7;
+  font-weight: 600;
+}
+
+.fleet-veh-chip.active .veh-chip-speed {
+  color: #bae6fd;
+}
+
+.veh-chip-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.veh-chip-status.em_transito { background: #10b981; box-shadow: 0 0 6px #10b981; }
+.veh-chip-status.parado { background: #f59e0b; }
+.veh-chip-status.desligado { background: #94a3b8; }
+.veh-chip-status.sem_sinal { background: #ef4444; }
+
+/* MARCADOR DE VEÍCULO CUSTOMIZADO LEAFLET */
+.ssx-custom-div-icon {
+  background: transparent;
+  border: none;
+}
+
+.ssx-vehicle-marker {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ssx-marker-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 15px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  border: 2px solid white;
+}
+
+.ssx-vehicle-marker.em_transito .ssx-marker-icon {
+  animation: ssx-pulse 2s infinite;
+}
+
+.ssx-marker-badge {
+  position: absolute;
+  bottom: -4px;
+  background: #0f172a;
+  color: white;
+  font-size: 9px;
+  font-weight: bold;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+@keyframes ssx-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
 </style>
